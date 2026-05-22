@@ -72,6 +72,19 @@ function getLoader(renderer) {
   return _loader;
 }
 
+// Phosphor-green orb material. Bright emissive core so the sphere reads as
+// the lit "soul" of the pendant in any lighting condition.
+function buildOrbMaterial(THREE) {
+  return new THREE.MeshStandardMaterial({
+    color: new THREE.Color('#bff7d6'),
+    emissive: new THREE.Color('#7DFFB2'),
+    emissiveIntensity: 2.6,
+    metalness: 0.0,
+    roughness: 0.32,
+    toneMapped: false,
+  });
+}
+
 // 22 k gold: ~91.6% Au — slightly less saturated than 24 k but still richly
 // yellow. Two variants for subtle mesh-to-mesh tonal variation.
 function buildGoldMaterial(THREE, tone) {
@@ -113,6 +126,12 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
       if (refs) {
         const col = new window.THREE.Color(c);
         refs.rim.color.copy(col);
+        if (refs.sphereLight) refs.sphereLight.color.copy(col);
+        if (refs.sphereMeshes) {
+          refs.sphereMeshes.forEach((m) => {
+            if (m.material) m.material.emissive.copy(col);
+          });
+        }
       }
     },
   }), []);
@@ -175,7 +194,15 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
 
       const angel = new THREE.Group();
       scene.add(angel);
-      stateRef.current.materials = { rim };
+
+      // Phosphor-green point light that "lives" inside the sphere the angel
+      // holds. Position set after we identify the sphere mesh. Casts green
+      // bleed onto the wings/body so the gold reads warm with a green core.
+      const sphereLight = new THREE.PointLight(new THREE.Color(stateRef.current.glowColor), 0, 4.0, 2);
+      angel.add(sphereLight);
+
+      const sphereMeshes = [];
+      stateRef.current.materials = { rim, sphereLight, sphereMeshes };
 
       let modelLoaded = false;
       getLoader(renderer).load(
@@ -189,39 +216,74 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
           model.rotation.x = -Math.PI / 2;
           model.updateMatrixWorld(true);
 
-          // Recompute normals: vertex clustering during offline decimation
-          // can produce meshes without (or with broken) normals, which makes
-          // MeshStandardMaterial render as solid black.
-          const goldWarm = buildGoldMaterial(THREE, 'warm');
-          const goldBright = buildGoldMaterial(THREE, 'bright');
-          let idx = 0;
+          // First pass: compute per-mesh local bboxes and global bbox so we
+          // can identify the spherical "plato" by bbox aspect ratio.
+          const meshInfos = [];
           model.traverse((o) => {
-            if (o.isMesh) {
-              if (o.geometry) {
-                o.geometry.computeVertexNormals();
-                o.geometry.normalizeNormals();
-              }
-              o.material = (idx++ % 5 === 0) ? goldBright : goldWarm;
-              o.castShadow = false;
-              o.receiveShadow = false;
+            if (o.isMesh && o.geometry) {
+              o.geometry.computeVertexNormals();
+              o.geometry.normalizeNormals();
+              o.geometry.computeBoundingBox();
+              const bb = o.geometry.boundingBox.clone();
+              // Convert to world bbox for the un-scaled model
+              bb.applyMatrix4(o.matrixWorld);
+              const sz = new THREE.Vector3();
+              bb.getSize(sz);
+              const ctr = new THREE.Vector3();
+              bb.getCenter(ctr);
+              meshInfos.push({ mesh: o, sizeV: sz, center: ctr, maxDim: Math.max(sz.x, sz.y, sz.z), minDim: Math.max(1e-9, Math.min(sz.x, sz.y, sz.z)) });
             }
           });
 
+          // Overall extent → reference for "small" meshes
+          const globalSize = Math.max(
+            ...meshInfos.flatMap(m => [m.sizeV.x, m.sizeV.y, m.sizeV.z]),
+          );
+          const goldWarm = buildGoldMaterial(THREE, 'warm');
+          const goldBright = buildGoldMaterial(THREE, 'bright');
+          const orbMat = buildOrbMaterial(THREE);
+
+          // Detect sphere(s): roughly cubic bbox (aspect < 1.55) AND no larger
+          // than 22% of the overall model extent on any axis.
+          let idx = 0;
+          let sphereCenter = null;
+          meshInfos.forEach(({ mesh, sizeV, center, maxDim, minDim }) => {
+            const aspect = maxDim / minDim;
+            const sizeFrac = maxDim / globalSize;
+            const isSphere = aspect < 1.55 && sizeFrac < 0.22 && sizeFrac > 0.04;
+            if (isSphere) {
+              mesh.material = orbMat;
+              sphereMeshes.push(mesh);
+              if (!sphereCenter || sizeFrac > 0) sphereCenter = center;
+            } else {
+              mesh.material = (idx++ % 5 === 0) ? goldBright : goldWarm;
+            }
+            mesh.castShadow = false;
+            mesh.receiveShadow = false;
+          });
+
           // Scale to fit the on-screen frame, then center at origin.
-          // setFromObject takes the just-applied rotation into account.
           const box = new THREE.Box3().setFromObject(model);
           const size = new THREE.Vector3();
           box.getSize(size);
           const maxDim = Math.max(size.x, size.y, size.z) || 1;
-          // Leaves a margin so the halo/wing tips stay in frame at the closest
-          // camera position (z=3 during the SOUL phase).
           const targetSize = 2.0;
-          model.scale.setScalar(targetSize / maxDim);
+          const scaleFactor = targetSize / maxDim;
+          model.scale.setScalar(scaleFactor);
 
           const box2 = new THREE.Box3().setFromObject(model);
           const center = new THREE.Vector3();
           box2.getCenter(center);
           model.position.sub(center);
+
+          // Position the inner light at the (now scaled + centered) sphere.
+          if (sphereCenter) {
+            // sphereCenter is in pre-scale/pre-translate world coords. After
+            // the scale/translate above the sphere ends up at:
+            //   (sphereCenter * scaleFactor) - center
+            const p = sphereCenter.clone().multiplyScalar(scaleFactor).sub(center);
+            sphereLight.position.copy(p);
+          }
 
           angel.add(model);
           modelLoaded = true;
@@ -268,10 +330,17 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
 
         const breathe = 0.5 + 0.5 * Math.sin(clock.elapsed * (Math.PI * 2) / 4.0);
         const phaseBoost = 1.0 + 1.6 * Math.exp(-Math.pow((tRaw - 0.6) / 0.18, 2));
-        // Keep the green rim subtle by default so the 22 k gold reads as gold,
-        // not as a green-tinted surface. The phaseBoost peak around SOUL phase
-        // still blooms the green to recall the original "phosphor" identity.
+        // Subtle green rim — gold dominates. SOUL phase blooms the green.
         rim.intensity = (0.18 + breathe * 0.10) * stateRef.current.glowIntensity * phaseBoost;
+        // The orb itself: pulsing emissive + an inner point light that bleeds
+        // green onto the wings/body so they pick up the brand color contrast.
+        const orbPulse = 0.85 + breathe * 0.30;
+        sphereLight.intensity = (1.6 + breathe * 0.9) * orbPulse * stateRef.current.glowIntensity * Math.min(phaseBoost, 2.2);
+        stateRef.current.materials.sphereMeshes.forEach((m) => {
+          if (m.material) {
+            m.material.emissiveIntensity = (2.4 + breathe * 1.2) * stateRef.current.glowIntensity * Math.min(phaseBoost, 2.0);
+          }
+        });
 
         renderer.toneMappingExposure = lerp(1.1, 0.78, tEase);
 
