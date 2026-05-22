@@ -251,7 +251,7 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
           // ball. Triangle-count threshold rejects tiny anchor placeholders.
           let idx = 0;
           let sphereCenter = null;
-          meshInfos.forEach(({ mesh, sizeV, center, maxDim, minDim }) => {
+          meshInfos.forEach(({ mesh, maxDim, minDim, center }) => {
             const aspect = maxDim / minDim;
             const sizeFrac = maxDim / globalSize;
             const triCount = mesh.geometry.index
