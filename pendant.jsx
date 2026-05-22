@@ -72,20 +72,24 @@ function getLoader(renderer) {
   return _loader;
 }
 
+// 22 k gold: ~91.6% Au — slightly less saturated than 24 k but still richly
+// yellow. Two variants for subtle mesh-to-mesh tonal variation.
 function buildGoldMaterial(THREE, tone) {
   if (tone === 'bright') {
     return new THREE.MeshStandardMaterial({
-      color: new THREE.Color('#e9d7b1'),
+      color: new THREE.Color('#f4d27a'),
       metalness: 1.0,
-      roughness: 0.14,
-      envMapIntensity: 1.7,
+      roughness: 0.18,
+      envMapIntensity: 1.8,
+      side: THREE.DoubleSide,
     });
   }
   return new THREE.MeshStandardMaterial({
-    color: new THREE.Color('#d4ad6a'),
+    color: new THREE.Color('#e0b558'),
     metalness: 1.0,
-    roughness: 0.22,
-    envMapIntensity: 1.5,
+    roughness: 0.28,
+    envMapIntensity: 1.6,
+    side: THREE.DoubleSide,
   });
 }
 
@@ -175,28 +179,42 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
           if (disposed) return;
           const model = gltf.scene;
 
+          // CAD source is Z-up; Three.js is Y-up. Rotate the model so the
+          // angel stands vertical with the head pointing along +Y.
+          model.rotation.x = -Math.PI / 2;
+          model.updateMatrixWorld(true);
+
+          // Recompute normals: vertex clustering during offline decimation
+          // can produce meshes without (or with broken) normals, which makes
+          // MeshStandardMaterial render as solid black.
+          const goldWarm = buildGoldMaterial(THREE, 'warm');
+          const goldBright = buildGoldMaterial(THREE, 'bright');
+          let idx = 0;
+          model.traverse((o) => {
+            if (o.isMesh) {
+              if (o.geometry) {
+                o.geometry.computeVertexNormals();
+                o.geometry.normalizeNormals();
+              }
+              o.material = (idx++ % 5 === 0) ? goldBright : goldWarm;
+              o.castShadow = false;
+              o.receiveShadow = false;
+            }
+          });
+
+          // Scale to fit the on-screen frame, then center at origin.
+          // setFromObject takes the just-applied rotation into account.
           const box = new THREE.Box3().setFromObject(model);
           const size = new THREE.Vector3();
           box.getSize(size);
           const maxDim = Math.max(size.x, size.y, size.z) || 1;
-          const targetSize = 2.2;
+          const targetSize = 2.4;
           model.scale.setScalar(targetSize / maxDim);
 
           const box2 = new THREE.Box3().setFromObject(model);
           const center = new THREE.Vector3();
           box2.getCenter(center);
           model.position.sub(center);
-
-          const goldWarm = buildGoldMaterial(THREE, 'warm');
-          const goldBright = buildGoldMaterial(THREE, 'bright');
-          let idx = 0;
-          model.traverse((o) => {
-            if (o.isMesh) {
-              o.material = (idx++ % 5 === 0) ? goldBright : goldWarm;
-              o.castShadow = false;
-              o.receiveShadow = false;
-            }
-          });
 
           angel.add(model);
           modelLoaded = true;
