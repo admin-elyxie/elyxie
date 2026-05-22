@@ -260,11 +260,28 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
           // to 1) and a size that's a small-but-visible fraction of the model.
           // Anything with aspect > 1.2 is probably the head/wing/body, not the
           // ball. Triangle-count threshold rejects tiny anchor placeholders.
-          // Names of placeholder/anchor meshes in the CAD that are not
-          // intended to be visible — they were modeling references the
-          // designer left behind. Group43989 is a 12-triangle cube that
-          // shows up as an "ugly square" behind the angel.
-          const HIDDEN_MESH_NAMES = new Set(['Group43989']);
+          // Group43989 is a 12-tri cube that sits inside a star-shaped
+          // bracket on the angel's back, sealing a cavity in the design.
+          // Its raw form is angular (cubic silhouette). Replace its
+          // geometry with a subdivided + slightly enlarged box so the
+          // bracket reads as a smooth filled plate rather than a popping
+          // cube or an empty hole.
+          function rebuildPlateGeometry(g) {
+            g.computeBoundingBox();
+            const sz = new THREE.Vector3();
+            g.boundingBox.getSize(sz);
+            const ctr = new THREE.Vector3();
+            g.boundingBox.getCenter(ctr);
+            const scaleUp = 1.08;
+            const newGeom = new THREE.BoxGeometry(
+              sz.x * scaleUp,
+              sz.y * scaleUp,
+              sz.z * scaleUp,
+              10, 10, 10,
+            );
+            newGeom.translate(ctr.x, ctr.y, ctr.z);
+            return newGeom;
+          }
 
           let idx = 0;
           let sphereCenter = null;
@@ -275,11 +292,21 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
               ? mesh.geometry.index.count / 3
               : mesh.geometry.attributes.position.count / 3;
 
-            // Hide known placeholder meshes outright + anything tiny that
-            // can't be a real visual element (triCount < 50 = simple cube
-            // or smaller, almost certainly an anchor).
-            if (HIDDEN_MESH_NAMES.has(mesh.name) || triCount < 50) {
+            // Tiny "anchor" placeholders (almost no triangles) that aren't
+            // part of the visible design — hide outright.
+            if (triCount < 50 && mesh.name !== 'Group43989') {
               mesh.visible = false;
+              return;
+            }
+
+            // Filler plate inside the star bracket on the back.
+            if (mesh.name === 'Group43989') {
+              const oldGeom = mesh.geometry;
+              mesh.geometry = rebuildPlateGeometry(oldGeom);
+              oldGeom.dispose();
+              mesh.material = (idx++ % 5 === 0) ? goldBright : goldWarm;
+              mesh.castShadow = false;
+              mesh.receiveShadow = false;
               return;
             }
 
