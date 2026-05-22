@@ -260,51 +260,25 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
           // to 1) and a size that's a small-but-visible fraction of the model.
           // Anything with aspect > 1.2 is probably the head/wing/body, not the
           // ball. Triangle-count threshold rejects tiny anchor placeholders.
-          // Group43989 is a 12-tri cube that sits inside a star-shaped
-          // bracket on the angel's back, sealing a cavity in the design.
-          // Its raw form is angular (cubic silhouette). Replace its
-          // geometry with a subdivided + slightly enlarged box so the
-          // bracket reads as a smooth filled plate rather than a popping
-          // cube or an empty hole.
-          function rebuildPlateGeometry(g) {
-            g.computeBoundingBox();
-            const sz = new THREE.Vector3();
-            g.boundingBox.getSize(sz);
-            const ctr = new THREE.Vector3();
-            g.boundingBox.getCenter(ctr);
-            const scaleUp = 1.08;
-            const newGeom = new THREE.BoxGeometry(
-              sz.x * scaleUp,
-              sz.y * scaleUp,
-              sz.z * scaleUp,
-              10, 10, 10,
-            );
-            newGeom.translate(ctr.x, ctr.y, ctr.z);
-            return newGeom;
-          }
+          // DEBUG: when ?debug=meshes is in URL, rainbow-color each mesh
+          // by index and expose a name→hue table on window.__debugMeshes.
+          const isDebug = window.location.search.includes('debug=meshes');
+          const debugLog = [];
 
           let idx = 0;
           let sphereCenter = null;
-          meshInfos.forEach(({ mesh, maxDim, minDim, center }) => {
+          meshInfos.forEach(({ mesh, maxDim, minDim, center }, i) => {
             const aspect = maxDim / minDim;
             const sizeFrac = maxDim / globalSize;
             const triCount = mesh.geometry.index
               ? mesh.geometry.index.count / 3
               : mesh.geometry.attributes.position.count / 3;
 
-            // Tiny "anchor" placeholders (almost no triangles) that aren't
-            // part of the visible design — hide outright.
-            if (triCount < 50 && mesh.name !== 'Group43989') {
-              mesh.visible = false;
-              return;
-            }
-
-            // Filler plate inside the star bracket on the back.
-            if (mesh.name === 'Group43989') {
-              const oldGeom = mesh.geometry;
-              mesh.geometry = rebuildPlateGeometry(oldGeom);
-              oldGeom.dispose();
-              mesh.material = (idx++ % 5 === 0) ? goldBright : goldWarm;
+            if (isDebug) {
+              const hue = (i * 137.5) % 360;
+              const col = new THREE.Color(`hsl(${hue|0}, 90%, 55%)`);
+              mesh.material = new THREE.MeshStandardMaterial({ color: col, metalness: 0.3, roughness: 0.45 });
+              debugLog.push({ i, name: mesh.name, hue: hue|0, aspect: +aspect.toFixed(2), sizeFrac: +sizeFrac.toFixed(3), triCount: triCount|0, center: [+center.x.toFixed(2), +center.y.toFixed(2), +center.z.toFixed(2)] });
               mesh.castShadow = false;
               mesh.receiveShadow = false;
               return;
@@ -321,6 +295,9 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
             mesh.castShadow = false;
             mesh.receiveShadow = false;
           });
+          if (isDebug) {
+            window.__debugMeshes = debugLog;
+          }
 
           // Scale to fit the on-screen frame, then center at origin.
           const box = new THREE.Box3().setFromObject(model);
@@ -364,9 +341,15 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
         const tRaw = clamp(stateRef.current.progress, 0, 1);
         const tEase = easeInOut(tRaw);
 
-        angel.rotation.y = tRaw * Math.PI * 2.2 + clock.elapsed * 0.06;
-        angel.rotation.x = lerp(-0.10, 0.02, tEase) + Math.sin(clock.elapsed * 0.6) * 0.015;
-        angel.rotation.z = lerp(0.04, -0.02, tEase);
+        if (window.__debugFreezeY !== undefined) {
+          angel.rotation.y = window.__debugFreezeY;
+          angel.rotation.x = 0;
+          angel.rotation.z = 0;
+        } else {
+          angel.rotation.y = tRaw * Math.PI * 2.2 + clock.elapsed * 0.06;
+          angel.rotation.x = lerp(-0.10, 0.02, tEase) + Math.sin(clock.elapsed * 0.6) * 0.015;
+          angel.rotation.z = lerp(0.04, -0.02, tEase);
+        }
 
         const phaseSoulProximity = Math.exp(-Math.pow((tRaw - 0.63) / 0.12, 2));
         const px = lerp(0.65, 0.45, tEase) * (1 - phaseSoulProximity * 0.85)
