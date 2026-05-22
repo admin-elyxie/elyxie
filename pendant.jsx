@@ -208,7 +208,9 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
           const size = new THREE.Vector3();
           box.getSize(size);
           const maxDim = Math.max(size.x, size.y, size.z) || 1;
-          const targetSize = 2.4;
+          // Leaves a margin so the halo/wing tips stay in frame at the closest
+          // camera position (z=3 during the SOUL phase).
+          const targetSize = 2.0;
           model.scale.setScalar(targetSize / maxDim);
 
           const box2 = new THREE.Box3().setFromObject(model);
