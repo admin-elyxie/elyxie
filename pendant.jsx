@@ -260,25 +260,48 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
           // to 1) and a size that's a small-but-visible fraction of the model.
           // Anything with aspect > 1.2 is probably the head/wing/body, not the
           // ball. Triangle-count threshold rejects tiny anchor placeholders.
-          // DEBUG: when ?debug=meshes is in URL, rainbow-color each mesh
-          // by index and expose a name→hue table on window.__debugMeshes.
-          const isDebug = window.location.search.includes('debug=meshes');
-          const debugLog = [];
+          // Group43989 is a 12-tri cube the CAD designer placed inside a
+          // star-shaped bracket on the back of the angel. Showing it raw
+          // reads as an ugly cube; hiding it exposes a visible cavity.
+          // Replace its geometry with a SMOOTH sphere of equivalent size
+          // — fills the cavity completely while having no flat faces to
+          // catch the eye as a protruding cube.
+          function rebuildAsSphere(g) {
+            g.computeBoundingBox();
+            const sz = new THREE.Vector3();
+            g.boundingBox.getSize(sz);
+            const ctr = new THREE.Vector3();
+            g.boundingBox.getCenter(ctr);
+            // Use the LARGEST half-dimension so the sphere fully covers
+            // the original cube's footprint in any viewing direction.
+            const r = Math.max(sz.x, sz.y, sz.z) * 0.5;
+            const newGeom = new THREE.SphereGeometry(r, 40, 28);
+            newGeom.translate(ctr.x, ctr.y, ctr.z);
+            return newGeom;
+          }
 
           let idx = 0;
           let sphereCenter = null;
-          meshInfos.forEach(({ mesh, maxDim, minDim, center }, i) => {
+          meshInfos.forEach(({ mesh, maxDim, minDim, center }) => {
             const aspect = maxDim / minDim;
             const sizeFrac = maxDim / globalSize;
             const triCount = mesh.geometry.index
               ? mesh.geometry.index.count / 3
               : mesh.geometry.attributes.position.count / 3;
 
-            if (isDebug) {
-              const hue = (i * 137.5) % 360;
-              const col = new THREE.Color(`hsl(${hue|0}, 90%, 55%)`);
-              mesh.material = new THREE.MeshStandardMaterial({ color: col, metalness: 0.3, roughness: 0.45 });
-              debugLog.push({ i, name: mesh.name, hue: hue|0, aspect: +aspect.toFixed(2), sizeFrac: +sizeFrac.toFixed(3), triCount: triCount|0, center: [+center.x.toFixed(2), +center.y.toFixed(2), +center.z.toFixed(2)] });
+            // Tiny anchor placeholders (almost no triangles, and NOT the
+            // back-bracket filler) get hidden outright.
+            if (triCount < 50 && mesh.name !== 'Group43989') {
+              mesh.visible = false;
+              return;
+            }
+
+            // Replace the back-bracket cube with a smooth sphere.
+            if (mesh.name === 'Group43989') {
+              const oldGeom = mesh.geometry;
+              mesh.geometry = rebuildAsSphere(oldGeom);
+              oldGeom.dispose();
+              mesh.material = goldWarm;
               mesh.castShadow = false;
               mesh.receiveShadow = false;
               return;
@@ -295,9 +318,6 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
             mesh.castShadow = false;
             mesh.receiveShadow = false;
           });
-          if (isDebug) {
-            window.__debugMeshes = debugLog;
-          }
 
           // Scale to fit the on-screen frame, then center at origin.
           const box = new THREE.Box3().setFromObject(model);
@@ -350,6 +370,7 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
           angel.rotation.x = lerp(-0.10, 0.02, tEase) + Math.sin(clock.elapsed * 0.6) * 0.015;
           angel.rotation.z = lerp(0.04, -0.02, tEase);
         }
+        // Keep debug freeze hook so we can verify back/side views via JS
 
         const phaseSoulProximity = Math.exp(-Math.pow((tRaw - 0.63) / 0.12, 2));
         const px = lerp(0.65, 0.45, tEase) * (1 - phaseSoulProximity * 0.85)
