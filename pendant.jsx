@@ -254,32 +254,16 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
           const goldBright = buildGoldMaterial(THREE, 'bright');
           const orbMat = buildOrbMaterial(THREE);
 
-          // Detect sphere(s): roughly cubic bbox (aspect < 1.55) AND no larger
-          // than 22% of the overall model extent on any axis.
           // Detect the "plato" sphere by perfect cubic bbox (aspect very close
           // to 1) and a size that's a small-but-visible fraction of the model.
           // Anything with aspect > 1.2 is probably the head/wing/body, not the
           // ball. Triangle-count threshold rejects tiny anchor placeholders.
-          // Group43989 is a 12-tri cube the CAD designer placed inside a
-          // star-shaped bracket on the back of the angel. Showing it raw
-          // reads as an ugly cube; hiding it exposes a visible cavity.
-          // Replace its geometry with a SMOOTH sphere of equivalent size
-          // — fills the cavity completely while having no flat faces to
-          // catch the eye as a protruding cube.
-          function rebuildAsSphere(g) {
-            g.computeBoundingBox();
-            const sz = new THREE.Vector3();
-            g.boundingBox.getSize(sz);
-            const ctr = new THREE.Vector3();
-            g.boundingBox.getCenter(ctr);
-            // Use the LARGEST half-dimension so the sphere fully covers
-            // the original cube's footprint in any viewing direction.
-            const r = Math.max(sz.x, sz.y, sz.z) * 0.5;
-            const newGeom = new THREE.SphereGeometry(r, 40, 28);
-            newGeom.translate(ctr.x, ctr.y, ctr.z);
-            return newGeom;
-          }
-
+          //
+          // Group43989 is a small square element the CAD designer placed at
+          // the base of the wings on the back of the angel — it IS part of
+          // the design (visible as the small frame between the lower wing
+          // tips in the reference render). It must remain visible exactly
+          // as authored. Do NOT replace its geometry or hide it.
           let idx = 0;
           let sphereCenter = null;
           meshInfos.forEach(({ mesh, maxDim, minDim, center }) => {
@@ -290,20 +274,9 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
               : mesh.geometry.attributes.position.count / 3;
 
             // Tiny anchor placeholders (almost no triangles, and NOT the
-            // back-bracket filler) get hidden outright.
+            // back-bracket square that's part of the design) get hidden.
             if (triCount < 50 && mesh.name !== 'Group43989') {
               mesh.visible = false;
-              return;
-            }
-
-            // Replace the back-bracket cube with a smooth sphere.
-            if (mesh.name === 'Group43989') {
-              const oldGeom = mesh.geometry;
-              mesh.geometry = rebuildAsSphere(oldGeom);
-              oldGeom.dispose();
-              mesh.material = goldWarm;
-              mesh.castShadow = false;
-              mesh.receiveShadow = false;
               return;
             }
 
