@@ -29,13 +29,15 @@
   <!-- Tweaks panel starter (provides TweaksPanel, TweakSection, TweakSlider, TweakColor, useTweaks) -->
   <script type="text/babel" src="tweaks-panel.jsx"></script>
 
-  <!-- Pendant 3D scene — loaded as ES module so it can import three/addons -->
-  <script type="text/babel" data-type="module" src="pendant.jsx"></script>
+  <!-- Pendant 3D scene — loaded as ES module so it can import three/addons.
+       data-presets="react" sidesteps the @babel/standalone 7.29 preset-env
+       quirk that errors on module-type scripts. -->
+  <script type="text/babel" data-type="module" data-presets="react" src="pendant.jsx"></script>
 
   <!-- Sections 2-7 -->
   <script type="text/babel" src="sections.jsx"></script>
 
   <!-- App — module so it runs after pendant.jsx (also module) and can see window.Pendant -->
-  <script type="text/babel" data-type="module" src="app.jsx"></script>
+  <script type="text/babel" data-type="module" data-presets="react" src="app.jsx"></script>
 </body>
 </html>
