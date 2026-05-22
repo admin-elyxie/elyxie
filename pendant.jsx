@@ -76,11 +76,11 @@ function getLoader(renderer) {
 // the lit "soul" of the pendant in any lighting condition.
 function buildOrbMaterial(THREE) {
   return new THREE.MeshStandardMaterial({
-    color: new THREE.Color('#bff7d6'),
+    color: new THREE.Color('#c9fcdd'),
     emissive: new THREE.Color('#7DFFB2'),
-    emissiveIntensity: 2.6,
+    emissiveIntensity: 1.4,
     metalness: 0.0,
-    roughness: 0.32,
+    roughness: 0.35,
     toneMapped: false,
   });
 }
@@ -245,25 +245,29 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
 
           // Detect sphere(s): roughly cubic bbox (aspect < 1.55) AND no larger
           // than 22% of the overall model extent on any axis.
+          // Detect the "plato" sphere by perfect cubic bbox (aspect very close
+          // to 1) and a size that's a small-but-visible fraction of the model.
+          // Anything with aspect > 1.2 is probably the head/wing/body, not the
+          // ball. Triangle-count threshold rejects tiny anchor placeholders.
           let idx = 0;
           let sphereCenter = null;
-          const _debug = [];
           meshInfos.forEach(({ mesh, sizeV, center, maxDim, minDim }) => {
             const aspect = maxDim / minDim;
             const sizeFrac = maxDim / globalSize;
-            const isSphere = aspect < 1.55 && sizeFrac < 0.22 && sizeFrac > 0.04;
-            _debug.push({ name: mesh.name || '?', aspect: +aspect.toFixed(2), sizeFrac: +sizeFrac.toFixed(3), isSphere, center: [+center.x.toFixed(4), +center.y.toFixed(4), +center.z.toFixed(4)] });
+            const triCount = mesh.geometry.index
+              ? mesh.geometry.index.count / 3
+              : mesh.geometry.attributes.position.count / 3;
+            const isSphere = aspect < 1.2 && sizeFrac > 0.10 && sizeFrac < 0.25 && triCount > 200;
             if (isSphere) {
               mesh.material = orbMat;
               sphereMeshes.push(mesh);
-              if (!sphereCenter || sizeFrac > 0) sphereCenter = center;
+              sphereCenter = center;
             } else {
               mesh.material = (idx++ % 5 === 0) ? goldBright : goldWarm;
             }
             mesh.castShadow = false;
             mesh.receiveShadow = false;
           });
-          window.__pendantDebug = { meshes: _debug, sphereCount: sphereMeshes.length, sphereCenter: sphereCenter ? [+sphereCenter.x.toFixed(4), +sphereCenter.y.toFixed(4), +sphereCenter.z.toFixed(4)] : null };
 
           // Scale to fit the on-screen frame, then center at origin.
           const box = new THREE.Box3().setFromObject(model);
@@ -337,11 +341,10 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
         rim.intensity = (0.18 + breathe * 0.10) * stateRef.current.glowIntensity * phaseBoost;
         // The orb itself: pulsing emissive + an inner point light that bleeds
         // green onto the wings/body so they pick up the brand color contrast.
-        const orbPulse = 0.85 + breathe * 0.30;
-        sphereLight.intensity = (1.6 + breathe * 0.9) * orbPulse * stateRef.current.glowIntensity * Math.min(phaseBoost, 2.2);
+        sphereLight.intensity = (0.9 + breathe * 0.6) * stateRef.current.glowIntensity * Math.min(phaseBoost, 2.0);
         stateRef.current.materials.sphereMeshes.forEach((m) => {
           if (m.material) {
-            m.material.emissiveIntensity = (2.4 + breathe * 1.2) * stateRef.current.glowIntensity * Math.min(phaseBoost, 2.0);
+            m.material.emissiveIntensity = (1.3 + breathe * 0.6) * stateRef.current.glowIntensity * Math.min(phaseBoost, 1.8);
           }
         });
 
