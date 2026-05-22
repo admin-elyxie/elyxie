@@ -29,11 +29,13 @@
     import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
     import { KTX2Loader } from 'three/addons/loaders/KTX2Loader.js';
     import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
+    import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
     window.THREE = THREE;
     window.GLTFLoader = GLTFLoader;
     window.DRACOLoader = DRACOLoader;
     window.KTX2Loader = KTX2Loader;
     window.MeshoptDecoder = MeshoptDecoder;
+    window.mergeVerticesFn = mergeVertices;
     window.__threeReady = true;
     window.dispatchEvent(new Event('three-ready'));
   </script>

@@ -216,11 +216,22 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
           model.rotation.x = -Math.PI / 2;
           model.updateMatrixWorld(true);
 
-          // First pass: compute per-mesh local bboxes and global bbox so we
-          // can identify the spherical "plato" by bbox aspect ratio.
+          // First pass: weld coincident vertices with a tight tolerance, then
+          // compute smooth vertex normals. Welding tight (1e-4 in CAD units)
+          // shares vertices across triangles within the same feather surface
+          // so shading is smooth there, but does not collapse vertices across
+          // adjacent feather shells (they are several units apart).
           const meshInfos = [];
+          const weldFn = window.mergeVerticesFn;
           model.traverse((o) => {
             if (o.isMesh && o.geometry) {
+              if (weldFn) {
+                try {
+                  o.geometry = weldFn(o.geometry, 1e-4);
+                } catch (e) {
+                  // ignore; fall back to whatever was loaded
+                }
+              }
               o.geometry.computeVertexNormals();
               o.geometry.normalizeNormals();
               o.geometry.computeBoundingBox();
