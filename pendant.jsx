@@ -260,16 +260,25 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
           // to 1) and a size that's a small-but-visible fraction of the model.
           // Anything with aspect > 1.2 is probably the head/wing/body, not the
           // ball. Triangle-count threshold rejects tiny anchor placeholders.
+          // DEBUG: rainbow-color each mesh when ?debug=meshes is in URL.
+          const isDebug = window.location.search.includes('debug=meshes');
+          const debugLog = [];
+
           let idx = 0;
           let sphereCenter = null;
-          meshInfos.forEach(({ mesh, maxDim, minDim, center }) => {
+          meshInfos.forEach(({ mesh, sizeV, maxDim, minDim, center }, i) => {
             const aspect = maxDim / minDim;
             const sizeFrac = maxDim / globalSize;
             const triCount = mesh.geometry.index
               ? mesh.geometry.index.count / 3
               : mesh.geometry.attributes.position.count / 3;
             const isSphere = aspect < 1.2 && sizeFrac > 0.10 && sizeFrac < 0.25 && triCount > 200;
-            if (isSphere) {
+            if (isDebug) {
+              const hue = (i * 137.5) % 360; // golden-angle for distinct colors
+              const col = new THREE.Color(`hsl(${hue|0}, 90%, 55%)`);
+              mesh.material = new THREE.MeshStandardMaterial({ color: col, metalness: 0.3, roughness: 0.5 });
+              debugLog.push({ i, name: mesh.name || '?', hue: hue|0, aspect: +aspect.toFixed(2), sizeFrac: +sizeFrac.toFixed(3), triCount: triCount|0, center: [+center.x.toFixed(2), +center.y.toFixed(2), +center.z.toFixed(2)] });
+            } else if (isSphere) {
               mesh.material = orbMat;
               sphereMeshes.push(mesh);
               sphereCenter = center;
@@ -279,6 +288,9 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
             mesh.castShadow = false;
             mesh.receiveShadow = false;
           });
+          if (isDebug) {
+            window.__debugMeshes = debugLog;
+          }
 
           // Scale to fit the on-screen frame, then center at origin.
           const box = new THREE.Box3().setFromObject(model);
@@ -322,9 +334,15 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
         const tRaw = clamp(stateRef.current.progress, 0, 1);
         const tEase = easeInOut(tRaw);
 
-        angel.rotation.y = tRaw * Math.PI * 2.2 + clock.elapsed * 0.06;
-        angel.rotation.x = lerp(-0.10, 0.02, tEase) + Math.sin(clock.elapsed * 0.6) * 0.015;
-        angel.rotation.z = lerp(0.04, -0.02, tEase);
+        if (window.__debugFreeze !== undefined) {
+          angel.rotation.y = window.__debugFreeze;
+          angel.rotation.x = 0;
+          angel.rotation.z = 0;
+        } else {
+          angel.rotation.y = tRaw * Math.PI * 2.2 + clock.elapsed * 0.06;
+          angel.rotation.x = lerp(-0.10, 0.02, tEase) + Math.sin(clock.elapsed * 0.6) * 0.015;
+          angel.rotation.z = lerp(0.04, -0.02, tEase);
+        }
 
         const phaseSoulProximity = Math.exp(-Math.pow((tRaw - 0.63) / 0.12, 2));
         const px = lerp(0.65, 0.45, tEase) * (1 - phaseSoulProximity * 0.85)
