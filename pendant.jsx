@@ -160,9 +160,14 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
       key.position.set(3, 4, 5);
       scene.add(key);
 
-      const rim = new THREE.DirectionalLight(new THREE.Color(stateRef.current.glowColor), 0.85);
+      const rim = new THREE.DirectionalLight(new THREE.Color(stateRef.current.glowColor), 0.3);
       rim.position.set(-3, 1, -4);
       scene.add(rim);
+
+      // Warm fill on the camera-facing side so the gold reads warm, not green.
+      const fill = new THREE.DirectionalLight(0xffe6b0, 0.55);
+      fill.position.set(1.5, 0.5, 5);
+      scene.add(fill);
 
       const top = new THREE.DirectionalLight(0xffffff, 0.35);
       top.position.set(0, 6, 0);
@@ -262,8 +267,11 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
         camera.lookAt(0, 0, 0);
 
         const breathe = 0.5 + 0.5 * Math.sin(clock.elapsed * (Math.PI * 2) / 4.0);
-        const phaseBoost = 1.0 + 1.0 * Math.exp(-Math.pow((tRaw - 0.6) / 0.18, 2));
-        rim.intensity = (0.55 + breathe * 0.35) * stateRef.current.glowIntensity * phaseBoost;
+        const phaseBoost = 1.0 + 1.6 * Math.exp(-Math.pow((tRaw - 0.6) / 0.18, 2));
+        // Keep the green rim subtle by default so the 22 k gold reads as gold,
+        // not as a green-tinted surface. The phaseBoost peak around SOUL phase
+        // still blooms the green to recall the original "phosphor" identity.
+        rim.intensity = (0.18 + breathe * 0.10) * stateRef.current.glowIntensity * phaseBoost;
 
         renderer.toneMappingExposure = lerp(1.1, 0.78, tEase);
 
