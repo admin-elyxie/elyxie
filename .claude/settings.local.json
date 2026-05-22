@@ -1,0 +1,32 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:api.anthropic.com)",
+      "Bash(curl -s -I \"https://api.anthropic.com/v1/design/h/udlE2Jk8UMD7d3tcSSSChQ?open_file=index.html\")",
+      "Bash(curl -s \"https://api.anthropic.com/v1/design/h/udlE2Jk8UMD7d3tcSSSChQ\" -H \"Accept: application/json\" -o /tmp/design_root.json -w \"HTTP:%{http_code}\\\\nSIZE:%{size_download}\\\\nCT:%{content_type}\\\\n\")",
+      "Read(//private/tmp/**)",
+      "Bash(mkdir -p /tmp/design_extract)",
+      "Read(//tmp/**)",
+      "Bash(gunzip -c /tmp/design_root.json)",
+      "Bash(tar -tf bundle.tar)",
+      "Bash(tar -xf bundle.tar)",
+      "Bash(gh auth *)",
+      "Bash(vercel whoami *)",
+      "Bash(brew --version)",
+      "Bash(npm config *)",
+      "Read(//usr/local/bin/**)",
+      "Bash(curl -sL \"https://github.com/cli/cli/releases/latest/download/gh_2.65.0_macOS_arm64.zip\" -o gh.zip -w \"HTTP:%{http_code}\\\\nSIZE:%{size_download}\\\\n\")",
+      "Bash(ls -la gh.zip)",
+      "Bash(curl -sL \"https://api.github.com/repos/cli/cli/releases/latest\")",
+      "Bash(curl -sL \"https://github.com/cli/cli/releases/download/v2.92.0/gh_2.92.0_macOS_arm64.zip\" -o gh.zip)",
+      "Bash(unzip -q -o gh.zip -d gh_extract)",
+      "Bash(git init *)",
+      "Bash(mkdir -p ~/bin)",
+      "Bash(cp /tmp/gh_extract/gh_2.92.0_macOS_arm64/bin/gh ~/bin/gh)",
+      "Bash(chmod +x ~/bin/gh)",
+      "Bash(~/bin/gh --version)",
+      "Bash(git add *)",
+      "Bash(git -c user.email=claude@local -c user.name=claude commit -m 'Initial commit: elyxie 1.3 mobile *)"
+    ]
+  }
+}

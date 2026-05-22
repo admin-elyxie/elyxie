@@ -1,0 +1,859 @@
+/* ============================================================
+   ELYXIE — Colors, Type, Tokens & Semantic Defaults
+   ------------------------------------------------------------
+   Ultra-premium spiritual jewelry. Dark-first, only.
+   Emerald near-black canvas · Champagne gold · Phosphor green glow.
+
+   ORGANIZATION
+     1.  Font imports
+     2.  Primitive color tokens (scales)
+     3.  Semantic color tokens (purpose-named)
+     4.  Component color tokens (button, card, input, nav…)
+     5.  Typography — families
+     6.  Typography — primitive scale (size · leading · tracking)
+     7.  Typography — semantic tokens (display, body, eyebrow…)
+     8.  Spacing primitives + semantic spacing
+     9.  Radii
+     10. Shadows + glows
+     11. Glass + blur
+     12. Motion — durations, easings, composed transitions
+     13. Layout — containers, z-index, breakpoints
+     14. Semantic element defaults
+     15. Utility classes
+   ============================================================ */
+
+
+/* ============================================================
+   1 · FONT IMPORTS
+   ------------------------------------------------------------
+   Cormorant Garamond — display, italic preferred (wordmark + headlines)
+   Satoshi             — body & UI (300–900 variable)
+   Fustat              — secondary UI (small chips, captions)
+   JetBrains Mono      — serials, certificates, monospace
+   See README for substitution notes (no production wordmark file yet).
+   ============================================================ */
+@import url("https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500;1,600;1,700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Fustat:wght@200..800&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap");
+@import url("https://api.fontshare.com/v2/css?f[]=satoshi@300,400,500,600,700,900&display=swap");
+
+
+:root {
+
+  /* ==========================================================
+     2 · PRIMITIVE COLOR TOKENS — Scales
+     ----------------------------------------------------------
+     Never use these directly in components. Compose semantic
+     tokens (section 3) from them. Scales go 50 (lightest) → 950
+     (darkest) so "500" is always the canonical mid-tone.
+     ========================================================== */
+
+  /* — Emerald (the brand's near-black canvas) — */
+  --emerald-50:   #DCEAE5;
+  --emerald-100:  #B4D2C8;
+  --emerald-200:  #88B5A6;
+  --emerald-300:  #5D9885;
+  --emerald-400:  #3A7E69;
+  --emerald-500:  #1A6B58;   /* mid emerald, decorative accents only */
+  --emerald-600:  #0E5547;
+  --emerald-700:  #0E3328;   /* emerald-deep */
+  --emerald-800:  #0A2620;   /* CANVAS — the brand's primary background */
+  --emerald-900:  #081E18;
+  --emerald-950:  #051613;   /* the deepest dark, hero "void" */
+
+  /* — Gold (champagne / metallic) — */
+  --gold-50:   #FCF7EB;
+  --gold-100:  #F7ECCE;
+  --gold-200:  #F1DFAE;
+  --gold-300:  #E9D7B1;   /* CHAMPAGNE — text accent (signature) */
+  --gold-400:  #D4B07A;
+  --gold-500:  #C9A66B;   /* METALLIC — the angel itself */
+  --gold-600:  #A88752;
+  --gold-700:  #8C7340;
+  --gold-800:  #6A5631;
+  --gold-900:  #463A20;
+  --gold-950:  #2A2213;
+
+  /* — Phosphor green (the strontium aluminate glow) — */
+  --phosphor-50:   #EBFFF3;
+  --phosphor-100:  #D3FFE3;
+  --phosphor-200:  #B9FFD4;   /* halo edge */
+  --phosphor-300:  #94FBC2;
+  --phosphor-400:  #7DFFB2;   /* THE GLOW — hero color */
+  --phosphor-500:  #5BEC95;
+  --phosphor-600:  #34C97A;   /* core */
+  --phosphor-700:  #1E9A5C;
+  --phosphor-800:  #136B40;
+  --phosphor-900:  #0B4329;
+
+  /* — Neutral whites (for text on dark) — */
+  --white-100:    #FFFFFF;
+  --white-90:     rgba(255, 255, 255, 0.90);
+  --white-80:     rgba(255, 255, 255, 0.80);
+  --white-70:     rgba(255, 255, 255, 0.70);
+  --white-60:     rgba(255, 255, 255, 0.60);
+  --white-50:     rgba(255, 255, 255, 0.50);
+  --white-40:     rgba(255, 255, 255, 0.40);
+  --white-30:     rgba(255, 255, 255, 0.30);
+  --white-20:     rgba(255, 255, 255, 0.20);
+  --white-12:     rgba(255, 255, 255, 0.12);
+  --white-08:     rgba(255, 255, 255, 0.08);
+  --white-06:     rgba(255, 255, 255, 0.06);
+  --white-04:     rgba(255, 255, 255, 0.04);
+  --white-02:     rgba(255, 255, 255, 0.02);
+
+  /* — Warm ivory (rare, packaging insert / certificate) — */
+  --ivory-50:     #FBF8EF;
+  --ivory-100:    #F6F2E8;   /* CANONICAL ivory — only for certificates */
+  --ivory-200:    #ECE2C9;
+  --ivory-300:    #DBCDA7;
+
+  /* — Signal / state primitives (desaturated, brand-respectful) — */
+  --signal-success: var(--phosphor-400);
+  --signal-error:   #D97757;   /* desaturated bronze, NEVER vibrant red */
+  --signal-warn:    var(--gold-400);
+  --signal-info:    var(--gold-300);
+
+
+  /* ==========================================================
+     3 · SEMANTIC COLOR TOKENS — Purpose-named
+     ----------------------------------------------------------
+     Components must use these. If you find yourself reaching
+     for an --emerald-700 in a component, add a new semantic
+     token here instead.
+     ========================================================== */
+
+  /* Backgrounds — surfaces stack from canvas (deepest) upward */
+  --color-bg:               var(--emerald-800);   /* primary canvas */
+  --color-bg-deep:          var(--emerald-950);   /* full-bleed void / hero floor */
+  --color-bg-elevated:      var(--emerald-700);   /* one notch up — sections */
+  --color-surface:          #0E2E26;              /* cards, default */
+  --color-surface-alt:      #0B241D;              /* alt card, slightly cooler */
+  --color-surface-raised:   #143C32;              /* hovered / featured card */
+  --color-surface-sunken:   var(--emerald-900);   /* inputs, recessed areas */
+  --color-bg-light:         var(--ivory-100);     /* rare — certificates only */
+  --color-bg-light-deep:    var(--ivory-200);
+
+  /* Borders + dividers */
+  --color-border:           #2A4B43;              /* hairline divider */
+  --color-border-subtle:    var(--white-06);
+  --color-border-strong:    #3D6A5E;              /* visible card border */
+  --color-border-gold:      rgba(201, 166, 107, 0.28);
+  --color-border-phosphor:  rgba(125, 255, 178, 0.35);
+
+  /* Text */
+  --color-text-primary:     var(--white-100);
+  --color-text-secondary:   var(--white-80);
+  --color-text-tertiary:    var(--white-60);
+  --color-text-muted:       var(--white-40);
+  --color-text-disabled:    var(--white-20);
+  --color-text-accent:      var(--gold-300);      /* champagne — hero accent */
+  --color-text-accent-warm: var(--gold-400);
+  --color-text-glow:        var(--phosphor-400);  /* signature link-hover */
+  --color-text-on-light:    var(--emerald-800);   /* text on ivory only */
+  --color-text-on-gold:     var(--emerald-800);   /* text on gold pill button */
+
+  /* Brand */
+  --color-gold:             var(--gold-500);      /* metallic, on swatches/icons */
+  --color-gold-bright:      var(--gold-300);      /* champagne text accent */
+  --color-gold-warm:        var(--gold-400);
+  --color-gold-deep:        var(--gold-700);
+  --color-gold-bronze:      rgba(109, 87, 50, 0.77);
+
+  --color-phosphor:         var(--phosphor-400);  /* the canonical glow */
+  --color-phosphor-soft:    var(--phosphor-200);
+  --color-phosphor-deep:    var(--phosphor-600);
+  --color-phosphor-glow:    rgba(125, 255, 178, 0.45);
+
+  --color-emerald:          var(--emerald-500);
+  --color-emerald-deep:     var(--emerald-700);
+
+  /* State / signal */
+  --color-success:          var(--signal-success);
+  --color-success-bg:       rgba(125, 255, 178, 0.10);
+  --color-error:            var(--signal-error);
+  --color-error-bg:         rgba(217, 119, 87, 0.10);
+  --color-warn:             var(--signal-warn);
+  --color-info:             var(--signal-info);
+
+  /* Focus / selection / interaction */
+  --color-focus-ring:       var(--gold-300);
+  --color-focus-offset:     var(--color-bg);
+  --color-selection-bg:     var(--gold-300);
+  --color-selection-fg:     var(--emerald-800);
+
+
+  /* ==========================================================
+     4 · COMPONENT COLOR TOKENS
+     ----------------------------------------------------------
+     Per-component aliases so themes can override one part
+     without touching the semantic layer.
+     ========================================================== */
+
+  /* Button — primary (liquid glass) */
+  --btn-primary-bg:           var(--white-12);
+  --btn-primary-bg-hover:     rgba(201, 166, 107, 0.10);   /* champagne tint */
+  --btn-primary-bg-active:    rgba(201, 166, 107, 0.16);
+  --btn-primary-bg-disabled:  var(--white-06);
+  --btn-primary-fg:           var(--white-100);
+  --btn-primary-fg-disabled:  var(--white-40);
+  --btn-primary-ring:         inset 0 1px 0 var(--white-20);
+
+  /* Button — secondary (solid emerald) */
+  --btn-secondary-bg:         #2A4B43;
+  --btn-secondary-bg-hover:   #355D53;
+  --btn-secondary-fg:         var(--white-100);
+
+  /* Button — gold (top-priority CTA) */
+  --btn-gold-bg:              linear-gradient(180deg, var(--gold-300), var(--gold-500));
+  --btn-gold-bg-hover:        linear-gradient(180deg, var(--gold-200), var(--gold-400));
+  --btn-gold-fg:              var(--emerald-800);
+  --btn-gold-glow:            0 0 30px rgba(233, 215, 177, 0.25);
+  --btn-gold-glow-hover:      0 0 60px rgba(233, 215, 177, 0.35),
+                              0 0 120px rgba(233, 215, 177, 0.18);
+
+  /* Button — ghost (nav links) */
+  --btn-ghost-fg:             var(--white-90);
+  --btn-ghost-fg-hover:       var(--gold-300);
+
+  /* Button — phosphor (rare, "the glow") */
+  --btn-phosphor-bg:          rgba(125, 255, 178, 0.10);
+  --btn-phosphor-fg:          var(--phosphor-400);
+  --btn-phosphor-ring:        inset 0 0 0 1px rgba(125, 255, 178, 0.35);
+
+  /* Card */
+  --card-bg:                  var(--color-surface);
+  --card-bg-glass:            var(--white-04);
+  --card-bg-raised:           var(--color-surface-raised);
+  --card-border:              var(--color-border-subtle);
+  --card-inner-highlight:     inset 0 1px 0 var(--white-08);
+  --card-shadow:              0 20px 60px rgba(5, 22, 19, 0.55);
+
+  /* Input */
+  --input-bg:                 var(--white-04);
+  --input-bg-focus:           var(--white-06);
+  --input-border:             var(--white-12);
+  --input-border-focus:       var(--gold-300);
+  --input-fg:                 var(--white-100);
+  --input-placeholder:        var(--white-40);
+  --input-ring-focus:         0 0 0 3px rgba(233, 215, 177, 0.18);
+  --input-border-error:       rgba(217, 119, 87, 0.85);
+
+  /* Nav */
+  --nav-bg:                   rgba(10, 38, 32, 0.55);
+  --nav-border:               var(--white-08);
+  --nav-link-fg:              var(--white-90);
+  --nav-link-fg-active:       var(--gold-300);
+
+  /* Chip */
+  --chip-bg:                  var(--white-06);
+  --chip-bg-gold:             rgba(201, 166, 107, 0.14);
+  --chip-bg-phosphor:         rgba(125, 255, 178, 0.10);
+  --chip-fg:                  var(--white-100);
+  --chip-fg-gold:             var(--gold-300);
+  --chip-fg-phosphor:         var(--phosphor-400);
+
+
+  /* ==========================================================
+     5 · TYPOGRAPHY — FAMILIES
+     ========================================================== */
+  --font-display:   "Cormorant Garamond", "Cormorant", "EB Garamond", Georgia, serif;
+  --font-body:      "Satoshi", "Satoshi Variable", "Inter", system-ui, sans-serif;
+  --font-ui:        "Fustat", "Satoshi", system-ui, sans-serif;
+  --font-mono:      "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+
+
+  /* ==========================================================
+     6 · TYPOGRAPHY — PRIMITIVE SCALE
+     ----------------------------------------------------------
+     Sizes from a 1920px design baseline. Each step ships its
+     own canonical line-height + tracking so you never have
+     to fight typography from scratch.
+     ========================================================== */
+  --fs-display-2xl:  120px;
+  --fs-display-xl:   96px;
+  --fs-display-l:    72px;
+  --fs-display:      56px;
+  --fs-h1:           44px;
+  --fs-h2:           34px;
+  --fs-h3:           26px;
+  --fs-subhead:      22px;
+  --fs-body-lg:      20px;
+  --fs-body:         16px;
+  --fs-body-sm:      14px;
+  --fs-caption:      12px;
+  --fs-micro:        10px;
+
+  /* Line-heights paired to size — tight at display, generous at body */
+  --lh-display-2xl:  0.92;
+  --lh-display-xl:   0.95;
+  --lh-display-l:    1.0;
+  --lh-display:      1.05;
+  --lh-h1:           1.1;
+  --lh-h2:           1.15;
+  --lh-h3:           1.2;
+  --lh-body:         1.65;
+  --lh-body-tight:   1.5;
+  --lh-caption:      1.45;
+
+  /* Tracking */
+  --tracking-tight:   -0.02em;   /* large display */
+  --tracking-snug:    -0.01em;
+  --tracking-normal:   0em;
+  --tracking-wide:     0.04em;
+  --tracking-wider:    0.18em;   /* uppercase eyebrow */
+  --tracking-widest:   0.32em;   /* tiny editorial caps, serial numbers */
+
+  /* Weights */
+  --fw-light:     300;
+  --fw-regular:   400;
+  --fw-medium:    500;
+  --fw-semibold:  600;
+  --fw-bold:      700;
+  --fw-black:     900;
+
+
+  /* ==========================================================
+     7 · TYPOGRAPHY — SEMANTIC TOKENS
+     ----------------------------------------------------------
+     Use these via the utility classes in section 15.
+     ========================================================== */
+
+  /* Display family (Cormorant) */
+  --t-display-2xl-size:    var(--fs-display-2xl);
+  --t-display-2xl-lh:      var(--lh-display-2xl);
+  --t-display-xl-size:     var(--fs-display-xl);
+  --t-display-xl-lh:       var(--lh-display-xl);
+  --t-display-l-size:      var(--fs-display-l);
+  --t-display-l-lh:        var(--lh-display-l);
+
+  /* Heading family — H1–H2 use serif, H3+ use Satoshi */
+  --t-h1-size:    var(--fs-h1);
+  --t-h1-lh:      var(--lh-h1);
+  --t-h2-size:    var(--fs-h2);
+  --t-h2-lh:      var(--lh-h2);
+  --t-h3-size:    var(--fs-h3);
+  --t-h3-lh:      var(--lh-h3);
+
+  /* Body */
+  --t-body-lg-size: var(--fs-body-lg);
+  --t-body-size:    var(--fs-body);
+  --t-body-sm-size: var(--fs-body-sm);
+
+  /* Eyebrow & serial */
+  --t-eyebrow-size:     var(--fs-caption);
+  --t-eyebrow-tracking: var(--tracking-widest);
+  --t-eyebrow-weight:   var(--fw-medium);
+
+  --t-serial-size:      var(--fs-caption);
+  --t-serial-tracking:  var(--tracking-widest);
+  --t-serial-weight:    var(--fw-medium);
+
+
+  /* ==========================================================
+     8 · SPACING — primitives + semantic
+     ----------------------------------------------------------
+     4px base. Atomic gaps use xs/sm/md. Layout uses lg → 6xl.
+     Semantic tokens encode the editorial rhythm so sections
+     are consistent across pages.
+     ========================================================== */
+  --space-0:     0;
+  --space-px:    1px;
+  --space-xs:    4px;
+  --space-sm:    8px;
+  --space-md:   12px;
+  --space-lg:   16px;
+  --space-xl:   24px;
+  --space-2xl:  32px;
+  --space-3xl:  48px;
+  --space-4xl:  64px;
+  --space-5xl:  96px;
+  --space-6xl: 128px;
+  --space-7xl: 160px;
+
+  /* Editorial section rhythm */
+  --section-pad-y:        120px;    /* desktop default */
+  --section-pad-y-sm:      72px;    /* mobile */
+  --section-pad-x:         32px;
+  --section-gap:           48px;    /* gap between adjacent sections */
+
+  /* Card internals */
+  --card-pad:              32px;
+  --card-pad-sm:           20px;
+  --card-pad-lg:           48px;
+  --card-gap:              16px;
+
+  /* Button padding */
+  --btn-pad-y:             12px;
+  --btn-pad-x-sm:          18px;
+  --btn-pad-x-md:          28px;
+  --btn-pad-x-lg:          40px;
+  --btn-gap:                8px;     /* icon-to-label */
+
+  /* Input padding */
+  --input-pad-y:           12px;
+  --input-pad-x:           14px;
+
+
+  /* ==========================================================
+     9 · RADII
+     ----------------------------------------------------------
+     Two corner radii dominate: 12–18px for cards, 999px pill
+     for buttons & chips. Don't invent new ones.
+     ========================================================== */
+  --radius-none:    0;
+  --radius-xs:      4px;
+  --radius-sm:      8px;
+  --radius-md:     12px;     /* card default */
+  --radius-lg:     18px;     /* raised card */
+  --radius-xl:     24px;     /* hero panel */
+  --radius-2xl:    36px;
+  --radius-pill:  999px;     /* buttons, chips, toggles */
+  --radius-round:  50%;      /* avatars, FABs, sphere */
+
+
+  /* ==========================================================
+     10 · SHADOWS + GLOWS
+     ----------------------------------------------------------
+     Real drop shadows are restrained. Glows do the dramatic
+     work — they encode "the sphere has light inside".
+     ========================================================== */
+
+  /* Drop shadows (functional elevation, dark mode) */
+  --shadow-xs:     0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-sm:     0 4px 12px rgba(0, 0, 0, 0.35);
+  --shadow-md:     0 12px 32px rgba(0, 0, 0, 0.45);
+  --shadow-lg:     0 20px 60px rgba(5, 22, 19, 0.55);
+  --shadow-xl:     0 40px 120px rgba(0, 0, 0, 0.6);
+  --shadow-modal:  0 60px 120px rgba(0, 0, 0, 0.55);
+  --shadow-ambient:0 0 164px 0 rgba(0, 0, 0, 0.92);
+
+  /* Phosphor glows — the signature light */
+  --glow-phosphor-xs: 0 0 12px 0 rgba(125, 255, 178, 0.45);
+  --glow-phosphor-sm: 0 0 24px 0 rgba(125, 255, 178, 0.55);
+  --glow-phosphor-md: 0 0 60px 4px rgba(125, 255, 178, 0.55),
+                      0 0 140px 12px rgba(125, 255, 178, 0.18);
+  --glow-phosphor-lg: 0 0 120px 16px rgba(125, 255, 178, 0.55),
+                      0 0 280px 40px rgba(125, 255, 178, 0.22);
+
+  /* Gold glows — warmer ambient halo for CTAs */
+  --glow-gold-xs:     0 0 12px 0 rgba(233, 215, 177, 0.25);
+  --glow-gold-sm:     0 0 24px 0 rgba(233, 215, 177, 0.30);
+  --glow-gold-md:     0 0 60px 0 rgba(233, 215, 177, 0.35),
+                      0 0 140px 6px rgba(201, 166, 107, 0.18);
+  --glow-gold-lg:     0 0 120px 12px rgba(233, 215, 177, 0.4),
+                      0 0 240px 32px rgba(201, 166, 107, 0.2);
+
+  /* Inner / inset highlights — for glass surfaces */
+  --ring-inner-glass:   inset 0 1px 0 0 var(--white-20),
+                        inset 0 -1px 0 0 var(--white-04);
+  --ring-inner-card:    inset 0 1px 0 0 var(--white-08);
+
+  /* Focus ring (always 2px gold w/ 2px dark offset) */
+  --ring-focus:         0 0 0 2px var(--color-bg),
+                        0 0 0 4px var(--color-focus-ring);
+
+
+  /* ==========================================================
+     11 · GLASS + BLUR
+     ========================================================== */
+  --glass-primary:      var(--white-12);
+  --glass-secondary:    var(--white-06);
+  --glass-faint:        var(--white-02);
+  --glass-gold-tint:    rgba(201, 166, 107, 0.10);
+  --glass-phosphor-tint:rgba(125, 255, 178, 0.10);
+
+  --overlay-dark:       rgba(0, 0, 0, 0.55);
+  --overlay-deep:       rgba(5, 22, 19, 0.78);
+  --overlay-veil:       rgba(14, 46, 38, 0.50);
+
+  --blur-xs:   blur(8px);
+  --blur-sm:   blur(16px);
+  --blur-md:   blur(24px);
+  --blur-lg:   blur(32px);   /* canonical glass blur */
+  --blur-xl:   blur(48px);
+
+
+  /* ==========================================================
+     12 · MOTION — DURATIONS · EASINGS · COMPOSED TRANSITIONS
+     ----------------------------------------------------------
+     No bounces. No springs. The brand never wiggles.
+     ========================================================== */
+
+  /* Durations */
+  --dur-instant:  0ms;
+  --dur-fast:     180ms;     /* press, micro-state */
+  --dur-base:     300ms;     /* hover, fade */
+  --dur-slow:     600ms;     /* page-section reveals */
+  --dur-slower:   900ms;
+  --dur-glacial:  1600ms;
+  --dur-breathe:  4000ms;    /* the phosphor pulse */
+
+  /* Easings */
+  --ease-standard:   cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-out:        cubic-bezier(0.2, 0, 0, 1);
+  --ease-in:         cubic-bezier(0.4, 0, 1, 1);
+  --ease-in-out:     cubic-bezier(0.65, 0, 0.35, 1);
+  --ease-decel:      cubic-bezier(0.05, 0.7, 0.1, 1);
+  --ease-accel:      cubic-bezier(0.3, 0, 0.8, 0.15);
+
+  /* Composed transitions — drop directly on `transition:` */
+  --transition-base:  all var(--dur-base) var(--ease-standard);
+  --transition-fast:  all var(--dur-fast) var(--ease-out);
+  --transition-color: color var(--dur-base) var(--ease-standard),
+                      background-color var(--dur-base) var(--ease-standard),
+                      border-color var(--dur-base) var(--ease-standard);
+  --transition-fade:  opacity var(--dur-base) ease-in-out;
+  --transition-button:background-color var(--dur-base) var(--ease-standard),
+                      color var(--dur-base) var(--ease-standard),
+                      box-shadow var(--dur-base) var(--ease-standard),
+                      transform var(--dur-fast) var(--ease-out);
+
+
+  /* ==========================================================
+     13 · LAYOUT — containers · z-index · breakpoints
+     ========================================================== */
+  --container-narrow:  720px;
+  --container-default:1200px;
+  --container-wide:   1440px;
+  --container-bleed:  100%;
+
+  --z-base:      0;
+  --z-raised:    1;
+  --z-dropdown:  10;
+  --z-sticky:    20;
+  --z-nav:       50;
+  --z-overlay:   80;
+  --z-modal:    100;
+  --z-toast:    150;
+  --z-tooltip:  200;
+
+  /* Breakpoints (for reference / use in calc) */
+  --bp-sm:    640px;
+  --bp-md:    810px;     /* Framer-style mobile→tablet boundary */
+  --bp-lg:   1200px;     /* tablet→desktop */
+  --bp-xl:   1440px;
+  --bp-2xl:  1920px;
+}
+
+
+/* ============================================================
+   14 · SEMANTIC ELEMENT DEFAULTS
+   ------------------------------------------------------------
+   Drop colors_and_type.css into an HTML doc and elements
+   render on-brand without further work.
+   ============================================================ */
+
+html, body {
+  background: var(--color-bg);
+  color: var(--color-text-primary);
+  font-family: var(--font-body);
+  font-size: var(--fs-body);
+  font-weight: var(--fw-regular);
+  line-height: var(--lh-body);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  font-feature-settings: "kern" 1, "liga" 1;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  margin: 0;
+  color: var(--color-text-primary);
+  text-wrap: balance;
+}
+
+h1 {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-weight: var(--fw-regular);
+  font-size: var(--t-display-l-size);
+  line-height: var(--t-display-l-lh);
+  letter-spacing: var(--tracking-snug);
+}
+
+h2 {
+  font-family: var(--font-display);
+  font-weight: var(--fw-regular);
+  font-size: var(--t-h1-size);
+  line-height: var(--t-h1-lh);
+  letter-spacing: var(--tracking-snug);
+}
+
+h3 {
+  font-family: var(--font-display);
+  font-weight: var(--fw-regular);
+  font-size: var(--t-h2-size);
+  line-height: var(--t-h2-lh);
+  letter-spacing: var(--tracking-snug);
+}
+
+h4 {
+  font-family: var(--font-body);
+  font-weight: var(--fw-medium);
+  font-size: var(--t-h3-size);
+  line-height: var(--t-h3-lh);
+}
+
+h5 {
+  font-family: var(--font-body);
+  font-weight: var(--fw-medium);
+  font-size: var(--fs-subhead);
+  letter-spacing: var(--tracking-wider);
+  text-transform: uppercase;
+}
+
+h6 {
+  font-family: var(--font-body);
+  font-weight: var(--fw-medium);
+  font-size: var(--fs-caption);
+  letter-spacing: var(--tracking-widest);
+  text-transform: uppercase;
+  color: var(--color-text-accent);
+}
+
+p {
+  margin: 0 0 var(--space-lg);
+  color: var(--color-text-secondary);
+  line-height: var(--lh-body);
+  text-wrap: pretty;
+  max-width: 64ch;
+}
+
+small {
+  font-size: var(--fs-caption);
+  color: var(--color-text-tertiary);
+  letter-spacing: var(--tracking-wide);
+}
+
+a {
+  color: var(--color-text-accent);
+  text-decoration: none;
+  transition: var(--transition-color);
+}
+a:hover    { color: var(--color-text-glow); }
+a:focus-visible {
+  outline: none;
+  box-shadow: var(--ring-focus);
+  border-radius: 2px;
+}
+
+strong { font-weight: var(--fw-medium); color: var(--color-text-primary); }
+em     { font-style: italic; }
+
+code, kbd, samp, pre {
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+}
+code, kbd, samp {
+  background: var(--white-06);
+  padding: 0.12em 0.42em;
+  border-radius: var(--radius-xs);
+  color: var(--color-text-accent);
+}
+pre {
+  background: var(--color-surface);
+  padding: var(--space-lg) var(--space-xl);
+  border-radius: var(--radius-md);
+  overflow: auto;
+  border: 1px solid var(--color-border-subtle);
+}
+pre code { background: transparent; padding: 0; color: inherit; }
+
+hr {
+  border: 0;
+  height: 1px;
+  background: var(--color-border);
+  margin: var(--space-3xl) 0;
+}
+
+::selection {
+  background: var(--color-selection-bg);
+  color: var(--color-selection-fg);
+}
+
+img, svg, video { max-width: 100%; height: auto; display: block; }
+
+button, input, textarea, select {
+  font: inherit;
+  color: inherit;
+}
+
+::placeholder { color: var(--input-placeholder); }
+
+
+/* ============================================================
+   15 · UTILITY CLASSES
+   ------------------------------------------------------------
+   Sparingly. Each one encodes a recurring brand pattern.
+   ============================================================ */
+
+/* — Containers — */
+.container        { max-width: var(--container-default); margin: 0 auto; padding: 0 var(--section-pad-x); }
+.container--narrow{ max-width: var(--container-narrow); margin: 0 auto; padding: 0 var(--section-pad-x); }
+.container--wide  { max-width: var(--container-wide);    margin: 0 auto; padding: 0 var(--section-pad-x); }
+
+/* — Editorial section — */
+.section          { padding: var(--section-pad-y) 0; position: relative; }
+@media (max-width: 810px) {
+  .section        { padding: var(--section-pad-y-sm) 0; }
+}
+
+/* — Surface variants — */
+.surface          { background: var(--color-surface);        border-radius: var(--radius-lg); }
+.surface--alt     { background: var(--color-surface-alt);    border-radius: var(--radius-lg); }
+.surface--raised  { background: var(--color-surface-raised); border-radius: var(--radius-lg); box-shadow: var(--card-inner-highlight); }
+.surface--sunken  { background: var(--color-surface-sunken); border-radius: var(--radius-md); }
+
+/* — Glass surface — */
+.glass {
+  background: var(--glass-primary);
+  backdrop-filter: var(--blur-lg);
+  -webkit-backdrop-filter: var(--blur-lg);
+  border: 1px solid var(--white-08);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--ring-inner-glass);
+}
+.glass--soft {
+  background: var(--glass-secondary);
+  backdrop-filter: var(--blur-md);
+  -webkit-backdrop-filter: var(--blur-md);
+  border: 1px solid var(--white-06);
+  border-radius: var(--radius-lg);
+}
+
+/* — Glows applied as box-shadow only — */
+.glow-phosphor    { box-shadow: var(--glow-phosphor-md); }
+.glow-phosphor-sm { box-shadow: var(--glow-phosphor-sm); }
+.glow-phosphor-lg { box-shadow: var(--glow-phosphor-lg); }
+.glow-gold        { box-shadow: var(--glow-gold-md); }
+.glow-gold-sm     { box-shadow: var(--glow-gold-sm); }
+
+/* — Typographic patterns — */
+.t-display-xl {
+  font-family: var(--font-display); font-weight: var(--fw-light);
+  font-size: var(--t-display-xl-size); line-height: var(--t-display-xl-lh);
+  letter-spacing: var(--tracking-tight);
+}
+.t-display-l {
+  font-family: var(--font-display); font-weight: var(--fw-light);
+  font-size: var(--t-display-l-size); line-height: var(--t-display-l-lh);
+  letter-spacing: var(--tracking-snug);
+}
+.t-display {
+  font-family: var(--font-display); font-weight: var(--fw-regular);
+  font-size: var(--fs-display); line-height: var(--lh-display);
+  letter-spacing: var(--tracking-snug);
+}
+.t-italic { font-style: italic; }
+
+/* Eyebrow — uppercase caps, tracked wide, champagne */
+.eyebrow {
+  display: inline-block;
+  font-family: var(--font-body);
+  font-size: var(--t-eyebrow-size);
+  font-weight: var(--t-eyebrow-weight);
+  letter-spacing: var(--t-eyebrow-tracking);
+  text-transform: uppercase;
+  color: var(--color-text-accent);
+}
+.eyebrow--muted { color: var(--color-text-tertiary); }
+.eyebrow--phosphor { color: var(--color-phosphor); }
+
+/* The signature wordmark — italic serif, lowercase */
+.wordmark {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-weight: var(--fw-regular);
+  letter-spacing: -0.01em;
+  color: var(--color-text-accent);
+  text-transform: lowercase;
+  line-height: 1;
+}
+
+/* Bilingual ES/EN sub-caps, used under headlines */
+.bilingual {
+  font-family: var(--font-body);
+  font-size: var(--fs-caption);
+  letter-spacing: var(--tracking-wider);
+  text-transform: uppercase;
+  color: var(--color-text-tertiary);
+}
+
+/* Serial number — N.º 01/100 */
+.serial {
+  font-family: var(--font-body);
+  font-size: var(--t-serial-size);
+  font-weight: var(--t-serial-weight);
+  letter-spacing: var(--t-serial-tracking);
+  text-transform: uppercase;
+  color: var(--color-text-accent);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Text accent helpers — for the negation-pair voice pattern */
+.t-accent      { color: var(--color-text-accent); }
+.t-glow        { color: var(--color-text-glow); }
+.t-muted       { color: var(--color-text-muted); }
+.t-secondary   { color: var(--color-text-secondary); }
+.t-tertiary    { color: var(--color-text-tertiary); }
+.t-balance     { text-wrap: balance; }
+.t-pretty      { text-wrap: pretty; }
+.t-mono        { font-family: var(--font-mono); }
+.t-uppercase   { text-transform: uppercase; letter-spacing: var(--tracking-wider); }
+.t-tabular     { font-variant-numeric: tabular-nums; }
+
+/* — Sacred geometry texture container — */
+.sacred-texture-wrap { position: relative; }
+.sacred-texture {
+  position: absolute; inset: 0;
+  pointer-events: none; overflow: hidden; z-index: 0;
+  opacity: 0.06;
+}
+.sacred-texture > * { position: absolute; }
+
+/* — Phosphor breathing animation — */
+@keyframes phosphor-breathe {
+  0%, 100% {
+    box-shadow:
+      0 0 60px 4px rgba(125, 255, 178, 0.55),
+      0 0 140px 12px rgba(125, 255, 178, 0.18);
+  }
+  50% {
+    box-shadow:
+      0 0 90px 10px rgba(125, 255, 178, 0.70),
+      0 0 220px 30px rgba(125, 255, 178, 0.25);
+  }
+}
+.phosphor-breathe {
+  animation: phosphor-breathe var(--dur-breathe) ease-in-out infinite;
+}
+
+/* — Section reveal — */
+@keyframes rise {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.rise { animation: rise var(--dur-slow) var(--ease-standard) both; }
+
+/* — Reduced motion override — */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
+
+/* — Focus-visible on any interactive element — */
+:focus-visible {
+  outline: none;
+  box-shadow: var(--ring-focus);
+}
+
+/* — Accessibility — visually hidden — */
+.sr-only {
+  position: absolute; width: 1px; height: 1px;
+  padding: 0; margin: -1px; overflow: hidden;
+  clip: rect(0,0,0,0); white-space: nowrap; border: 0;
+}

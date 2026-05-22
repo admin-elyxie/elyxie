@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none">
+  <defs>
+    <radialGradient id="sphere" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#B9FFD4" stop-opacity="1"></stop>
+      <stop offset="55%" stop-color="#7DFFB2" stop-opacity="0.85"></stop>
+      <stop offset="100%" stop-color="#34C97A" stop-opacity="0"></stop>
+    </radialGradient>
+    <radialGradient id="halo" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#7DFFB2" stop-opacity="0.35"></stop>
+      <stop offset="100%" stop-color="#7DFFB2" stop-opacity="0"></stop>
+    </radialGradient>
+  </defs>
+  <circle cx="60" cy="60" r="58" fill="#0A2620" stroke="#C9A66B" stroke-width="0.8" stroke-opacity="0.6"></circle>
+  
+  <circle cx="60" cy="64" r="36" fill="url(#halo)"></circle>
+  
+  <path d="M60 62 C 46 50 32 48 22 56 C 30 58 38 62 46 66 C 38 64 30 66 26 72 C 36 70 46 70 54 70 Z" fill="#C9A66B" opacity="0.95"></path>
+  
+  <path d="M60 62 C 74 50 88 48 98 56 C 90 58 82 62 74 66 C 82 64 90 66 94 72 C 84 70 74 70 66 70 Z" fill="#C9A66B" opacity="0.95"></path>
+  
+  <circle cx="60" cy="66" r="9" fill="url(#sphere)"></circle>
+  <circle cx="60" cy="66" r="9" fill="none" stroke="#E9D7B1" stroke-width="0.6" opacity="0.6"></circle>
+  
+  <path d="M56 72 L60 92 L64 72 Z" fill="#C9A66B" opacity="0.95"></path>
+</svg>
