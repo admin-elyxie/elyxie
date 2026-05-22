@@ -11,7 +11,7 @@
 <body data-theme="dark">
   <div id="root"></div>
 
-  <!-- Three.js + addons as ES modules (loaded on demand by pendant.jsx) -->
+  <!-- Importmap for three/addons consumed by the loader preamble below -->
   <script type="importmap">
   {
     "imports": {
@@ -21,25 +21,38 @@
   }
   </script>
 
+  <!-- Three.js + GLB loaders preamble. Exposes them on window and dispatches
+       a "three-ready" event when done. pendant.jsx (classic) listens for it. -->
+  <script type="module">
+    import * as THREE from 'three';
+    import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+    import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
+    import { KTX2Loader } from 'three/addons/loaders/KTX2Loader.js';
+    import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
+    window.THREE = THREE;
+    window.GLTFLoader = GLTFLoader;
+    window.DRACOLoader = DRACOLoader;
+    window.KTX2Loader = KTX2Loader;
+    window.MeshoptDecoder = MeshoptDecoder;
+    window.__threeReady = true;
+    window.dispatchEvent(new Event('three-ready'));
+  </script>
+
   <!-- React + Babel -->
   <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
   <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
-  <!-- Pinned to 7.27.4: 7.29.0 has a bug where data-type="module" produces a
-       targets["esmodules"] string instead of a boolean, throwing on parse. -->
   <script src="https://unpkg.com/@babel/standalone@7.27.4/babel.min.js" crossorigin="anonymous"></script>
 
   <!-- Tweaks panel starter (provides TweaksPanel, TweakSection, TweakSlider, TweakColor, useTweaks) -->
   <script type="text/babel" src="tweaks-panel.jsx"></script>
 
-  <!-- Pendant 3D scene — loaded as ES module so it can import three/addons.
-       data-presets="react" sidesteps the @babel/standalone 7.29 preset-env
-       quirk that errors on module-type scripts. -->
-  <script type="text/babel" data-type="module" data-presets="react" src="pendant.jsx"></script>
+  <!-- Pendant 3D scene (classic; uses window.THREE etc. populated by the preamble) -->
+  <script type="text/babel" src="pendant.jsx"></script>
 
   <!-- Sections 2-7 -->
   <script type="text/babel" src="sections.jsx"></script>
 
-  <!-- App — module so it runs after pendant.jsx (also module) and can see window.Pendant -->
-  <script type="text/babel" data-type="module" data-presets="react" src="app.jsx"></script>
+  <!-- App -->
+  <script type="text/babel" src="app.jsx"></script>
 </body>
 </html>
