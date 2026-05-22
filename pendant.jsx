@@ -247,10 +247,12 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
           // than 22% of the overall model extent on any axis.
           let idx = 0;
           let sphereCenter = null;
+          const _debug = [];
           meshInfos.forEach(({ mesh, sizeV, center, maxDim, minDim }) => {
             const aspect = maxDim / minDim;
             const sizeFrac = maxDim / globalSize;
             const isSphere = aspect < 1.55 && sizeFrac < 0.22 && sizeFrac > 0.04;
+            _debug.push({ name: mesh.name || '?', aspect: +aspect.toFixed(2), sizeFrac: +sizeFrac.toFixed(3), isSphere, center: [+center.x.toFixed(4), +center.y.toFixed(4), +center.z.toFixed(4)] });
             if (isSphere) {
               mesh.material = orbMat;
               sphereMeshes.push(mesh);
@@ -261,6 +263,7 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
             mesh.castShadow = false;
             mesh.receiveShadow = false;
           });
+          window.__pendantDebug = { meshes: _debug, sphereCount: sphereMeshes.length, sphereCenter: sphereCenter ? [+sphereCenter.x.toFixed(4), +sphereCenter.y.toFixed(4), +sphereCenter.z.toFixed(4)] : null };
 
           // Scale to fit the on-screen frame, then center at origin.
           const box = new THREE.Box3().setFromObject(model);
