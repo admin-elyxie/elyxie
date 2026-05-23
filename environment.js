@@ -43,7 +43,10 @@
     z: 0.0,           // push the whole valley along Z if needed
     fog: true,
     godrays: true,
-    sunDir: [0.16, 0.54, -0.83], // matches the baked sky break
+    // Reference photo: the sun-break sits in the UPPER-RIGHT quadrant and
+    // light cascades down-left. Bias sun toward +X (right) and slightly
+    // toward camera so the warm rim catches the angel from the right.
+    sunDir: [0.62, 0.50, -0.45],
   };
 
   // Soft radial sprite texture for the god-ray shafts.
@@ -79,7 +82,10 @@
   // the angel.
   function buildSkyEnv(THREE, renderer) {
     const size = 256;
-    function face(top, mid, bot, accent) {
+    // accentX/accentY default to centred so existing callers don't change.
+    // We pass biased coordinates for the +y (zenith) and +x (right) faces
+    // so the water reflects the golden break in the upper-right quadrant.
+    function face(top, mid, bot, accent, accentX, accentY) {
       const c = document.createElement('canvas');
       c.width = size; c.height = size;
       const ctx = c.getContext('2d');
@@ -87,24 +93,26 @@
       g.addColorStop(0, top); g.addColorStop(0.55, mid); g.addColorStop(1, bot);
       ctx.fillStyle = g; ctx.fillRect(0, 0, size, size);
       if (accent) {
-        const rg = ctx.createRadialGradient(size * 0.5, size * 0.32, 0, size * 0.5, size * 0.32, size * 0.45);
+        const ax = accentX != null ? accentX : size * 0.5;
+        const ay = accentY != null ? accentY : size * 0.32;
+        const rg = ctx.createRadialGradient(ax, ay, 0, ax, ay, size * 0.45);
         rg.addColorStop(0, accent); rg.addColorStop(1, 'rgba(0,0,0,0)');
         ctx.fillStyle = rg; ctx.fillRect(0, 0, size, size);
       }
       return c;
     }
     // Cool petrol palette
-    const storm   = '#070b12';   // deep navy storm
-    const horizon = '#1b2a35';   // misty teal at the horizon
-    const floor   = '#03060a';   // black water floor
-    const warm    = 'rgba(255,210,130,0.85)'; // tight golden break
+    const storm   = '#060a10';   // deep navy storm
+    const horizon = '#1c2c3a';   // misty teal at the horizon
+    const floor   = '#02050a';   // black water floor
+    const warm    = 'rgba(255,214,138,0.95)'; // tight golden break (brighter)
     const faces = [
-      face(storm, horizon, floor),                  // +x
-      face(storm, horizon, floor),                  // -x
-      face(storm, storm,   storm, warm),            // +y light break
-      face(floor, floor,   floor),                  // -y
-      face(storm, horizon, floor, warm),            // +z (camera side)
-      face(storm, horizon, floor),                  // -z
+      face(storm, horizon, floor, warm, size * 0.30, size * 0.30), // +x (right side gets the strongest break)
+      face(storm, horizon, floor),                                   // -x (left, no break)
+      face(storm, storm,   storm, warm, size * 0.72, size * 0.32),   // +y: break biased right-of-center
+      face(floor, floor,   floor),                                   // -y (water floor stays black)
+      face(storm, horizon, floor, warm, size * 0.70, size * 0.35),   // +z (camera-side, break biased right)
+      face(storm, horizon, floor),                                   // -z
     ];
     const cube = new THREE.CubeTexture(faces);
     cube.needsUpdate = true; cube.colorSpace = THREE.SRGBColorSpace;
@@ -134,12 +142,12 @@
     // from the camera-front, almost no ambient so shadows on the angel
     // stay deep and the gold reads against a dark scene.
     const sunWorld = sun.clone().multiplyScalar(20);
-    const key = new THREE.DirectionalLight(0xffd28a, 2.4); // warm golden rim
+    const key = new THREE.DirectionalLight(0xffd28a, 3.2); // warm golden rim — dramatic
     key.position.copy(sunWorld);
     scene.add(key);
-    const sky = new THREE.HemisphereLight(0x29404e, 0x040608, 0.45); // cool sky / black floor
+    const sky = new THREE.HemisphereLight(0x2a3f4d, 0x040608, 0.40); // cool sky / black floor
     scene.add(sky);
-    const fill = new THREE.DirectionalLight(0x4d6a82, 0.22); // soft cold fill
+    const fill = new THREE.DirectionalLight(0x4d6a82, 0.20); // soft cold fill
     fill.position.set(-2, 1, 6);
     scene.add(fill);
 
@@ -148,8 +156,9 @@
     const skyDomeMeshes = [];
     // Keep a private fog handle so we can attach/detach it from the scene as
     // the environment fades in / out. Deep petrol tone so mountains read
-    // silhouetted instead of washed out.
-    const envFog = new THREE.Fog(new THREE.Color('#1a2733'), 5.0, 18.0);
+    // silhouetted instead of washed out. Tighter near/far than v1 so the
+    // distant peaks dissolve into haze the way the reference photo does.
+    const envFog = new THREE.Fog(new THREE.Color('#172026'), 3.5, 13.5);
     let loaded = false;
 
     // Reuse pendant's loader if present (handles Draco/KTX2/Meshopt); the env
@@ -171,12 +180,12 @@
           // the dome, no fog application (the dome IS the background).
           const skyMat = new THREE.ShaderMaterial({
             uniforms: {
-              uTop:    { value: new THREE.Color('#04070d') },
-              uMid:    { value: new THREE.Color('#0d1722') },
-              uHoriz:  { value: new THREE.Color('#1a2a37') },
-              uWarm:   { value: new THREE.Color('#ffc275') },
-              uBreakY: { value: 0.62 },
-              uBreakW: { value: 0.16 },
+              uTop:    { value: new THREE.Color('#02040a') }, // deeper storm zenith
+              uMid:    { value: new THREE.Color('#0b1620') },
+              uHoriz:  { value: new THREE.Color('#1c2c39') },
+              uWarm:   { value: new THREE.Color('#ffce82') }, // brighter golden break
+              uBreakY: { value: 0.54 },                       // lower in sky → reads as ceiling break
+              uBreakW: { value: 0.22 },                       // wider streak
             },
             vertexShader: `
               varying vec3 vWorldPos;
@@ -192,17 +201,21 @@
               void main() {
                 vec3 d = normalize(vWorldPos);
                 float h = clamp(d.y * 0.5 + 0.5, 0.0, 1.0); // 0=floor 1=zenith
-                // base petrol gradient
+                // base petrol gradient (darker storm)
                 vec3 col = mix(uHoriz, uMid, smoothstep(0.45, 0.7, h));
                 col = mix(col, uTop, smoothstep(0.78, 1.0, h));
-                // tight golden break, biased toward camera side (-z)
-                float side = clamp(1.0 - abs(d.x) * 1.4, 0.0, 1.0);
-                float front = clamp(0.5 + d.z * -0.6, 0.0, 1.0);
+                // Tight golden break biased to the UPPER-RIGHT quadrant of
+                // the dome (matches the reference photo where the sun rays
+                // emerge from the right side of frame). +d.x → right, and
+                // we still bias slightly toward the camera (-z) so the
+                // break stays in shot from the standard sec02 camera.
+                float right = clamp(0.30 + d.x * 0.95, 0.0, 1.0);
+                float front = clamp(0.45 + d.z * -0.55, 0.0, 1.0);
                 float breakMask = exp(-pow((h - uBreakY) / uBreakW, 2.0));
-                breakMask *= side * front;
-                col += uWarm * breakMask * 1.8;
+                breakMask *= right * front;
+                col += uWarm * breakMask * 2.7; // brighter, more dramatic break
                 // subtle vignette toward floor
-                col *= mix(0.6, 1.0, smoothstep(0.15, 0.5, h));
+                col *= mix(0.55, 1.0, smoothstep(0.15, 0.5, h));
                 gl_FragColor = vec4(col, 1.0);
               }`,
             side: THREE.BackSide,
@@ -215,13 +228,14 @@
           m.renderOrder = -10;
           skyDomeMeshes.push(m);
         } else if (name.startsWith('Water')) {
-          // Reflective lagoon: very low roughness + sky env so the cloud
-          // break mirrors down the lake centre. The vertex colors carry
+          // Highly reflective lagoon: very low roughness + sky env so the
+          // golden cloud break mirrors down the lake centre and the angel
+          // silhouette + orb show a clean reflection. Vertex colors carry
           // the baked under-light streak.
           const mat = new THREE.MeshStandardMaterial({
-            color: new THREE.Color('#03060a'),
-            metalness: 0.05, roughness: 0.06,
-            envMap: skyEnv, envMapIntensity: 1.8,
+            color: new THREE.Color('#02050a'),
+            metalness: 0.08, roughness: 0.035,         // tighter mirror
+            envMap: skyEnv, envMapIntensity: 2.2,      // sky reflection brighter
             vertexColors: true, transparent: true, opacity: 0.96,
           });
           m.material = mat;
@@ -245,27 +259,44 @@
     }, undefined, (e) => console.error('Failed to load environment GLB:', e));
 
     // ---- god-ray shafts (additive, depth-write off) ----
+    // Reference photo: a dozen distinct light shafts cascade FROM the
+    // upper-right cloud break DOWN-LEFT across the lagoon. We cluster the
+    // origin points high & right and let them spread diagonally into the
+    // mid-scene so the silhouette of the angel sits in the path of the rays.
     let rays = null;
     if (o.godrays) {
       rays = new THREE.Group();
       const tex = rayTexture(THREE);
-      const n = 9;
+      const n = 12;
       for (let i = 0; i < n; i++) {
-        const w = 0.7 + Math.random() * 1.1;
-        const h = 11 + Math.random() * 5;
+        // Wider and taller than v1: reference shafts are soft and large,
+        // not pencil-thin. Each plane covers more vertical real-estate so a
+        // handful of them reads as a continuous cascade rather than tally
+        // marks.
+        const w = 1.0 + Math.random() * 1.4;
+        const h = 16 + Math.random() * 7;
         const mat = new THREE.MeshBasicMaterial({
           map: tex, transparent: true, opacity: 0.0,
           blending: THREE.AdditiveBlending, depthWrite: false,
           depthTest: true, side: THREE.DoubleSide, toneMapped: false,
-          color: new THREE.Color('#ffcf80'),
+          color: new THREE.Color('#ffd28a'),
         });
         const q = new THREE.Mesh(new THREE.PlaneGeometry(w, h), mat);
-        // fan the shafts out from the light break toward the water,
-        // angled so they read as parallel rays from a single high source.
-        const spread = (i / (n - 1) - 0.5);
-        q.position.set(spread * 3.6, 2.6, -3.5 - Math.random() * 2.5);
-        q.rotation.z = spread * 0.35;
-        q.userData = { phase: Math.random() * 6.28, base: 0.30 + Math.random() * 0.25 };
+        // Parametric trajectory from upper-right break (t=0) toward the
+        // angel/water in mid-left (t=1). Subtle jitter so the rays don't
+        // line up too perfectly.
+        const t = i / (n - 1);
+        const sx = 2.9 - t * 2.6;                  // 2.9 → 0.3 (right→center)
+        const sy = 3.7 - t * 1.4;                  // 3.7 → 2.3 (high → mid)
+        const jx = (Math.random() - 0.5) * 0.45;
+        const jz = (Math.random() - 0.5) * 0.55;
+        q.position.set(sx + jx, sy, -3.4 - Math.random() * 2.6 + jz);
+        // Slight counter-clockwise tilt so the cascade reads as diagonal
+        // top-right → bottom-left in screen space. Stored in userData
+        // because lookAt() in update() overwrites rotation each frame —
+        // tilt is re-applied via rotateZ AFTER lookAt.
+        const tilt = -0.18 - (i / n) * 0.06;
+        q.userData = { phase: Math.random() * 6.28, base: 0.42 + Math.random() * 0.28, tilt };
         rays.add(q);
       }
       scene.add(rays);
@@ -296,16 +327,16 @@
           rays.visible = on;
         }
         // Lights: scale relative to authored intensities.
-        key.intensity  = 2.4  * v;
-        sky.intensity  = 0.45 * v;
-        fill.intensity = 0.22 * v;
+        key.intensity  = 3.2  * v;
+        sky.intensity  = 0.40 * v;
+        fill.intensity = 0.20 * v;
         // Fog: only attach when the env is on. Slightly tighter near plane
         // at low v so the fade reads as fog dissolving instead of popping.
         if (on) {
           if (scene.fog !== envFog) scene.fog = envFog;
-          envFog.near = 3.0 + (5.0 - 3.0) * v;
-          envFog.far  = 12.0 + (18.0 - 12.0) * v;
-          envFog.color.setRGB(0.102, 0.153, 0.200); // deep petrol
+          envFog.near = 2.5 + (3.5 - 2.5) * v;
+          envFog.far  = 9.0  + (13.5 - 9.0) * v;
+          envFog.color.setRGB(0.090, 0.125, 0.150); // deep cool petrol
         } else if (scene.fog === envFog) {
           scene.fog = null;
         }
@@ -330,12 +361,16 @@
           pos.needsUpdate = true;
           m.geometry.computeVertexNormals();
         }
-        // shimmer the god-rays and always face the camera
+        // shimmer the god-rays and always face the camera, then re-apply
+        // the per-ray tilt so the cascade stays diagonal in screen space.
         if (rays) {
           rays.children.forEach((q) => {
             const u = q.userData;
             q.material.opacity = u.base * (0.6 + 0.4 * Math.sin(elapsed * 0.7 + u.phase));
-            if (camera) q.lookAt(camera.position.x, q.position.y, camera.position.z);
+            if (camera) {
+              q.lookAt(camera.position.x, q.position.y, camera.position.z);
+              if (u.tilt) q.rotateZ(u.tilt);
+            }
           });
         }
       },
