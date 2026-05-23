@@ -275,6 +275,17 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
           const goldWarm = buildGoldMaterial(THREE, 'warm');
           const goldBright = buildGoldMaterial(THREE, 'bright');
           const orbMat = buildOrbMaterial(THREE);
+          // Track gold materials so the phase 02 (ORIGEN) animate loop can
+          // walk down their envMapIntensity. The gold is `metalness: 1.0`, so
+          // its visible color comes almost entirely from the env map — dimming
+          // the direct lights alone does NOT darken the wing/body surface.
+          // Without this hook the wings stay bright-gold even with phaseSun
+          // backlighting, instead of reading as the dark silhouette the
+          // Laguna Negra reference photo shows.
+          stateRef.current.materials.goldMaterials = [
+            { mat: goldWarm,   baseEnv: 1.6 },
+            { mat: goldBright, baseEnv: 1.8 },
+          ];
 
           // Detect the "plato" sphere by perfect cubic bbox (aspect very close
           // to 1) and a size that's a small-but-visible fraction of the model.
@@ -369,11 +380,10 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
           angel.rotation.z = 0;
         } else {
           // Auto-rotation removed per design v1.4: model stays in its default
-          // forward-facing pose. EXCEPTION: during phase 02 (ORIGEN), turn
-          // the angel −30° around Y so its face quarter-profiles toward the
-          // viewer's left and the right shoulder catches the upper-right
-          // sun-break — matches the reference Laguna Negra composite.
-          angel.rotation.y = (-Math.PI / 6) * phaseOriginProximity;
+          // forward-facing pose across all phases — phase 02 included, per
+          // updated reference composite (angel facing camera, not quarter-
+          // profile).
+          angel.rotation.y = 0;
           angel.rotation.x = 0;
           angel.rotation.z = 0;
         }
@@ -452,29 +462,69 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
 
         // ===== Phase 02 (ORIGEN) light shaping =====
         // Same gaussian as the backdrop + framing, so light/camera/photo all
-        // ramp in synchronously. At peak: strong warm sun from upper-right,
-        // soft cool bounce from below-left, and the base ambient dimmed so
-        // shadows on the angel's left side actually read dark.
-        phaseSun.intensity        = 3.4 * phaseOriginProximity;
-        phaseSunBounce.intensity  = 0.45 * phaseOriginProximity;
-        ambient.intensity         = 0.22 * lerp(1.0, 0.45, phaseOriginProximity);
-        fill.intensity            = 0.75 * lerp(1.0, 0.55, phaseOriginProximity);
-        top.intensity             = 0.35 * lerp(1.0, 0.60, phaseOriginProximity);
+        // ramp in synchronously. At peak: warm sun from upper-right, cool
+        // bounce from below-left, and the base lights pushed WAY down so the
+        // shadow side reads almost black — matches the noir-cinematic feel of
+        // the reference Laguna Negra composite (deep chiaroscuro, not
+        // golden-glow).
+        //
+        // Sun DIRECTION lerp (gated by phaseOriginProximity, so other phases
+        // are untouched): cross phaseSun from its neutral upper-front spot
+        // (+Z) over to BACK-right (-Z) as the user scrolls into phase 02.
+        // The reference photo's sun-break is BEHIND the angel — rim light
+        // catches the right shoulder / outer wing feathers, face stays dim.
+        // X stays positive (right of angel), Y slightly lower to match the
+        // shallower elevation of the visible god-rays, Z crosses zero so the
+        // light source ends up behind the figure.
+        phaseSun.position.set(
+          lerp(4.2,  5.6, phaseOriginProximity),
+          lerp(5.0,  4.2, phaseOriginProximity),
+          lerp(2.2, -3.0, phaseOriginProximity),
+        );
+        phaseSun.intensity        = 2.6 * phaseOriginProximity;
+        phaseSunBounce.intensity  = 0.18 * phaseOriginProximity;
+        ambient.intensity         = 0.22 * lerp(1.0, 0.08, phaseOriginProximity);
+        fill.intensity            = 0.75 * lerp(1.0, 0.08, phaseOriginProximity);
+        top.intensity             = 0.35 * lerp(1.0, 0.10, phaseOriginProximity);
 
         const breathe = 0.5 + 0.5 * Math.sin(clock.elapsed * (Math.PI * 2) / 4.0);
         const phaseBoost = 1.0 + 1.6 * Math.exp(-Math.pow((tRaw - 0.6) / 0.18, 2));
+        // Phase 02 (ORIGEN) orb dim: the orb material is `toneMapped: false`,
+        // so the global exposure dip does NOT darken it — making the orb read
+        // blown-white against a dimmed body. Decouple two scalars:
+        //   - phaseOrbEmissive: pull the white emissive WAY down so the orb
+        //     reads as a soft teal sphere, not a flashlight.
+        //   - phaseOrbLight:    keep the green PointLight more present so the
+        //     local rim of green on the nearest feathers still reads.
+        const phaseOrbEmissive = lerp(1.0, 0.16, phaseOriginProximity);
+        const phaseOrbLight    = lerp(1.0, 0.55, phaseOriginProximity);
+        // Phase 02 wing/body shadow: drop envMapIntensity on the gold metals
+        // hard. With metalness=1.0 the wings reflect the env map directly, so
+        // their bright-gold body is NOT a direct-light effect — it's IBL. To
+        // match the reference's silhouetted backlit wings (dark feather
+        // interiors, only the back-right phaseSun catching the outer edges
+        // and tips), the env contribution must drop to a small fraction of
+        // its base. Lerp gated by phaseOriginProximity so other phases keep
+        // their full metallic shine.
+        const phaseGoldEnv = lerp(1.0, 0.26, phaseOriginProximity);
+        stateRef.current.materials.goldMaterials?.forEach(({ mat, baseEnv }) => {
+          mat.envMapIntensity = baseEnv * phaseGoldEnv;
+        });
         // Whisper-soft green rim — gold dominates. SOUL phase blooms the green.
         rim.intensity = (0.07 + breathe * 0.04) * stateRef.current.glowIntensity * phaseBoost;
         // Local-only orb glow: the PointLight is tight (1.5 range, 2.5 decay)
         // so this intensity only affects the orb and nearest feathers.
-        sphereLight.intensity = (0.45 + breathe * 0.30) * stateRef.current.glowIntensity * Math.min(phaseBoost, 2.0);
+        sphereLight.intensity = (0.45 + breathe * 0.30) * stateRef.current.glowIntensity * Math.min(phaseBoost, 2.0) * phaseOrbLight;
         stateRef.current.materials.sphereMeshes.forEach((m) => {
           if (m.material) {
-            m.material.emissiveIntensity = (0.85 + breathe * 0.35) * stateRef.current.glowIntensity * Math.min(phaseBoost, 1.8);
+            m.material.emissiveIntensity = (0.85 + breathe * 0.35) * stateRef.current.glowIntensity * Math.min(phaseBoost, 1.8) * phaseOrbEmissive;
           }
         });
 
-        renderer.toneMappingExposure = lerp(1.1, 0.78, tEase);
+        // Phase 02 (ORIGEN) global exposure dip: pull tone mapping down during
+        // the gaussian peak so highlights compress and shadows deepen — the
+        // moody, slightly-underexposed look of the reference composite.
+        renderer.toneMappingExposure = lerp(1.1, 0.78, tEase) * lerp(1.0, 0.42, phaseOriginProximity);
 
         renderer.render(scene, camera);
         raf = requestAnimationFrame(animate);

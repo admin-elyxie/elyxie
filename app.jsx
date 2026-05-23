@@ -217,11 +217,23 @@ function Hero({ lang, tweaks, pendantRef }) {
             transparent 3D canvas; opacity is driven by a gaussian centered on
             the middle of phase 02's scroll range so the photo only appears
             when the angel is in the "ORIGEN" beat. */}
-        <div
-          className="laguna-bg"
-          aria-hidden
-          style={{ opacity: Math.exp(-Math.pow((progress - 0.29) / 0.085, 2)) }}
-        />
+        {(() => {
+          // Phase 02 (ORIGEN) backdrop: opacity gaussian peaks at progress 0.29.
+          // The same gaussian also drives a slight brightness/contrast filter so
+          // the photograph compresses into the dark, slightly-underexposed mood
+          // of the reference composite when it's fully visible.
+          const o = Math.exp(-Math.pow((progress - 0.29) / 0.085, 2));
+          return (
+            <div
+              className="laguna-bg"
+              aria-hidden
+              style={{
+                opacity: o,
+                filter: `brightness(${1 - 0.18 * o}) contrast(${1 + 0.10 * o}) saturate(${1 + 0.08 * o})`,
+              }}
+            />
+          );
+        })()}
 
         {/* The 3D canvas */}
         <Pendant ref={pendantRef} glowColor={tweaks.glowColor} glowIntensity={tweaks.glowIntensity} />
