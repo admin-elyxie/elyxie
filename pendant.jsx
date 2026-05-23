@@ -72,13 +72,15 @@ function getLoader(renderer) {
   return _loader;
 }
 
-// Phosphor-green orb material. Bright emissive core so the sphere reads as
-// the lit "soul" of the pendant in any lighting condition.
+// Soft mint-white orb. Reference photo shows a bright white center with the
+// green glow emerging only around the rim — not a saturated phosphor color.
+// We keep the white core and let the surrounding rim DirectionalLight +
+// PointLight cast the green tint locally around the orb.
 function buildOrbMaterial(THREE) {
   return new THREE.MeshStandardMaterial({
-    color: new THREE.Color('#c9fcdd'),
-    emissive: new THREE.Color('#7DFFB2'),
-    emissiveIntensity: 1.4,
+    color: new THREE.Color('#eefff5'),
+    emissive: new THREE.Color('#9ef0c2'),
+    emissiveIntensity: 0.9,
     metalness: 0.0,
     roughness: 0.35,
     toneMapped: false,
@@ -163,12 +165,15 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
       container.appendChild(renderer.domElement);
       renderer.domElement.classList.add('scene-canvas');
 
+      // Warm studio palette: reflections on the gold should read as gold,
+      // not green. The orb's own emissive + a tight PointLight cast the
+      // green tint locally; the environment stays warm amber.
       const envMap = buildStudioEnvMap(THREE, renderer, {
-        warm: '#bb8b5a',
-        cool: '#3a6d63',
-        accent: '#8ee0b3',
-        top: '#1a3a32',
-        floor: '#0a1a16',
+        warm: '#c89a66',
+        cool: '#3a2e1c',
+        accent: '#e0b070',
+        top: '#1c1612',
+        floor: '#080604',
       });
       scene.environment = envMap;
 
@@ -179,12 +184,12 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
       key.position.set(3, 4, 5);
       scene.add(key);
 
-      const rim = new THREE.DirectionalLight(new THREE.Color(stateRef.current.glowColor), 0.3);
+      const rim = new THREE.DirectionalLight(new THREE.Color(stateRef.current.glowColor), 0.12);
       rim.position.set(-3, 1, -4);
       scene.add(rim);
 
       // Warm fill on the camera-facing side so the gold reads warm, not green.
-      const fill = new THREE.DirectionalLight(0xffe6b0, 0.55);
+      const fill = new THREE.DirectionalLight(0xffe2a8, 0.75);
       fill.position.set(1.5, 0.5, 5);
       scene.add(fill);
 
@@ -195,10 +200,11 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
       const angel = new THREE.Group();
       scene.add(angel);
 
-      // Phosphor-green point light that "lives" inside the sphere the angel
-      // holds. Position set after we identify the sphere mesh. Casts green
-      // bleed onto the wings/body so the gold reads warm with a green core.
-      const sphereLight = new THREE.PointLight(new THREE.Color(stateRef.current.glowColor), 0, 4.0, 2);
+      // Soft green point light that "lives" inside the sphere the angel
+      // holds. Short range (1.5) + fast decay (2.5) so the green tint stays
+      // local to the orb and the adjacent feathers — the rest of the angel
+      // reads as warm gold, matching the product photo.
+      const sphereLight = new THREE.PointLight(new THREE.Color(stateRef.current.glowColor), 0, 1.5, 2.5);
       angel.add(sphereLight);
 
       const sphereMeshes = [];
@@ -410,14 +416,14 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
 
         const breathe = 0.5 + 0.5 * Math.sin(clock.elapsed * (Math.PI * 2) / 4.0);
         const phaseBoost = 1.0 + 1.6 * Math.exp(-Math.pow((tRaw - 0.6) / 0.18, 2));
-        // Subtle green rim — gold dominates. SOUL phase blooms the green.
-        rim.intensity = (0.18 + breathe * 0.10) * stateRef.current.glowIntensity * phaseBoost;
-        // The orb itself: pulsing emissive + an inner point light that bleeds
-        // green onto the wings/body so they pick up the brand color contrast.
-        sphereLight.intensity = (0.9 + breathe * 0.6) * stateRef.current.glowIntensity * Math.min(phaseBoost, 2.0);
+        // Whisper-soft green rim — gold dominates. SOUL phase blooms the green.
+        rim.intensity = (0.07 + breathe * 0.04) * stateRef.current.glowIntensity * phaseBoost;
+        // Local-only orb glow: the PointLight is tight (1.5 range, 2.5 decay)
+        // so this intensity only affects the orb and nearest feathers.
+        sphereLight.intensity = (0.45 + breathe * 0.30) * stateRef.current.glowIntensity * Math.min(phaseBoost, 2.0);
         stateRef.current.materials.sphereMeshes.forEach((m) => {
           if (m.material) {
-            m.material.emissiveIntensity = (1.3 + breathe * 0.6) * stateRef.current.glowIntensity * Math.min(phaseBoost, 1.8);
+            m.material.emissiveIntensity = (0.85 + breathe * 0.35) * stateRef.current.glowIntensity * Math.min(phaseBoost, 1.8);
           }
         });
 
