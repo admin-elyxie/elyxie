@@ -157,6 +157,30 @@ body[data-theme="dark"] {
   display: block;
 }
 
+/* Phase 02 (ORIGEN) backdrop. The reference photo is portrait 928×1131; on
+   landscape viewports `cover` keeps the central column (lake + sun-break +
+   mountain) visible. Sits below the transparent 3D canvas (z-index: 0 vs the
+   .scene-host's z-index: 1) so the angel composites cleanly on top. */
+.laguna-bg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background-image: url("assets/photography/laguna-negra-bg.jpg");
+  background-size: cover;
+  background-position: center center;
+  background-repeat: no-repeat;
+  pointer-events: none;
+  /* Drive in/out via inline opacity from app.jsx (gaussian on scroll progress).
+     A short transition smooths any micro-jitter at the curve's edges. */
+  transition: opacity 180ms linear;
+  will-change: opacity;
+}
+
+/* Ensure the 3D canvas host sits above the backdrop so the angel composites on
+   top of the photograph. Editorial chrome (.frame, .phase-layer, stepper…)
+   already has higher z-index, so they remain in front of the canvas. */
+.scene-host { z-index: 1; }
+
 /* ---------- Editorial frame: top divider + left rail + corner crosses ---------- */
 .frame {
   position: absolute;

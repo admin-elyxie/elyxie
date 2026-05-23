@@ -213,6 +213,16 @@ function Hero({ lang, tweaks, pendantRef }) {
              style={{ height: `${pinVH * 100}vh` }}
              data-screen-label="01 Hero (scroll-pin)">
       <div className="pin-stage">
+        {/* Phase 02 (ORIGEN) backdrop — Laguna Negra photograph. Sits behind the
+            transparent 3D canvas; opacity is driven by a gaussian centered on
+            the middle of phase 02's scroll range so the photo only appears
+            when the angel is in the "ORIGEN" beat. */}
+        <div
+          className="laguna-bg"
+          aria-hidden
+          style={{ opacity: Math.exp(-Math.pow((progress - 0.29) / 0.085, 2)) }}
+        />
+
         {/* The 3D canvas */}
         <Pendant ref={pendantRef} glowColor={tweaks.glowColor} glowIntensity={tweaks.glowIntensity} />
 
