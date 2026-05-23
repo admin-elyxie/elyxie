@@ -339,17 +339,47 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
           angel.rotation.x = 0;
           angel.rotation.z = 0;
         } else {
-          angel.rotation.y = tRaw * Math.PI * 2.2 + clock.elapsed * 0.06;
-          angel.rotation.x = lerp(-0.10, 0.02, tEase) + Math.sin(clock.elapsed * 0.6) * 0.015;
-          angel.rotation.z = lerp(0.04, -0.02, tEase);
+          // Auto-rotation removed per design v1.4: model stays in its default
+          // forward-facing pose. No spin tied to scroll or clock.
+          angel.rotation.y = 0;
+          angel.rotation.x = 0;
+          angel.rotation.z = 0;
         }
         // Keep debug freeze hook so we can verify back/side views via JS
 
         const phaseSoulProximity = Math.exp(-Math.pow((tRaw - 0.63) / 0.12, 2));
-        const px = lerp(0.65, 0.45, tEase) * (1 - phaseSoulProximity * 0.85)
+
+        // ===== Responsive framing =====
+        // Desktop: text sits on the LEFT half, so push the angel toward the
+        // right (px ~0.45–0.65 world units). On tablet the text column is
+        // narrower so we ease the angel back toward center. On mobile the
+        // text is centered above the angel, so we center the model
+        // horizontally and drop it lower in the frame.
+        const vw = container.clientWidth || window.innerWidth;
+        const aspect = (container.clientWidth || 1) / (container.clientHeight || 1);
+        const isMobile = vw <= 767;
+        const isTablet = vw > 767 && vw <= 1024;
+
+        let pxBase, pyOffset, camZBase;
+        if (isMobile) {
+          pxBase = 0;                 // center horizontally
+          pyOffset = -0.55;           // sit below the centered hero copy
+          camZBase = 4.6;             // pull camera back a touch for portrait
+        } else if (isTablet) {
+          pxBase = lerp(0.30, 0.18, tEase);
+          pyOffset = -0.15;
+          camZBase = null;            // keep original scroll-driven zoom
+        } else {
+          pxBase = lerp(0.65, 0.45, tEase);
+          pyOffset = 0;
+          camZBase = null;
+        }
+
+        const px = pxBase * (1 - phaseSoulProximity * 0.85)
                  + Math.sin(clock.elapsed * 0.35) * 0.02;
-        const py = -0.05 + Math.sin(clock.elapsed * 0.4) * 0.03
-                         + Math.sin(tRaw * Math.PI) * 0.06;
+        const py = -0.05 + pyOffset
+                 + Math.sin(clock.elapsed * 0.4) * 0.03
+                 + Math.sin(tRaw * Math.PI) * 0.06;
         angel.position.set(px, py, 0);
 
         let camZ;
@@ -359,6 +389,19 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
           camZ = lerp(4.8, 3.0, easeInOut((tRaw - 0.55) / 0.17));
         } else {
           camZ = lerp(3.0, 5.8, easeInOut((tRaw - 0.72) / 0.28));
+        }
+        // Narrow portrait viewports: vertical FOV is the bottleneck so the
+        // model can look oversized. Push the camera back proportionally so
+        // the angel sits comfortably inside the frame on phones.
+        if (aspect < 0.75) {
+          camZ *= (0.75 / Math.max(aspect, 0.45)); // up to ~1.67× pullback on very tall portrait
+        } else if (aspect < 1.0) {
+          camZ *= 1.12;
+        }
+        if (camZBase != null && tRaw < 0.55) {
+          // On mobile, override the closeup-at-top with a steady framing so
+          // the angel doesn't jump forward into the hero copy on first paint.
+          camZ = Math.max(camZ, camZBase);
         }
         camera.position.z = camZ;
         camera.position.x = Math.sin(clock.elapsed * 0.25) * 0.05;
