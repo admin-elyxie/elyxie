@@ -48,6 +48,10 @@
   <!-- Tweaks panel starter (provides TweaksPanel, TweakSection, TweakSlider, TweakColor, useTweaks) -->
   <script type="text/babel" src="tweaks-panel.jsx"></script>
 
+  <!-- Lagoon environment helper (window.addElyxieEnvironment). Classic script
+       so it runs before pendant.jsx finishes Babel transpile + executes. -->
+  <script src="environment.js"></script>
+
   <!-- Pendant 3D scene (classic; uses window.THREE etc. populated by the preamble) -->
   <script type="text/babel" src="pendant.jsx"></script>
 

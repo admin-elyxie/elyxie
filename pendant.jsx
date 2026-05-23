@@ -197,6 +197,21 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
       top.position.set(0, 6, 0);
       scene.add(top);
 
+      // ── Lagoon environment ────────────────────────────────────────────
+      // Loaded once, faded in only while the user is reading section 02
+      // (ORIGEN). Sky dome needs a far camera plane.
+      camera.far = 200;
+      camera.updateProjectionMatrix();
+      window.__elyxieGetLoader = () => getLoader(renderer);
+      const elyxieEnv = window.addElyxieEnvironment
+        ? window.addElyxieEnvironment({
+            THREE, scene, renderer, camera,
+            modelUrl: 'assets/models/environment.glb',
+          })
+        : null;
+      // start hidden — fade is driven from the animate loop
+      if (elyxieEnv) elyxieEnv.setVisibility(0);
+
       const angel = new THREE.Group();
       scene.add(angel);
 
@@ -340,14 +355,28 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
         const tRaw = clamp(stateRef.current.progress, 0, 1);
         const tEase = easeInOut(tRaw);
 
+        // ── Section 02 (ORIGEN) window ─────────────────────────────────
+        // Range from app.jsx PHASES is [0.18, 0.40]. We fade the lagoon
+        // environment in slightly before the phase starts and out slightly
+        // after it ends so the cinematic reveal feels intentional.
+        let sec02W;
+        if (tRaw < 0.13 || tRaw > 0.45) sec02W = 0;
+        else if (tRaw < 0.20) sec02W = easeInOut((tRaw - 0.13) / 0.07);
+        else if (tRaw > 0.38) sec02W = easeInOut(Math.max(0, (0.45 - tRaw) / 0.07));
+        else sec02W = 1;
+
+        if (elyxieEnv) elyxieEnv.setVisibility(sec02W);
+
         if (window.__debugFreezeY !== undefined) {
           angel.rotation.y = window.__debugFreezeY;
           angel.rotation.x = 0;
           angel.rotation.z = 0;
         } else {
-          // Auto-rotation removed per design v1.4: model stays in its default
-          // forward-facing pose. No spin tied to scroll or clock.
-          angel.rotation.y = 0;
+          // Default pose: forward-facing. ONLY during section 02 (ORIGEN)
+          // we rotate ~30° to the right so the angel reads as standing
+          // dynamically in the lagoon, matching the reference comp. The
+          // rotation crossfades back to 0 outside section 02.
+          angel.rotation.y = Math.PI / 6 * sec02W; // +30° at full sec02W
           angel.rotation.x = 0;
           angel.rotation.z = 0;
         }
@@ -386,7 +415,16 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
         const py = -0.05 + pyOffset
                  + Math.sin(clock.elapsed * 0.4) * 0.03
                  + Math.sin(tRaw * Math.PI) * 0.06;
-        angel.position.set(px, py, 0);
+
+        // Section 02 (ORIGEN) override: center the angel horizontally and
+        // sink it ankle-deep into the water so the lagoon visibly surrounds
+        // the figure. Crossfades with sec02W so other sections keep their
+        // existing framing exactly as before.
+        const cinPx = 0.0;
+        const cinPy = -0.18;                             // ankles in water
+        const pxFinal = lerp(px, cinPx, sec02W);
+        const pyFinal = lerp(py, cinPy, sec02W);
+        angel.position.set(pxFinal, pyFinal, 0);
 
         let camZ;
         if (tRaw < 0.55) {
@@ -409,10 +447,25 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
           // the angel doesn't jump forward into the hero copy on first paint.
           camZ = Math.max(camZ, camZBase);
         }
+        // Section 02: pull the camera back and DOWN for a low cinematic
+        // angle ("from the shore looking up"), then crossfade back to the
+        // scroll-driven zoom. Other sections are untouched.
+        const cinCamZ = isMobile ? 6.2 : (isTablet ? 5.6 : 5.2);
+        camZ = lerp(camZ, cinCamZ, sec02W);
+        // Renderer exposure: dim everything during sec02 so the petrol
+        // palette + golden rim read like a Roger Deakins night-dawn,
+        // instead of the bright studio look used in other sections.
+        const baseExposure = lerp(1.1, 0.78, tEase);
+        renderer.toneMappingExposure = lerp(baseExposure, 0.62, sec02W);
         camera.position.z = camZ;
         camera.position.x = Math.sin(clock.elapsed * 0.25) * 0.05;
-        camera.position.y = Math.cos(clock.elapsed * 0.3) * 0.04;
-        camera.lookAt(0, 0, 0);
+        // Slightly drop the camera during section 02 so the angle reads
+        // as "from the shoreline looking up" — feet on water, sky above.
+        const baseCamY = Math.cos(clock.elapsed * 0.3) * 0.04;
+        camera.position.y = lerp(baseCamY, baseCamY - 0.45, sec02W);
+        // Aim point also lifts a touch so the wings sit higher in frame
+        const lookY = lerp(0, 0.25, sec02W);
+        camera.lookAt(0, lookY, 0);
 
         const breathe = 0.5 + 0.5 * Math.sin(clock.elapsed * (Math.PI * 2) / 4.0);
         const phaseBoost = 1.0 + 1.6 * Math.exp(-Math.pow((tRaw - 0.6) / 0.18, 2));
@@ -427,7 +480,23 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
           }
         });
 
-        renderer.toneMappingExposure = lerp(1.1, 0.78, tEase);
+        // Section 02: dial DOWN the studio envMap on the gold so the angel
+        // is dominated by the lagoon's directional key (warm rim) + petrol
+        // ambient, instead of looking like a gold studio render.
+        if (sec02W > 0 && angel.children.length) {
+          angel.traverse((o) => {
+            if (!o.isMesh || !o.material) return;
+            if (o.material._baseEnvIntensity == null) {
+              o.material._baseEnvIntensity = o.material.envMapIntensity ?? 1;
+            }
+            o.material.envMapIntensity = o.material._baseEnvIntensity * (1 - 0.55 * sec02W);
+          });
+        }
+
+        // Drive the lagoon's water ripple + god-ray shimmer on every frame
+        // (cheap even when invisible, and keeps the animation phase coherent
+        // when the env fades back in for the next visit to section 02).
+        if (elyxieEnv) elyxieEnv.update(clock.elapsed, tRaw);
 
         renderer.render(scene, camera);
         raf = requestAnimationFrame(animate);
