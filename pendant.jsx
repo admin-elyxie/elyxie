@@ -162,6 +162,13 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
       renderer.toneMapping = THREE.ACESFilmicToneMapping;
       renderer.toneMappingExposure = 1.05;
       renderer.outputColorSpace = THREE.SRGBColorSpace;
+      // Shadow map (used by phase01Spot to cast the angel's silhouette onto
+      // the orb itself + onto the smoke-catcher plane behind the model). All
+      // other phase lights have castShadow=false, so this is a phase-01-only
+      // visual cost — phases 02/03/04/05 simply skip shadow rendering for
+      // their lights and the shadow plane stays at opacity 0.
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
       container.appendChild(renderer.domElement);
       renderer.domElement.classList.add('scene-canvas');
 
@@ -197,6 +204,51 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
       top.position.set(0, 6, 0);
       scene.add(top);
 
+      // ---- Phase 01 (BIENVENIDA) lighting rig ----
+      // Single overhead "spotlight" that mimics the visible volumetric light
+      // shaft in the reference. Positioned high and slightly to the front-
+      // right of the angel so the top of the head, upper-wing arc, and the
+      // orb catch strong warm-white highlights; the cloth and legs fall into
+      // shadow because the front-warm key/fill are damped during phase 01.
+      // Intensity ramps via `phase01Proximity` in the animate loop — zero
+      // outside phase 01, so the original lighting rig is intact elsewhere.
+      const phase01Spot = new THREE.DirectionalLight(0xfff2dc, 0);
+      phase01Spot.position.set(2.4, 8.5, 1.8);
+      // Cast a soft shadow from this light so the angel's hand throws a
+      // visible shadow on the orb (the reference shows this contrast at
+      // the top of the orb) AND so the angel silhouette projects onto
+      // the smoke-catcher plane sitting behind the model. The shadow
+      // contribution is gated by phase01Spot.intensity → 0 outside phase
+      // 01, so no shadow energy bleeds into other phases.
+      phase01Spot.castShadow = true;
+      phase01Spot.shadow.mapSize.set(1024, 1024);
+      phase01Spot.shadow.camera.near = 0.5;
+      phase01Spot.shadow.camera.far = 14;
+      phase01Spot.shadow.camera.left   = -2.5;
+      phase01Spot.shadow.camera.right  =  2.5;
+      phase01Spot.shadow.camera.top    =  2.5;
+      phase01Spot.shadow.camera.bottom = -2.5;
+      phase01Spot.shadow.bias       = -0.0008;
+      phase01Spot.shadow.normalBias =  0.02;
+      phase01Spot.shadow.radius     =  8;
+      scene.add(phase01Spot);
+
+      // Phase 01 (BIENVENIDA) smoke-shadow catcher plane. Sits behind the
+      // angel; receives the phase01Spot shadow so the angel's silhouette
+      // appears as a dark streak THROUGH the CSS smoke layer beneath the
+      // canvas (the canvas paints dark where the shadow falls, occluding
+      // the smoke in that region — "shadow on smoke" effect from the
+      // reference). ShadowMaterial is transparent everywhere except where
+      // shadow lands. Opacity ramps via phase01Proximity → 0 outside.
+      const smokeShadowPlane = new THREE.Mesh(
+        new THREE.PlaneGeometry(10, 10),
+        new THREE.ShadowMaterial({ color: 0x000000, opacity: 0, transparent: true, depthWrite: false }),
+      );
+      smokeShadowPlane.position.set(0, 0, -2.0);
+      smokeShadowPlane.receiveShadow = true;
+      scene.add(smokeShadowPlane);
+
+
       // ---- Phase 02 (ORIGEN) lighting rig ----
       // Both lights start at intensity 0 and are modulated in the animate loop
       // by `phaseOriginProximity`, so they ONLY affect the angel while the
@@ -223,8 +275,118 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
       const sphereLight = new THREE.PointLight(new THREE.Color(stateRef.current.glowColor), 0, 1.5, 2.5);
       angel.add(sphereLight);
 
+      // Fairy-dust COMET TRAILS. A small number of particles (≈22), each
+      // following its own gentle spiral trajectory around a random axis.
+      // Instead of rendering each particle as a point, we draw the recent
+      // history of its position as a line segment trail — a thin streak
+      // of light like a shooting star. Trail colors fade from transparent
+      // (tail) to bright (head) using vertex colors. Each particle's life
+      // cycle: spawn at orb → spiral outward → head fades first while the
+      // tail lingers → respawn. Trails are sampled every few frames
+      // (DUST_SAMPLE_INTERVAL) so they span real motion time, not a
+      // single frame.
+      const DUST_COUNT = 22;
+      const TRAIL_PTS  = 14;
+      const TRAIL_SEGS = TRAIL_PTS - 1;
+      const VERTS_PER_PARTICLE = TRAIL_SEGS * 2;
+      const TOTAL_VERTS = DUST_COUNT * VERTS_PER_PARTICLE;
+
+      const dustGeom = new THREE.BufferGeometry();
+      const dustPositions = new Float32Array(TOTAL_VERTS * 3);
+      const dustColors    = new Float32Array(TOTAL_VERTS * 3);
+      dustGeom.setAttribute('position', new THREE.BufferAttribute(dustPositions, 3));
+      dustGeom.setAttribute('color',    new THREE.BufferAttribute(dustColors,    3));
+
+      // Per-particle state arrays:
+      //  dustAxis    — unit vector the particle spirals around
+      //  dustInitDir — unit vector in the plane perpendicular to the axis
+      //                (initial radial direction)
+      //  dustAngSpd  — angular speed around the axis (rad/sec)
+      //  dustOutSpd  — outward radial speed (world units / sec)
+      //  dustLife    — current life (seconds)
+      //  dustMaxLife — particle dies when life ≥ maxLife
+      //  dustHistory — circular buffer of TRAIL_PTS past positions per particle
+      //  dustHistIdx — next write index into the history buffer
+      const dustAxis    = new Float32Array(DUST_COUNT * 3);
+      const dustInitDir = new Float32Array(DUST_COUNT * 3);
+      const dustAngSpd  = new Float32Array(DUST_COUNT);
+      const dustOutSpd  = new Float32Array(DUST_COUNT);
+      const dustLife    = new Float32Array(DUST_COUNT);
+      const dustMaxLife = new Float32Array(DUST_COUNT);
+      const dustHistory = new Float32Array(DUST_COUNT * TRAIL_PTS * 3);
+      const dustHistIdx = new Int32Array(DUST_COUNT);
+
+      const glowCol = new THREE.Color(stateRef.current.glowColor);
+
+      // Pick a uniformly random unit vector and write into target[off..off+2].
+      const _randUnit = (target, off) => {
+        const theta = Math.random() * Math.PI * 2;
+        const cosPhi = 2 * Math.random() - 1;
+        const sinPhi = Math.sqrt(1 - cosPhi * cosPhi);
+        target[off]     = sinPhi * Math.cos(theta);
+        target[off + 1] = sinPhi * Math.sin(theta);
+        target[off + 2] = cosPhi;
+      };
+
+      // Reset a particle's parameters and trail history (called on init + respawn).
+      const _resetParticle = (i) => {
+        _randUnit(dustAxis, i * 3);
+        // initDir = random unit, projected to be perpendicular to axis so the
+        // particle spirals in a stable plane.
+        _randUnit(dustInitDir, i * 3);
+        const ax = dustAxis[i*3], ay = dustAxis[i*3 + 1], az = dustAxis[i*3 + 2];
+        const dot = dustInitDir[i*3] * ax + dustInitDir[i*3 + 1] * ay + dustInitDir[i*3 + 2] * az;
+        dustInitDir[i*3]     -= dot * ax;
+        dustInitDir[i*3 + 1] -= dot * ay;
+        dustInitDir[i*3 + 2] -= dot * az;
+        const len = Math.hypot(dustInitDir[i*3], dustInitDir[i*3 + 1], dustInitDir[i*3 + 2]);
+        if (len > 0.001) {
+          dustInitDir[i*3]     /= len;
+          dustInitDir[i*3 + 1] /= len;
+          dustInitDir[i*3 + 2] /= len;
+        } else {
+          dustInitDir[i*3] = 1; dustInitDir[i*3 + 1] = 0; dustInitDir[i*3 + 2] = 0;
+        }
+        // Per-particle motion variety: some slow lingering wisps, some
+        // slightly quicker embers. Speeds dialed DOWN from the previous
+        // pass so trails don't sprawl across the frame — keeps the effect
+        // subtle and elegant, like delicate fairy dust orbiting the orb.
+        dustAngSpd[i]  = (Math.random() < 0.5 ? -1 : 1) * (0.35 + Math.random() * 0.85);
+        dustOutSpd[i]  = 0.05 + Math.random() * 0.10;
+        dustMaxLife[i] = 2.5 + Math.random() * 2.5;
+        // Reset history to orb (all zeros) so the freshly-spawned trail starts
+        // at the orb instead of from the previous death position.
+        const hBase = i * TRAIL_PTS * 3;
+        for (let j = 0; j < TRAIL_PTS * 3; j++) dustHistory[hBase + j] = 0;
+        dustHistIdx[i] = 0;
+      };
+
+      for (let i = 0; i < DUST_COUNT; i++) {
+        _resetParticle(i);
+        // Stagger initial lives so the swarm isn't in lockstep.
+        dustLife[i] = Math.random() * dustMaxLife[i];
+      }
+
+      // LineBasicMaterial: thin streaks. vertexColors lets us fade each
+      // segment from head (bright) to tail (transparent) and modulate by
+      // life. Additive blending makes overlapping trails glow brighter.
+      const dustMat = new THREE.LineBasicMaterial({
+        vertexColors: true,
+        transparent: true,
+        opacity: 0,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+      });
+      const fairyDust = new THREE.LineSegments(dustGeom, dustMat);
+      angel.add(fairyDust);
+
       const sphereMeshes = [];
-      stateRef.current.materials = { rim, sphereLight, sphereMeshes };
+      stateRef.current.materials = {
+        rim, sphereLight, sphereMeshes, smokeShadowPlane,
+        fairyDust, dustAxis, dustInitDir, dustAngSpd, dustOutSpd,
+        dustLife, dustMaxLife, dustHistory, dustHistIdx, dustColors,
+        glowCol, DUST_COUNT, TRAIL_PTS, TRAIL_SEGS, _resetParticle,
+      };
 
       let modelLoaded = false;
       getLoader(renderer).load(
@@ -321,8 +483,13 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
             } else {
               mesh.material = (idx++ % 5 === 0) ? goldBright : goldWarm;
             }
-            mesh.castShadow = false;
-            mesh.receiveShadow = false;
+            // Cast & receive shadows so phase01Spot can throw the hand's
+            // shadow onto the orb (and the body onto the smoke catcher
+            // plane behind). Other lights have castShadow=false, so no
+            // shadow contribution in other phases — this is essentially
+            // free for them.
+            mesh.castShadow = true;
+            mesh.receiveShadow = true;
           });
 
           // Scale to fit the on-screen frame, then center at origin.
@@ -346,6 +513,11 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
             //   (sphereCenter * scaleFactor) - center
             const p = sphereCenter.clone().multiplyScalar(scaleFactor).sub(center);
             sphereLight.position.copy(p);
+            // Anchor the fairy dust at the orb's local position so the
+            // particles drift around the sphere instead of around angel root.
+            if (stateRef.current.materials.fairyDust) {
+              stateRef.current.materials.fairyDust.position.copy(p);
+            }
           }
 
           angel.add(model);
@@ -358,6 +530,12 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
       let raf = 0;
       let lastT = performance.now();
       const clock = { elapsed: 0 };
+      const _projVec = new THREE.Vector3();
+      // Trail sampling accumulator — write a new history slot every
+      // DUST_SAMPLE_INTERVAL seconds so trails span more time/distance
+      // than a single 60fps frame would allow.
+      let dustSampleAccum = 0;
+      const DUST_SAMPLE_INTERVAL = 0.05;
 
       function animate(now) {
         const dt = (now - lastT) / 1000;
@@ -373,17 +551,42 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
         // overrides (rotation, framing, lighting) ramp in/out together while
         // phases 01 and 03 stay untouched.
         const phaseOriginProximity = Math.exp(-Math.pow((tRaw - 0.29) / 0.075, 2));
+        // Phase 01 (BIENVENIDA) proximity gaussian — peaks at tRaw=0 and
+        // decays to negligible (<1%) by tRaw≈0.18, well before phase 02's
+        // peak at 0.29. Used to gate phase-01-only nudges: angel pushed
+        // right so the headline owns the left half, and a teal vignette
+        // backdrop. Outside phase 01 this is essentially 0 → no effect.
+        const phase01Proximity = Math.exp(-Math.pow(tRaw / 0.08, 2));
+
+        // Face close-up gaussian — peaks BETWEEN phase 01 and phase 02 so the
+        // camera dives in for a face detail beat before pulling back to the
+        // Laguna Negra wide shot. σ=0.045 keeps the bell narrow enough that
+        // it decays to ≈0 at both phase anchors (tRaw=0 and tRaw=0.29),
+        // leaving both fully byte-perfect. Drives camZ, lookAt target, and
+        // the rotation release timing.
+        const faceCloseup = Math.exp(-Math.pow((tRaw - 0.13) / 0.045, 2));
+
+        // Rotation EASE-IN RELEASE: quartic curve (1 - x⁴) holds the angel
+        // near -30° during the early scroll and accelerates sharply near
+        // the close-up peak. Target reference points:
+        //   tRaw=0.04 (x=0.31): rotation ≈ -29.7° (basically still -30°)
+        //   tRaw=0.08 (x=0.62): rotation ≈ -25.6° (small 3/4 view tilt)
+        //   tRaw=0.13 (x=1.00): rotation = 0° (fully forward at peak)
+        // Anchors byte-perfect: rotHold=1 at tRaw=0, rotHold=0 at tRaw>=0.13.
+        const rotX = Math.min(tRaw / 0.13, 1.0);
+        const rotHold = 1.0 - rotX * rotX * rotX * rotX;
 
         if (window.__debugFreezeY !== undefined) {
           angel.rotation.y = window.__debugFreezeY;
           angel.rotation.x = 0;
           angel.rotation.z = 0;
         } else {
-          // Auto-rotation removed per design v1.4: model stays in its default
-          // forward-facing pose across all phases — phase 02 included, per
-          // updated reference composite (angel facing camera, not quarter-
-          // profile).
-          angel.rotation.y = 0;
+          // Phase 01 (BIENVENIDA) self-rotation: angel turns 30° on its own
+          // Y axis toward ITS RIGHT (= viewer's left → negative rotation.y in
+          // Three.js convention). Hold-and-release curve above replaces the
+          // old gaussian decay so the rotation lingers during the camera
+          // close-up beat, then resolves during the pull-back to phase 02.
+          angel.rotation.y = -(Math.PI / 6) * rotHold;
           angel.rotation.x = 0;
           angel.rotation.z = 0;
         }
@@ -406,19 +609,50 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
           pyOffset = -0.55;           // sit below the centered hero copy
           camZBase = 4.6;             // pull camera back a touch for portrait
         } else if (isTablet) {
-          pxBase = lerp(0.30, 0.18, tEase);
-          pyOffset = -0.15;
-          camZBase = null;            // keep original scroll-driven zoom
+          // Push the angel further right (closer to desktop ratio) so the
+          // wings stop colliding with the headline column on the left half.
+          // Camera pulled back to 4.2 so the model scales down for the
+          // narrower viewport and reads ~50% of the frame width.
+          pxBase = lerp(0.65, 0.48, tEase);
+          pyOffset = -0.05;
+          camZBase = 4.2;
         } else {
           pxBase = lerp(0.65, 0.45, tEase);
           pyOffset = 0;
           camZBase = null;
         }
 
+        // Phase 01 (BIENVENIDA) push the angel further to the right so the
+        // headline copy can occupy the left half cleanly — matches the
+        // reference. Decays to 0 by phase 02 via phase01Proximity. Mobile
+        // keeps centered framing because the headline stacks above the
+        // angel on phones (a horizontal shift would break that layout).
+        if (!isMobile) {
+          // Negative shift = move toward the viewer's LEFT (= toward the
+          // angel's own right hand). Aligns the body center with the CSS
+          // light beam at ~74% viewport X, which was previously off-axis
+          // because the natural pxBase places the angel further right at
+          // narrow desktop aspects.
+          pxBase += -0.10 * phase01Proximity;
+        }
+        // Monotonic centering through the phase 01 → phase 02 transition.
+        // smoothstep ramps from 0 at tRaw=0 to 1.0 at tRaw=0.20, so the
+        // angel's world X slides smoothly toward 0 across the close-up
+        // window instead of decaying with the gaussian. Prevents the
+        // rightward "snap back" the user saw between the close-up peak
+        // (where lookFaceX tracking briefly centered the figure) and the
+        // phase 02 anchor (where phaseOriginProximity finally pulls to
+        // center) — the angel now slides MONOTONICALLY from phase 01's
+        // right-side pose to phase 02's centered pose.
+        const transitionCenterT = Math.max(0, Math.min(1, tRaw / 0.20));
+        const transitionCenter = easeInOut(transitionCenterT);
+        const pxCentered = lerp(pxBase, 0, transitionCenter);
         // During phase 02 (ORIGEN), pull the angel toward horizontal center so
         // it sits over the Laguna Negra backdrop the way the reference shows
-        // (orb on the central axis, wings spreading symmetrically).
-        const pxOrigin = lerp(pxBase, 0, phaseOriginProximity);
+        // (orb on the central axis, wings spreading symmetrically). At
+        // tRaw≥0.20 pxCentered is already 0, so this lerp is a no-op there;
+        // at tRaw=0 it preserves phase 01 byte-perfect (centerProgress=0).
+        const pxOrigin = lerp(pxCentered, 0, phaseOriginProximity);
         // And lift the model so the orb lands at ~47–49% of viewport Y and the
         // feet meet the photo's water line at ~65–70 % Y.
         const pyOriginShift = 0.30 * phaseOriginProximity;
@@ -428,7 +662,11 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
         const py = -0.05 + pyOffset + pyOriginShift
                  + Math.sin(clock.elapsed * 0.4) * 0.03
                  + Math.sin(tRaw * Math.PI) * 0.06;
-        angel.position.set(px, py, 0);
+        // Phase 01 (BIENVENIDA) depth push: sit the angel slightly further
+        // from camera so the smoke that drifts in front feels more wrapping.
+        // Decays to 0 outside phase 01.
+        const pz01 = -0.6 * phase01Proximity;
+        angel.position.set(px, py, pz01);
 
         let camZ;
         if (tRaw < 0.55) {
@@ -455,10 +693,28 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
           // the angel doesn't jump forward into the hero copy on first paint.
           camZ = Math.max(camZ, camZBase);
         }
+        // Face close-up DIP — applied AFTER the mobile clamp so portrait
+        // viewports also dive in. Bell curve peaks at tRaw=0.13 (between
+        // phases) and returns to 0 at the phase anchors → byte-perfect at
+        // tRaw=0 and tRaw=0.29. Magnitude tuned so the peak landed at
+        // ~z=2.4 (face + upper torso in frame, wings spreading off the
+        // sides) instead of crushing the angel into the wings.
+        camZ -= 1.25 * faceCloseup;
+        camZ = Math.max(camZ, 2.0);
         camera.position.z = camZ;
         camera.position.x = Math.sin(clock.elapsed * 0.25) * 0.05;
         camera.position.y = Math.cos(clock.elapsed * 0.3) * 0.04;
-        camera.lookAt(0, 0, 0);
+        // Track ONLY the angel's X during the close-up so the body slides
+        // toward horizontal center as the camera dives in. This brings the
+        // angel closer to the headline on the left half of the layout —
+        // without tracking, the dolly-in keeps the angel pinned to the
+        // right side of the frame (where phase 01 places it) and the
+        // headline feels disconnected. Y and Z stay at 0 to preserve the
+        // vertical framing exactly (face at ~40% from top, body filling
+        // lower 2/3). Decays to lookAt(0,0,0) at the phase anchors via
+        // faceCloseup → both anchors stay byte-perfect.
+        const lookFaceX = angel.position.x * faceCloseup;
+        camera.lookAt(lookFaceX, 0, 0);
 
         // ===== Phase 02 (ORIGEN) light shaping =====
         // Same gaussian as the backdrop + framing, so light/camera/photo all
@@ -483,9 +739,40 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
         );
         phaseSun.intensity        = 2.6 * phaseOriginProximity;
         phaseSunBounce.intensity  = 0.18 * phaseOriginProximity;
-        ambient.intensity         = 0.22 * lerp(1.0, 0.08, phaseOriginProximity);
-        fill.intensity            = 0.75 * lerp(1.0, 0.08, phaseOriginProximity);
-        top.intensity             = 0.35 * lerp(1.0, 0.10, phaseOriginProximity);
+
+        // ===== Phase 01 (BIENVENIDA) light shaping =====
+        // Top-down dominant: ramp the overhead `phase01Spot` while pulling
+        // the front-warm key/fill way down so the lower half of the angel
+        // sinks into shadow. Each multiplier is 1.0 outside phase 01 (the
+        // lerp's a-term), so phases 02/03/04/05 keep their original rig.
+        // The phase 02 dimmer composes multiplicatively below — both
+        // gaussians can be active at the curve tails without conflict.
+        phase01Spot.intensity     = 3.0 * phase01Proximity;
+        // Smoke-shadow catcher: opacity follows phase01 proximity. Visible
+        // only when phase01Spot is also active, so the projected silhouette
+        // appears in sync with the spotlight. ShadowMaterial draws nothing
+        // when opacity is 0 → other phases see no extra rendered geometry.
+        if (stateRef.current.materials.smokeShadowPlane) {
+          stateRef.current.materials.smokeShadowPlane.material.opacity = 0.55 * phase01Proximity;
+        }
+        const phase01KeyMult      = lerp(1.0, 0.10, phase01Proximity);
+        const phase01FillMult     = lerp(1.0, 0.15, phase01Proximity);
+        const phase01TopMult      = lerp(1.0, 4.20, phase01Proximity);
+        const phase01AmbientMult  = lerp(1.0, 0.32, phase01Proximity);
+        // Orb during phase 01: keep the green emissive PROMINENT (slight
+        // dim from base) and dial the inner PointLight WAY down so the orb
+        // reads as a saturated green sphere instead of a white flashlight.
+        // The new overhead `phase01Spot` adds a small white specular
+        // highlight at the top of the orb — that's the cherry-on-top in
+        // the reference; pumping emissive keeps green dominant beneath it.
+        const phase01OrbEmissive  = lerp(1.0, 0.85, phase01Proximity);
+        const phase01OrbLight     = lerp(1.0, 0.38, phase01Proximity);
+        const phase01EnvMap       = lerp(1.0, 0.42, phase01Proximity);
+
+        ambient.intensity         = 0.22 * lerp(1.0, 0.08, phaseOriginProximity) * phase01AmbientMult;
+        fill.intensity            = 0.75 * lerp(1.0, 0.08, phaseOriginProximity) * phase01FillMult;
+        top.intensity             = 0.35 * lerp(1.0, 0.10, phaseOriginProximity) * phase01TopMult;
+        key.intensity             = 1.5  * phase01KeyMult;
 
         const breathe = 0.5 + 0.5 * Math.sin(clock.elapsed * (Math.PI * 2) / 4.0);
         const phaseBoost = 1.0 + 1.6 * Math.exp(-Math.pow((tRaw - 0.6) / 0.18, 2));
@@ -506,7 +793,7 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
         // and tips), the env contribution must drop to a small fraction of
         // its base. Lerp gated by phaseOriginProximity so other phases keep
         // their full metallic shine.
-        const phaseGoldEnv = lerp(1.0, 0.26, phaseOriginProximity);
+        const phaseGoldEnv = lerp(1.0, 0.26, phaseOriginProximity) * phase01EnvMap;
         stateRef.current.materials.goldMaterials?.forEach(({ mat, baseEnv }) => {
           mat.envMapIntensity = baseEnv * phaseGoldEnv;
         });
@@ -514,17 +801,168 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
         rim.intensity = (0.07 + breathe * 0.04) * stateRef.current.glowIntensity * phaseBoost;
         // Local-only orb glow: the PointLight is tight (1.5 range, 2.5 decay)
         // so this intensity only affects the orb and nearest feathers.
-        sphereLight.intensity = (0.45 + breathe * 0.30) * stateRef.current.glowIntensity * Math.min(phaseBoost, 2.0) * phaseOrbLight;
+        sphereLight.intensity = (0.45 + breathe * 0.30) * stateRef.current.glowIntensity * Math.min(phaseBoost, 2.0) * phaseOrbLight * phase01OrbLight;
         stateRef.current.materials.sphereMeshes.forEach((m) => {
           if (m.material) {
-            m.material.emissiveIntensity = (0.85 + breathe * 0.35) * stateRef.current.glowIntensity * Math.min(phaseBoost, 1.8) * phaseOrbEmissive;
+            m.material.emissiveIntensity = (0.85 + breathe * 0.35) * stateRef.current.glowIntensity * Math.min(phaseBoost, 1.8) * phaseOrbEmissive * phase01OrbEmissive;
           }
         });
 
         // Phase 02 (ORIGEN) global exposure dip: pull tone mapping down during
         // the gaussian peak so highlights compress and shadows deepen — the
         // moody, slightly-underexposed look of the reference composite.
+        // Fairy-dust COMET TRAIL update. Each particle follows its own
+        // spiral path around a random axis (Rodrigues' rotation formula
+        // applied to its initDir vector). A circular buffer of recent
+        // positions (TRAIL_PTS slots, sampled every DUST_SAMPLE_INTERVAL)
+        // is rendered as line segments with vertex colors fading from
+        // transparent (oldest = tail) to bright (newest = head) — a
+        // shooting-star streak instead of a single dot.
+        //
+        // Visibility envelope: fade in 0.10→0.13 (close-up peak), full
+        // 0.13→0.42 (through phase 02), fade out 0.42→0.52 (as phase 03
+        // takes over). Skip the per-particle loop when the gate is closed.
+        if (stateRef.current.materials.fairyDust) {
+          const fadeIn  = easeInOut(Math.max(0, Math.min(1, (tRaw - 0.10) / 0.03)));
+          const fadeOut = 1 - easeInOut(Math.max(0, Math.min(1, (tRaw - 0.42) / 0.10)));
+          const dustOpacity = fadeIn * fadeOut * 0.7;
+          const dust = stateRef.current.materials.fairyDust;
+          dust.material.opacity = dustOpacity;
+
+          if (dustOpacity > 0.005) {
+            const m       = stateRef.current.materials;
+            const axisA   = m.dustAxis;
+            const initDir = m.dustInitDir;
+            const angSpd  = m.dustAngSpd;
+            const outSpd  = m.dustOutSpd;
+            const life    = m.dustLife;
+            const maxLife = m.dustMaxLife;
+            const history = m.dustHistory;
+            const histIdx = m.dustHistIdx;
+            const reset   = m._resetParticle;
+            const glow    = m.glowCol;
+            const N       = m.DUST_COUNT;
+            const TP      = m.TRAIL_PTS;
+            const TS      = m.TRAIL_SEGS;
+            const posArr  = dust.geometry.attributes.position.array;
+            const colArr  = dust.geometry.attributes.color.array;
+
+            // Sample timer: advance the history buffer at fixed intervals
+            // so the trail spans ~TP × INTERVAL seconds of motion.
+            dustSampleAccum += dt;
+            const sample = dustSampleAccum >= DUST_SAMPLE_INTERVAL;
+            if (sample) dustSampleAccum -= DUST_SAMPLE_INTERVAL;
+
+            for (let i = 0; i < N; i++) {
+              life[i] += dt;
+              if (life[i] >= maxLife[i]) {
+                life[i] = 0;
+                reset(i);
+              }
+
+              // Rodrigues rotation: v0 = initDir * radius (perpendicular to
+              // axis by construction). Rotated by `angle` around the axis:
+              //   v_rot = v0·cos(angle) + (axis × v0)·sin(angle)
+              // (the k·v term drops because initDir ⊥ axis).
+              const radius = outSpd[i] * life[i];
+              const angle  = angSpd[i] * life[i];
+              const vx = initDir[i*3]     * radius;
+              const vy = initDir[i*3 + 1] * radius;
+              const vz = initDir[i*3 + 2] * radius;
+              const ax = axisA[i*3];
+              const ay = axisA[i*3 + 1];
+              const az = axisA[i*3 + 2];
+              const cs = Math.cos(angle);
+              const sn = Math.sin(angle);
+              const cx = ay * vz - az * vy;
+              const cy = az * vx - ax * vz;
+              const cz = ax * vy - ay * vx;
+              const px = vx * cs + cx * sn;
+              const py = vy * cs + cy * sn;
+              const pz = vz * cs + cz * sn;
+
+              // Write to history at the sampling tick. Between ticks we
+              // leave the buffer alone so the trail spans real motion
+              // instead of just one frame.
+              const hBase = i * TP * 3;
+              if (sample) {
+                const wIdx = histIdx[i];
+                history[hBase + wIdx * 3]     = px;
+                history[hBase + wIdx * 3 + 1] = py;
+                history[hBase + wIdx * 3 + 2] = pz;
+                histIdx[i] = (wIdx + 1) % TP;
+              }
+
+              // Life envelope + HEAD-FIRST death sequence. While alive
+              // (lifeT < 0.65) the whole trail renders at full strength.
+              // Past that the head fades FIRST and the tail catches up
+              // later, so the comet "burns out" from the front instead of
+              // the entire streak vanishing as a block. Death window is
+              // long (35% of life) so the dissipation reads as gentle
+              // rather than abrupt.
+              const lifeT = life[i] / maxLife[i];
+              const dying = lifeT > 0.65;
+              const deathT = dying ? (lifeT - 0.65) / 0.35 : 0;
+
+              // Build line segments from history. histIdx is the slot we
+              // would write to NEXT — which means it holds the OLDEST
+              // sample (about to be overwritten). Segments march from
+              // there toward the newest (the head).
+              const oldest = histIdx[i];
+              for (let sIdx = 0; sIdx < TS; sIdx++) {
+                const a1Idx = (oldest + sIdx)     % TP;
+                const a2Idx = (oldest + sIdx + 1) % TP;
+                const h1Off = hBase + a1Idx * 3;
+                const h2Off = hBase + a2Idx * 3;
+                const segOff = (i * TS + sIdx) * 6;
+
+                posArr[segOff]     = history[h1Off];
+                posArr[segOff + 1] = history[h1Off + 1];
+                posArr[segOff + 2] = history[h1Off + 2];
+                posArr[segOff + 3] = history[h2Off];
+                posArr[segOff + 4] = history[h2Off + 1];
+                posArr[segOff + 5] = history[h2Off + 2];
+
+                // Base alpha gradient: 0 at tail end, 1 at head end.
+                const sNorm1 =  sIdx       / TS;
+                const sNorm2 = (sIdx + 1) / TS;
+
+                // Per-vertex death fade. Head vertices (sNorm → 1) lose
+                // alpha faster than tail vertices (sNorm → 0). At the
+                // start of death (deathT=0) both are unchanged. At the
+                // end (deathT=1) the head is at 0 and the tail is at
+                // ~0.3 — the trail collapses from the front first.
+                const dFade1 = dying ? Math.max(0, 1 - deathT * (0.3 + 0.7 * sNorm1)) : 1.0;
+                const dFade2 = dying ? Math.max(0, 1 - deathT * (0.3 + 0.7 * sNorm2)) : 1.0;
+
+                const a1 = sNorm1 * dFade1;
+                const a2 = sNorm2 * dFade2;
+
+                colArr[segOff]     = glow.r * a1;
+                colArr[segOff + 1] = glow.g * a1;
+                colArr[segOff + 2] = glow.b * a1;
+                colArr[segOff + 3] = glow.r * a2;
+                colArr[segOff + 4] = glow.g * a2;
+                colArr[segOff + 5] = glow.b * a2;
+              }
+            }
+            dust.geometry.attributes.position.needsUpdate = true;
+            dust.geometry.attributes.color.needsUpdate    = true;
+          }
+        }
+
         renderer.toneMappingExposure = lerp(1.1, 0.78, tEase) * lerp(1.0, 0.42, phaseOriginProximity);
+
+        // Publish the angel's screen-space X (in viewport %) as a CSS variable
+        // so the phase 01 light beam / haze / halo can track it across every
+        // viewport — desktop, tablet, mobile. Anchored on the orb height
+        // (angel.position.y + ~0.5 world units up) so the percent reads from
+        // roughly the body-center axis, not the feet. Outside phase 01 the
+        // CSS layers fade to 0 anyway so the value is harmless.
+        camera.updateMatrixWorld();
+        _projVec.set(angel.position.x, angel.position.y + 0.5, angel.position.z).project(camera);
+        const angelScreenXPct = ((_projVec.x + 1) * 50);
+        document.documentElement.style.setProperty('--angel-x', `${angelScreenXPct.toFixed(2)}%`);
 
         renderer.render(scene, camera);
         raf = requestAnimationFrame(animate);

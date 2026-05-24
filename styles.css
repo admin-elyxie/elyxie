@@ -157,6 +157,171 @@ body[data-theme="dark"] {
   display: block;
 }
 
+/* Phase 01 (BIENVENIDA) vignette. Same layer as .laguna-bg (z-index: 0,
+   under the transparent 3D canvas). Off-center radial gradient (focal point
+   at ~70% X to match the right-shifted angel) with a subtle deep-teal cast
+   that drops to near-black at the edges. The reference image's background
+   reads as a dark cinematic stage with a slight blue-green tint — that's
+   what this layer reproduces. Opacity is driven by an inline gaussian in
+   app.jsx so the layer only paints during phase 01. */
+/* Phase 01 (BIENVENIDA) drifting smoke layer. Sits behind the 3D canvas at
+   the same layer as .hero-vignette-01 (z-index 0). Animated by translating
+   a large SVG fractal-noise texture downward — looks like soft smoke/mist
+   drifting down through the volumetric beam. A radial mask focuses the
+   smoke to the column where the beam falls, so the corners stay clean.
+   Inline opacity from app.jsx drives the phase 01 fade in/out. */
+.hero-smoke {
+  position: absolute;
+  inset: -10% -10% -10% -10%; /* oversize so translate doesn't reveal edges */
+  z-index: 0;
+  pointer-events: none;
+  /* `stitchTiles='stitch'` is the critical bit — without it the fractalNoise
+     output has no seam matching at the edges, so any background-repeat shows
+     visible vertical/horizontal grid lines where tiles meet. With stitch,
+     the wavelength is adjusted so the noise tiles cleanly within the filter
+     region and the repeat is invisible. */
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 1200'><filter id='s' x='0' y='0' width='100%25' height='100%25'><feTurbulence type='fractalNoise' baseFrequency='0.008 0.014' numOctaves='3' seed='3' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.82  0 0 0 0 0.90  0 0 0 0 0.93  0 0 0 0.30 0'/></filter><rect width='100%25' height='100%25' filter='url(%23s)'/></svg>");
+  background-size: 800px 1200px;
+  background-repeat: repeat;
+  background-position: 0 0;
+  mix-blend-mode: screen;
+  /* Animation translates the background by exactly one tile height (1200px)
+     over one cycle, so the loop is seamless — at the end of the cycle the
+     pattern visually matches the start position (because the tile repeats
+     and 1200 is the tile period). Any non-multiple delta creates a visible
+     jump every cycle. */
+  animation: hero-smoke-drift 22s linear infinite;
+  /* Mask: concentrate smoke in the column under the beam. Anchored via
+     --angel-x (published from pendant.jsx) so the column follows the
+     model's projected screen X across every viewport — desktop, tablet,
+     mobile — instead of being pinned to a single percent. */
+  -webkit-mask-image: radial-gradient(ellipse 55% 100% at var(--angel-x, 72%) 40%,
+    rgba(0,0,0,1) 0%, rgba(0,0,0,0.85) 28%, rgba(0,0,0,0.5) 55%,
+    rgba(0,0,0,0.15) 78%, transparent 95%);
+  mask-image: radial-gradient(ellipse 55% 100% at var(--angel-x, 72%) 40%,
+    rgba(0,0,0,1) 0%, rgba(0,0,0,0.85) 28%, rgba(0,0,0,0.5) 55%,
+    rgba(0,0,0,0.15) 78%, transparent 95%);
+  transition: opacity 180ms linear;
+  will-change: background-position, opacity;
+}
+
+@keyframes hero-smoke-drift {
+  /* Move by exactly one tile height (1200px) so the cycle wraps invisibly:
+     at 100% the visible pattern is identical to 0%, because the texture
+     repeats every 1200px. Any other delta produces a visible jump. */
+  0%   { background-position: 0px    0px; }
+  100% { background-position: 0px 1200px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-smoke { animation: none; }
+}
+
+/* Phase 01 (BIENVENIDA) FRONT-pass smoke layer. Same shape as .hero-smoke
+   but painted ABOVE the 3D canvas (z-index 2, vs scene-host z-index 1) so
+   the smoke wisps drift IN FRONT of the angel as well — wraps the figure
+   instead of only sitting behind it. Much fainter than the back layer so
+   the angel still reads cleanly. Different seed + slower drift so the two
+   layers visibly don't sync. */
+.hero-smoke-front {
+  position: absolute;
+  inset: -10% -10% -10% -10%;
+  z-index: 2;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 1200'><filter id='sf' x='0' y='0' width='100%25' height='100%25'><feTurbulence type='fractalNoise' baseFrequency='0.006 0.011' numOctaves='3' seed='9' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.92  0 0 0 0 0.95  0 0 0 0 0.97  0 0 0 0.42 0'/></filter><rect width='100%25' height='100%25' filter='url(%23sf)'/></svg>");
+  background-size: 800px 1200px;
+  background-repeat: repeat;
+  background-position: 0 0;
+  mix-blend-mode: screen;
+  animation: hero-smoke-front-drift 28s linear infinite;
+  -webkit-mask-image: radial-gradient(ellipse 55% 100% at var(--angel-x, 72%) 40%,
+    rgba(0,0,0,1) 0%, rgba(0,0,0,0.75) 30%, rgba(0,0,0,0.4) 55%,
+    rgba(0,0,0,0.1) 78%, transparent 95%);
+  mask-image: radial-gradient(ellipse 55% 100% at var(--angel-x, 72%) 40%,
+    rgba(0,0,0,1) 0%, rgba(0,0,0,0.75) 30%, rgba(0,0,0,0.4) 55%,
+    rgba(0,0,0,0.1) 78%, transparent 95%);
+  transition: opacity 180ms linear;
+  will-change: background-position, opacity;
+}
+
+@keyframes hero-smoke-front-drift {
+  0%   { background-position: 0px    0px; }
+  100% { background-position: 0px 1200px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-smoke-front { animation: none; }
+}
+
+.hero-vignette-01 {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  /* CSS vars for the beam + haze widths so we can scale them per viewport.
+     Defaults match the desktop look. Mobile/tablet media queries override
+     these so the volumetric shaft reads dramatically on narrower screens
+     instead of shrinking to a thread (16% of a 390px viewport is only
+     ~62px wide). Heights stay 100% so the shaft falls the full frame. */
+  --beam-w: 16%;
+  --haze-w: 42%;
+  /* Layered stack (front of stack = first listed = paints LAST = on top):
+     1. Stars — pinpoint white specks scattered as the reference background.
+     2. Volumetric beam — narrow tall ellipse anchored above the top edge,
+        brightest at its source and fading downward. Reads as the spotlight
+        shaft falling on the angel.
+     3. Haze drift — broader, more diffuse vertical glow under the beam.
+        Simulates light-catching particulate ("neblina") in the air.
+     4. Primary radial — soft teal halo around the angel, near-black corners.
+     The order matters: beam + haze must paint OVER the primary radial so the
+     vertical shaft reads as light cutting through the dark space. */
+  background:
+    /* Stars layer */
+    radial-gradient(1.5px 1.5px at 12% 18%, rgba(255,255,255,0.7), transparent 60%),
+    radial-gradient(1px   1px   at 24% 62%, rgba(255,255,255,0.55), transparent 60%),
+    radial-gradient(1.2px 1.2px at 38% 30%, rgba(255,255,255,0.5),  transparent 60%),
+    radial-gradient(1px   1px   at 8%  78%, rgba(255,255,255,0.45), transparent 60%),
+    radial-gradient(1.4px 1.4px at 92% 15%, rgba(255,255,255,0.6),  transparent 60%),
+    radial-gradient(1px   1px   at 78% 88%, rgba(255,255,255,0.4),  transparent 60%),
+    radial-gradient(1.2px 1.2px at 55% 12%, rgba(255,255,255,0.5),  transparent 60%),
+    radial-gradient(0.8px 0.8px at 31% 8%,  rgba(255,255,255,0.4),  transparent 60%),
+    radial-gradient(1px   1px   at 88% 64%, rgba(255,255,255,0.45), transparent 60%),
+    radial-gradient(0.8px 0.8px at 18% 42%, rgba(255,255,255,0.35), transparent 60%),
+    radial-gradient(1px   1px   at 46% 86%, rgba(255,255,255,0.4),  transparent 60%),
+    radial-gradient(0.8px 0.8px at 96% 48%, rgba(255,255,255,0.35), transparent 60%),
+    /* Volumetric beam — narrow vertical cone falling from above the top
+       edge. Brighter near the source, fades down toward the angel.
+       Horizontal anchor uses --angel-x (published per-frame from
+       pendant.jsx) so the beam always lands above the model regardless of
+       viewport: desktop, tablet, or mobile (where the angel is centered).
+       Width uses --beam-w so we can widen the shaft on smaller screens. */
+    radial-gradient(ellipse var(--beam-w) 100% at var(--angel-x, 74%) -10%,
+      rgba(250, 252, 245, 0.78) 0%,
+      rgba(235, 250, 242, 0.62) 6%,
+      rgba(215, 240, 230, 0.46) 16%,
+      rgba(185, 222, 215, 0.30) 32%,
+      rgba(150, 200, 198, 0.18) 50%,
+      rgba(110, 170, 175, 0.08) 70%,
+      transparent 88%),
+    /* Haze drift — broader, more diffuse glow trailing under the beam,
+       simulates the "neblina" (mist) catching the light. Same anchor.
+       Width uses --haze-w so the atmospheric glow scales with the beam. */
+    radial-gradient(ellipse var(--haze-w) 100% at var(--angel-x, 73%) 5%,
+      rgba(195, 230, 228, 0.36) 0%,
+      rgba(160, 210, 215, 0.22) 22%,
+      rgba(120, 180, 190, 0.12) 48%,
+      rgba(70,  140, 155, 0.04) 72%,
+      transparent 92%),
+    /* Primary radial — teal halo + dark corners */
+    radial-gradient(ellipse 58% 70% at 72% 48%,
+      rgba(38, 96, 100, 0.65) 0%,
+      rgba(12, 36, 44, 0.85) 38%,
+      rgba(2, 10, 14, 0.95) 72%,
+      rgba(0, 4, 6, 1.00) 95%);
+  transition: opacity 180ms linear;
+  will-change: opacity;
+}
+
 /* Phase 02 (ORIGEN) backdrop. The reference photo is portrait 928×1131; on
    landscape viewports `cover` keeps the central column (lake + sun-break +
    mountain) visible. Sits below the transparent 3D canvas (z-index: 0 vs the
@@ -1485,10 +1650,18 @@ section[data-section="outro"] {
   .pin-stage { height: 100dvh; }
   .scene-host { position: absolute; inset: 0; }
 
-  /* Loosen phase content so it doesn't collide with the stepper / rail */
-  .phase-content { padding: 0 88px 0 140px; max-width: min(620px, 62%); }
-  .phase-title { font-size: clamp(40px, 6.4vw, 64px); }
-  .phase-sub { font-size: 14px; max-width: 44ch; }
+  /* Loosen phase content so it doesn't collide with the stepper / rail.
+     Tightened max-width (was 620px / 62%) so the headline column ends at
+     ~50% of the viewport — leaving the right half clear for the angel
+     (which now sits at the same desktop-style right offset to avoid the
+     previous wing-on-text collision). */
+  .phase-content { padding: 0 32px 0 100px; max-width: min(420px, 48%); }
+  .phase-title { font-size: clamp(38px, 5.6vw, 58px); }
+  .phase-sub { font-size: 14px; max-width: 38ch; }
+
+  /* Beam + haze widened on tablet so the volumetric shaft still reads as
+     a dramatic column rather than a thin thread. */
+  .hero-vignette-01 { --beam-w: 22%; --haze-w: 50%; }
 
   /* Pull stepper / rail tighter to the edges */
   .stepper { left: 24px; }
@@ -1789,6 +1962,13 @@ section[data-section="outro"] {
     margin: 0 auto 18px;
   }
   .phase-bilingual { font-size: 10px; letter-spacing: 0.28em; }
+
+  /* Mobile beam: viewport is narrow so the desktop 16% column shrinks to
+     ~60px — invisibly thin. Widen the shaft (and the broader haze) so the
+     volumetric light reads dramatically against the dark phase 01
+     backdrop. The beam still anchors to --angel-x (≈50% on mobile since
+     the model sits centered). */
+  .hero-vignette-01 { --beam-w: 34%; --haze-w: 64%; }
 
   /* Scroll hint */
   .scroll-hint {

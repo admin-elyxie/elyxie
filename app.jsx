@@ -213,6 +213,31 @@ function Hero({ lang, tweaks, pendantRef }) {
              style={{ height: `${pinVH * 100}vh` }}
              data-screen-label="01 Hero (scroll-pin)">
       <div className="pin-stage">
+        {/* Phase 01 (BIENVENIDA) vignette — deep dark with a subtle teal cast
+            and an off-center radial fade that focuses attention on the angel.
+            Sits behind the transparent 3D canvas (z-index 0, same layer as
+            .laguna-bg). Opacity gaussian peaks at progress=0 and decays to
+            ~0 by progress≈0.18 so it doesn't bleed into phase 02. */}
+        {(() => {
+          const o01 = Math.exp(-Math.pow(progress / 0.08, 2));
+          return (
+            <React.Fragment>
+              <div className="hero-vignette-01" aria-hidden style={{ opacity: o01 }} />
+              {/* Drifting smoke layer — animated SVG noise translating down.
+                  Visible only during phase 01. The Three.js shadow-catcher
+                  plane behind the angel paints the silhouette OVER this
+                  smoke layer (canvas pixels go dark inside the shadow),
+                  giving the "angel's shadow on smoke" effect. */}
+              <div className="hero-smoke" aria-hidden style={{ opacity: o01 * 0.7 }} />
+              {/* Front-pass smoke. z-index 2 → paints OVER the 3D canvas so
+                  wisps cross in front of the angel; much fainter so legibility
+                  holds. Paired with .hero-smoke (behind) the figure feels
+                  enveloped in mist instead of just backed by it. */}
+              <div className="hero-smoke-front" aria-hidden style={{ opacity: o01 * 0.95 }} />
+            </React.Fragment>
+          );
+        })()}
+
         {/* Phase 02 (ORIGEN) backdrop — Laguna Negra photograph. Sits behind the
             transparent 3D canvas; opacity is driven by a gaussian centered on
             the middle of phase 02's scroll range so the photo only appears
@@ -274,20 +299,38 @@ function Hero({ lang, tweaks, pendantRef }) {
         </div>
 
         {/* Phase content stacked, only one active */}
-        <div className="phase-layer">
-          {PHASES.map((p, i) => (
-            <div key={p.num}
-                 className="phase-content"
-                 data-active={i === activeIndex}
-                 data-position={p.position}>
-              <h2 className="phase-title">{p.title[lang]}</h2>
-              <p className="phase-sub">{p.sub[lang]}</p>
-              <span className="phase-bilingual">
-                {lang === 'es' ? p.label.en : p.label.es}
-              </span>
+        {(() => {
+          // Mirror the close-up gaussian from pendant.jsx (peak tRaw=0.13,
+          // σ=0.045) so we can dim the active phase's headline copy at the
+          // exact moment the camera dives in. Without this, the centered
+          // close-up framing collides with the left-aligned text on tablet
+          // and narrow desktop. The fade is applied to an inner wrapper so
+          // the outer .phase-content keeps its 700ms active/inactive
+          // opacity transition uninterrupted.
+          const closeupFade = Math.exp(-Math.pow((progress - 0.13) / 0.045, 2));
+          return (
+            <div className="phase-layer">
+              {PHASES.map((p, i) => {
+                const isActive = i === activeIndex;
+                const innerStyle = isActive ? { opacity: 1 - closeupFade } : undefined;
+                return (
+                  <div key={p.num}
+                       className="phase-content"
+                       data-active={isActive}
+                       data-position={p.position}>
+                    <div className="phase-content__inner" style={innerStyle}>
+                      <h2 className="phase-title">{p.title[lang]}</h2>
+                      <p className="phase-sub">{p.sub[lang]}</p>
+                      <span className="phase-bilingual">
+                        {lang === 'es' ? p.label.en : p.label.es}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
-          ))}
-        </div>
+          );
+        })()}
 
         {/* Scroll hint, fades after a tiny bit of scroll */}
         <div className="scroll-hint" data-hidden={progress > 0.04}>
