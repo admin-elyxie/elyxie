@@ -385,6 +385,7 @@ function Hero({ lang, tweaks, pendantRef }) {
           <div className="frame__cross frame__cross--tl"></div>
           <div className="frame__cross frame__cross--tr"></div>
           <div className="frame__cross frame__cross--bl"></div>
+          <div className="frame__cross frame__cross--br"></div>
         </div>
 
         {/* Stepper sits along the left rail; ticks cross the rail line */}

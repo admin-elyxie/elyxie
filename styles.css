@@ -391,6 +391,11 @@ body[data-theme="dark"] {
 .frame__cross--tl { top: 75px;    left: 51px; }
 .frame__cross--tr { top: 75px;    right: 24px; }
 .frame__cross--bl { bottom: 24px; left: 51px; }
+/* BR cross only renders on mobile — it caps the right-edge progress rail
+   which is repositioned to mirror the left .frame__v at that breakpoint.
+   On desktop/tablet, the progress rail lives inboard with its own labels,
+   so a BR corner mark would dangle without a line to terminate. */
+.frame__cross--br { display: none; }
 
 /* ---------- Phase content ----------
    All 5 phase-content elements share grid cell (1,1) so they overlap
@@ -1921,27 +1926,46 @@ section[data-section="outro"] {
     .pin-stage { cursor: default; }
   }
 
-  /* Hide left vertical stepper sidebar + right progress rail */
-  .stepper,
-  .rail { display: none !important; }
+  /* Hide left vertical stepper sidebar; the right .rail is repurposed below
+     as the mobile progress indicator. */
+  .stepper { display: none !important; }
 
   /* Frame: pull rail inward; tighten corner crosses.
-     Rail is clipped to the corner-cross column (top: 74px → bottom: 28px) so
-     it no longer cuts through the .nav__brand at the top or the
-     .edition-badge text at the bottom — the crosses become its terminations
-     instead of decorative ornaments on a full-height line. */
+     Both vertical rails (.frame__v left, .rail right) are clipped to the
+     corner-cross column (top: 74px → bottom: 28px) so the four "+" marks
+     cap the composition instead of decorating a full-height line. */
   .frame__v { left: 16px; top: 74px; bottom: 28px; opacity: 0.18; }
   .frame__cross { width: 8px; height: 8px; opacity: 0.6; }
   .frame__cross--tl { top: 70px;    left: 12px; }
   .frame__cross--tr { top: 70px;    right: 12px; }
   .frame__cross--bl { bottom: 24px; left: 12px; }
+  .frame__cross--br { display: block; bottom: 24px; right: 12px; }
 
-  /* Edition badge — bottom-strip, left-indented past the corner cross/rail
-     column (left: 36px clears the cross at left: 12–20 and the rail at
-     left: 16). Right stays at 16px so the serial keeps hugging the edge. */
+  /* Progress rail repurposed on mobile: mirrors .frame__v on the right
+     edge, capped by the tr / br crosses. Background uses an inline
+     translucent fg (not `opacity:`) so the gold .rail__fill child can read
+     at full saturation against the hairline. Labels ("PROGRESO" / "00%")
+     would saturate the narrow viewport — the gold fill alone is
+     self-explanatory once it starts filling on scroll. */
+  .rail {
+    display: block !important;
+    left: auto;
+    right: 16px;
+    top: 74px;
+    bottom: 28px;
+    height: auto;
+    width: 1px;
+    transform: none;
+    background: color-mix(in srgb, var(--theme-fg) 18%, transparent);
+  }
+  .rail__label,
+  .rail__pct { display: none; }
+
+  /* Edition badge — symmetric inset (left: 36px clears the bl cross + left
+     rail; right: 36px clears the br cross + right rail). */
   .edition-badge {
     bottom: 14px;
-    right: 16px;
+    right: 36px;
     left: 36px;
     flex-direction: row;
     justify-content: space-between;
