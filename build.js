@@ -24,6 +24,13 @@ const baseOpts = {
   target: 'es2020',
   jsxFactory: 'React.createElement',
   jsxFragment: 'React.Fragment',
+  // NOTE: do NOT use format: 'iife'. The four scripts intentionally share the
+  // global window (each exposes its components via window.X / Object.assign)
+  // and app.jsx's JSX uses bare identifiers like `<Pendant>` which resolve
+  // through the global proxy. Wrapping in an IIFE breaks that. To avoid the
+  // top-level `const { useEffect, useRef, … } = React` colliding across
+  // pendant.jsx and app.jsx, those two lines use `var` instead of `const`
+  // — `var` re-declaration at the global script scope is legal.
   minify: true,
   legalComments: 'none',
   logLevel: 'info',

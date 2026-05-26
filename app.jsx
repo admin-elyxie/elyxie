@@ -2,7 +2,9 @@
 // Main page: fixed nav, scroll-pinned 3D hero with 5 phases + theme transition,
 // editions grid below, manifesto strip, footer mini, Tweaks panel.
 
-const { useState, useEffect, useRef, useLayoutEffect } = React;
+// See note in pendant.jsx — `var` (not const) to avoid a redeclaration
+// SyntaxError at global scope when both compiled scripts load.
+var { useState, useEffect, useRef, useLayoutEffect } = React;
 
 // ---------- Copy: 5 phases bilingual ES / EN ----------
 const PHASES = [
