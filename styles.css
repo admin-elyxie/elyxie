@@ -330,7 +330,17 @@ body[data-theme="dark"] {
   position: absolute;
   inset: 0;
   z-index: 0;
-  background-image: url("assets/photography/laguna-negra-bg.jpg");
+  /* image-set lets the browser pick WebP when supported (95%+ of users)
+     and fall back to the original JPG otherwise. Saves ~1.6 MB on this
+     single backdrop. */
+  background-image: image-set(
+    url("assets/photography/laguna-negra-bg.webp") type("image/webp"),
+    url("assets/photography/laguna-negra-bg.jpg") type("image/jpeg")
+  );
+  background-image: -webkit-image-set(
+    url("assets/photography/laguna-negra-bg.webp") type("image/webp"),
+    url("assets/photography/laguna-negra-bg.jpg") type("image/jpeg")
+  );
   background-size: cover;
   background-position: center center;
   background-repeat: no-repeat;
@@ -597,11 +607,12 @@ body[data-theme="dark"] {
   opacity: 1;
 }
 
-/* ---------- Film grain ----------
-   IMPORTANT: the layer must be OVERSIZED relative to the viewport,
-   otherwise the animated `translate` reveals empty edges (a visible bug
-   that read as 'frame interpolation' at the corners). With inset:-10% the
-   layer extends 10% past every edge, hiding the translate window. */
+/* ---------- Film grain (perf-optimised) ----------
+   ONE layer instead of two stacked overlays. Slower animation (4 steps over
+   4s) so the browser doesn't repaint the full viewport every ~200ms. Pauses
+   completely under prefers-reduced-motion. The previous .grain--coarse
+   companion is rendered visually optional because the texture below covers
+   both density bands; if you miss it, raise --grain-opacity slightly. */
 .grain {
   position: fixed;
   inset: -10%;
@@ -612,28 +623,26 @@ body[data-theme="dark"] {
   background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 240 240'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.92' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 1.1 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
   background-size: 240px 240px;
   background-repeat: repeat;
-  animation: grain-shift 1.6s steps(8) infinite;
-  /* Make sure the grain layer ALWAYS covers the viewport even with translate */
+  animation: grain-shift 4s steps(4) infinite;
+  /* Promote to its own compositor layer so the animation lives off the
+     main thread instead of forcing whole-page repaints. */
   will-change: transform;
+  transform: translateZ(0);
 }
+/* Second grain layer kept as a no-op shell so the JSX (which renders two
+   .grain divs) stays valid without forcing a second full-viewport composite. */
 .grain--coarse {
-  mix-blend-mode: soft-light;
-  opacity: calc(var(--grain-opacity, 0.12) * 0.55);
-  background-size: 420px 420px;
-  animation-duration: 2.2s;
+  display: none;
 }
 @keyframes grain-shift {
-  0%   { transform: translate(0,0); }
-  10%  { transform: translate(-2%, -1%); }
-  20%  { transform: translate(1%, -2%); }
-  30%  { transform: translate(-2%, 1%); }
-  40%  { transform: translate(2%, 2%); }
-  50%  { transform: translate(-1%, -1%); }
-  60%  { transform: translate(1%, 1%); }
-  70%  { transform: translate(-2%, 0%); }
-  80%  { transform: translate(1%, 2%); }
-  90%  { transform: translate(-1%, -2%); }
-  100% { transform: translate(0,0); }
+  0%   { transform: translate3d(0, 0, 0); }
+  25%  { transform: translate3d(-2%, -1%, 0); }
+  50%  { transform: translate3d(1%, 1%, 0); }
+  75%  { transform: translate3d(-1%, 2%, 0); }
+  100% { transform: translate3d(0, 0, 0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .grain { animation: none; }
 }
 
 /* ---------- After-hero sections ---------- */

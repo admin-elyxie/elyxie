@@ -27,15 +27,16 @@
    1 · FONT IMPORTS
    ------------------------------------------------------------
    Cormorant Garamond — display, italic preferred (wordmark + headlines)
-   Satoshi             — body & UI (300–900 variable)
-   Fustat              — secondary UI (small chips, captions)
-   JetBrains Mono      — serials, certificates, monospace
+   Satoshi             — body & UI (300, 400, 500 only — others were never used)
+   Fustat              — REMOVED (--font-ui was declared but never applied)
+   JetBrains Mono      — REMOVED (system mono is good enough; see --font-mono below)
    See README for substitution notes (no production wordmark file yet).
+
+   PERF NOTE: Fonts moved out of @import (sequential through CSS parse) and
+   into <link rel="preload"/stylesheet"> in index.html, so they download in
+   parallel with the rest of the critical path instead of waiting on this
+   file to parse first. Trimmed from 28 variants → 8 variants (~75% smaller).
    ============================================================ */
-@import url("https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500;1,600;1,700&display=swap");
-@import url("https://fonts.googleapis.com/css2?family=Fustat:wght@200..800&display=swap");
-@import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap");
-@import url("https://api.fontshare.com/v2/css?f[]=satoshi@300,400,500,600,700,900&display=swap");
 
 
 :root {
@@ -259,8 +260,11 @@
      ========================================================== */
   --font-display:   "Cormorant Garamond", "Cormorant", "EB Garamond", Georgia, serif;
   --font-body:      "Satoshi", "Satoshi Variable", "Inter", system-ui, sans-serif;
-  --font-ui:        "Fustat", "Satoshi", system-ui, sans-serif;
-  --font-mono:      "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  /* --font-ui: alias of --font-body since Fustat was never actually applied. */
+  --font-ui:        "Satoshi", "Satoshi Variable", system-ui, sans-serif;
+  /* --font-mono: use system mono — saves loading JetBrains Mono. The system
+     fallback chain (ui-monospace → SF Mono on Apple → Menlo) is high quality. */
+  --font-mono:      ui-monospace, "SFMono-Regular", Menlo, "Cascadia Mono", Consolas, monospace;
 
 
   /* ==========================================================

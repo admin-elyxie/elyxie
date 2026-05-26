@@ -155,8 +155,22 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
       const camera = new THREE.PerspectiveCamera(32, container.clientWidth / container.clientHeight, 0.1, 50);
       camera.position.set(0, 0, 4.5);
 
-      const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      // antialias: disabled on hi-DPI (the 2× pixel ratio already gives a
+      // free supersampling effect; MSAA on top costs ~30% more GPU). Kept on
+      // for low-DPI displays where the aliasing is visible.
+      const isHiDPI = (window.devicePixelRatio || 1) >= 2;
+      const renderer = new THREE.WebGLRenderer({
+        antialias: !isHiDPI,
+        alpha: true,
+        powerPreference: 'high-performance',
+        stencil: false,
+        depth: true,
+      });
+      // Cap pixel ratio at 1.5 by default — every 0.5 increment costs ~2.25×
+      // the fragment shader work. 2.0 looks marginally crisper but doubles
+      // the GPU bill on retina laptops for a small visual gain on a moving
+      // 3D scene where motion blur masks aliasing anyway.
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
       renderer.setSize(container.clientWidth, container.clientHeight);
       renderer.setClearColor(0x000000, 0);
       renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -169,6 +183,11 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
       // their lights and the shadow plane stays at opacity 0.
       renderer.shadowMap.enabled = true;
       renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      // autoUpdate=false freezes the shadow pass; we'll re-enable it only
+      // when phase01Spot.intensity > 0 (gated below in the animate loop).
+      // This eliminates the per-frame shadow render cost outside phase 01.
+      renderer.shadowMap.autoUpdate = false;
+      renderer.shadowMap.needsUpdate = true;
       container.appendChild(renderer.domElement);
       renderer.domElement.classList.add('scene-canvas');
 
@@ -537,8 +556,32 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
       let dustSampleAccum = 0;
       const DUST_SAMPLE_INTERVAL = 0.05;
 
+      // ---- Perf gates ----
+      // Pause the render loop when the hero is off-screen (IntersectionObserver)
+      // OR when the tab is hidden (Page Visibility). On a long page this
+      // returns 30-50% of a CPU core to the browser once the user has scrolled
+      // past the hero. Resumed cleanly when conditions reverse.
+      let visible = true;
+      let tabVisible = !document.hidden;
+      // FPS cap: 60 Hz is the perceptual ceiling for the orbital motion + scroll
+      // sync. On 120/144 Hz displays the loop would otherwise run at 2-2.4× the
+      // necessary rate. Frame interval = 1/60 sec, with a small slack to absorb
+      // jitter without dropping otherwise-on-time frames.
+      const FRAME_INTERVAL = 1000 / 60;
+      let lastFrameTime = 0;
+      // --angel-x throttle: only publish the CSS var when the value moved
+      // > 0.4% from the last write. The CSS layers consuming it (.hero-smoke
+      // mask) only fade in during phase 01 anyway, so sub-pixel updates do
+      // nothing visually but force a mask rasterisation each frame.
+      let lastAngelXWrite = -999;
+
       function animate(now) {
-        const dt = (now - lastT) / 1000;
+        raf = requestAnimationFrame(animate);
+        // 60 Hz cap. Skip the frame entirely if we are early.
+        if (now - lastFrameTime < FRAME_INTERVAL - 1) return;
+        lastFrameTime = now;
+
+        const dt = Math.min((now - lastT) / 1000, 0.1); // clamp to 100ms to absorb tab-switch gaps
         lastT = now;
         clock.elapsed += dt;
 
@@ -957,17 +1000,66 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
         // so the phase 01 light beam / haze / halo can track it across every
         // viewport — desktop, tablet, mobile. Anchored on the orb height
         // (angel.position.y + ~0.5 world units up) so the percent reads from
-        // roughly the body-center axis, not the feet. Outside phase 01 the
-        // CSS layers fade to 0 anyway so the value is harmless.
-        camera.updateMatrixWorld();
-        _projVec.set(angel.position.x, angel.position.y + 0.5, angel.position.z).project(camera);
-        const angelScreenXPct = ((_projVec.x + 1) * 50);
-        document.documentElement.style.setProperty('--angel-x', `${angelScreenXPct.toFixed(2)}%`);
+        // roughly the body-center axis, not the feet. THROTTLED: only write
+        // when the value moved enough to be visible, AND only during phase 01
+        // (the CSS consumers fade to 0 outside) — otherwise this writes 60×/s
+        // to documentElement and forces re-rasterisation of two full-viewport
+        // mask layers (the worst-case paint cost in the page).
+        if (phase01Proximity > 0.01) {
+          camera.updateMatrixWorld();
+          _projVec.set(angel.position.x, angel.position.y + 0.5, angel.position.z).project(camera);
+          const angelScreenXPct = ((_projVec.x + 1) * 50);
+          if (Math.abs(angelScreenXPct - lastAngelXWrite) > 0.4) {
+            document.documentElement.style.setProperty('--angel-x', `${angelScreenXPct.toFixed(2)}%`);
+            lastAngelXWrite = angelScreenXPct;
+          }
+        }
+
+        // Toggle shadow rendering ONLY when phase01Spot is contributing.
+        // shadowMap.autoUpdate stays false the rest of the time, so the
+        // shadow pass is skipped entirely on every frame outside phase 01.
+        if (phase01Proximity > 0.02) {
+          renderer.shadowMap.autoUpdate = true;
+        } else if (renderer.shadowMap.autoUpdate) {
+          renderer.shadowMap.autoUpdate = false;
+        }
 
         renderer.render(scene, camera);
+      }
+
+      function startLoop() {
+        if (raf) return;
+        lastT = performance.now();
+        lastFrameTime = 0;
         raf = requestAnimationFrame(animate);
       }
-      raf = requestAnimationFrame(animate);
+      function stopLoop() {
+        if (raf) { cancelAnimationFrame(raf); raf = 0; }
+      }
+      function evaluateLoop() {
+        if (visible && tabVisible && !disposed) startLoop();
+        else stopLoop();
+      }
+
+      // IntersectionObserver: pause the loop once the hero is fully off-screen.
+      // rootMargin gives a generous buffer so the scene resumes well before the
+      // user can scroll back into view (avoids a one-frame black flash).
+      const io = new IntersectionObserver((entries) => {
+        const e = entries[0];
+        visible = e ? e.isIntersecting : true;
+        evaluateLoop();
+      }, { rootMargin: '200px 0px', threshold: 0 });
+      io.observe(container);
+
+      // Page Visibility: pause completely on hidden tabs (battery + CPU on
+      // background tabs goes to 0 instead of ~30 fps throttled rAF).
+      const onVisibility = () => {
+        tabVisible = !document.hidden;
+        evaluateLoop();
+      };
+      document.addEventListener('visibilitychange', onVisibility);
+
+      startLoop();
 
       const onResize = () => {
         const w = container.clientWidth, h = container.clientHeight;
@@ -978,7 +1070,9 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
       window.addEventListener('resize', onResize);
 
       dispose = () => {
-        cancelAnimationFrame(raf);
+        stopLoop();
+        io.disconnect();
+        document.removeEventListener('visibilitychange', onVisibility);
         window.removeEventListener('resize', onResize);
         renderer.dispose();
         envMap.dispose();

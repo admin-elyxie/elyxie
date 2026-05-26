@@ -7,3 +7,10 @@ node_modules/
 .idea/
 .vscode/
 .claude/
+
+# Local-only model backup (see .vercelignore for context)
+assets/models/angel.original.glb
+
+# Local-only / repo-recovery artifacts
+.git.broken/
+HANDOFF.md

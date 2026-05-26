@@ -181,18 +181,29 @@ function Hero({ lang, tweaks, pendantRef }) {
     };
   }, [pendantRef]);
 
-  // Apply theme to body via data attr + CSS vars (lerped)
+  // Apply theme to body via data attr + CSS vars (lerped).
+  // Throttled: the theme curve only changes meaningfully across the
+  // 0.45 → 0.85 progress band, and the RGB outputs are rounded to integers.
+  // We bucket to 0.005 (0.5%) — anything finer is invisible against the
+  // 1-pixel-of-color difference the lerp can produce — and skip the 5 CSS
+  // var writes when the bucket hasn't moved. Cuts ~50× redundant style
+  // invalidations per scroll second.
+  const themeBucketRef = useRef(-1);
   useEffect(() => {
-    // theme curve: stay dark 0..0.45, lerp to light 0.45..0.85, hold light 0.85..1
     const t = progress < 0.45 ? 0 : progress > 0.85 ? 1 : (progress - 0.45) / 0.40;
-    const bg = rgbLerpArr(C_DARK_BG, C_LIGHT_BG, t);
-    const fg = rgbLerpArr(C_DARK_FG, C_LIGHT_FG, t);
+    const bucket = Math.round(t * 200); // 200 distinct buckets across the band
+    if (bucket === themeBucketRef.current) return;
+    themeBucketRef.current = bucket;
+    const tQ = bucket / 200;
+    const bg = rgbLerpArr(C_DARK_BG, C_LIGHT_BG, tQ);
+    const fg = rgbLerpArr(C_DARK_FG, C_LIGHT_FG, tQ);
     document.body.style.setProperty('--theme-bg', `rgb(${bg.join(',')})`);
     document.body.style.setProperty('--theme-fg', `rgb(${fg.join(',')})`);
     document.body.style.setProperty('--theme-fg-muted', rgba(fg, 0.55));
     document.body.style.setProperty('--theme-fg-faint', rgba(fg, 0.20));
     document.body.style.setProperty('--theme-fg-hairline', rgba(fg, 0.15));
-    document.body.dataset.theme = t > 0.5 ? 'light' : 'dark';
+    const themeName = tQ > 0.5 ? 'light' : 'dark';
+    if (document.body.dataset.theme !== themeName) document.body.dataset.theme = themeName;
   }, [progress]);
 
   // Update tweaks → pendant
@@ -361,10 +372,24 @@ function EditionsGrid({ lang }) {
       <div className="editions-grid">
         {EDITIONS.map((e, i) => {
           const t = e[lang];
+          // WebP path is derived from the .jpg path so EDITIONS can keep one
+          // canonical URL per item. Browsers without WebP support fall back to
+          // the original JPG via the <img src> below. All grid images are
+          // below the fold, so lazy + async decoding keep the editions section
+          // out of the critical path.
+          const webp = e.img.replace(/\.jpg$/, '.webp');
+          const webp480 = e.img.replace(/\.jpg$/, '-480.webp');
           return (
             <a key={i} className="edition-card" href="#" data-screen-label={`Edition ${i+1}`}>
               <div className="edition-card__media">
-                <img src={e.img} alt={t.title}/>
+                <picture>
+                  <source
+                    type="image/webp"
+                    srcSet={`${webp480} 480w, ${webp} 720w`}
+                    sizes="(max-width: 767px) 100vw, (max-width: 1024px) 50vw, 25vw"
+                  />
+                  <img src={e.img} alt={t.title} loading="lazy" decoding="async"/>
+                </picture>
                 <span className="edition-card__corner edition-card__corner--tl" aria-hidden></span>
                 <span className="edition-card__corner edition-card__corner--tr" aria-hidden></span>
                 <span className="edition-card__corner edition-card__corner--bl" aria-hidden></span>

@@ -2,6 +2,13 @@
 // tweaks-panel.jsx
 // Reusable Tweaks shell + form-control helpers.
 //
+// PRODUCTION GATE: the panel only mounts when (a) the page is loaded inside an
+// iframe (the design host context) OR (b) the URL has `?edit` / `?tweaks`. In
+// regular production navigations the file exports lightweight stubs so app.jsx
+// keeps working (useTweaks still returns defaults) while skipping ~7 KB of
+// injected CSS, a ResizeObserver, a window message listener, and the whole
+// React tree of the panel. Re-enable by appending `?edit` to any URL.
+//
 // Owns the host protocol (listens for __activate_edit_mode / __deactivate_edit_mode,
 // posts __edit_mode_available / __edit_mode_set_keys / __edit_mode_dismissed) so
 // individual prototypes don't re-roll it. Ships a consistent set of controls so you
@@ -523,8 +530,39 @@ function TweakButton({ label, onClick, secondary = false }) {
   );
 }
 
-Object.assign(window, {
-  useTweaks, TweaksPanel, TweakSection, TweakRow,
-  TweakSlider, TweakToggle, TweakRadio, TweakSelect,
-  TweakText, TweakNumber, TweakColor, TweakButton,
-});
+// ── Production gate ─────────────────────────────────────────────────────────
+// Decide which export set goes on window: the real panel (design host /
+// `?edit` URL) or lightweight stubs (regular production navigation).
+(function installTweaksExports() {
+  const params = (() => { try { return new URLSearchParams(window.location.search); } catch { return null; } })();
+  const inIframe = (() => { try { return window.self !== window.top; } catch { return true; } })();
+  const wantsEdit = params && (params.has('edit') || params.has('tweaks'));
+  if (inIframe || wantsEdit) {
+    // Real panel — full kit on window.
+    Object.assign(window, {
+      useTweaks, TweaksPanel, TweakSection, TweakRow,
+      TweakSlider, TweakToggle, TweakRadio, TweakSelect,
+      TweakText, TweakNumber, TweakColor, TweakButton,
+    });
+    return;
+  }
+  // Production: zero-overhead stubs. useTweaks returns the defaults so app.jsx
+  // renders identically; every TweakX component returns null so React skips
+  // them; TweaksPanel renders nothing so no DOM, listeners, or CSS get added.
+  const noop = () => {};
+  const NullCmp = () => null;
+  Object.assign(window, {
+    useTweaks: (defaults) => [defaults, noop],
+    TweaksPanel: NullCmp,
+    TweakSection: NullCmp,
+    TweakRow: NullCmp,
+    TweakSlider: NullCmp,
+    TweakToggle: NullCmp,
+    TweakRadio: NullCmp,
+    TweakSelect: NullCmp,
+    TweakText: NullCmp,
+    TweakNumber: NullCmp,
+    TweakColor: NullCmp,
+    TweakButton: NullCmp,
+  });
+})();
