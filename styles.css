@@ -40,16 +40,9 @@ body[data-theme="dark"] {
   display: flex; align-items: center; justify-content: space-between;
   padding: 18px 32px;
   color: var(--theme-fg);
-  transition: color 80ms linear, background-color 240ms ease,
-              border-color 240ms ease, backdrop-filter 240ms ease;
+  transition: color 80ms linear, background-color 240ms ease;
   height: 76px;
-  background: color-mix(in srgb, var(--theme-bg) 62%, transparent);
-  -webkit-backdrop-filter: blur(20px) saturate(140%);
-  backdrop-filter: blur(20px) saturate(140%);
-  /* No bottom border — the reference floats the nav with glass only, no rule. */
-}
-@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  .nav { background: color-mix(in srgb, var(--theme-bg) 92%, transparent); }
+  background: transparent;
 }
 .nav > * { pointer-events: auto; }
 .nav__brand {

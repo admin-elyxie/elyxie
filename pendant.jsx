@@ -158,22 +158,24 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
       const camera = new THREE.PerspectiveCamera(32, container.clientWidth / container.clientHeight, 0.1, 50);
       camera.position.set(0, 0, 4.5);
 
-      // antialias: disabled on hi-DPI (the 2× pixel ratio already gives a
-      // free supersampling effect; MSAA on top costs ~30% more GPU). Kept on
-      // for low-DPI displays where the aliasing is visible.
-      const isHiDPI = (window.devicePixelRatio || 1) >= 2;
+      // Anti-aliasing ON always. The previous "DPR=2 gives free SSAA" comment
+      // was a fiction because the pixel-ratio cap was 1.5 — i.e. the browser
+      // always upscaled the canvas to native DPR (2× or 3× on phones),
+      // producing visible jaggies on wing silhouettes. MSAA cleans those up
+      // before the browser upscale; the ~30 % GPU cost is worth it.
       const renderer = new THREE.WebGLRenderer({
-        antialias: !isHiDPI,
+        antialias: true,
         alpha: true,
         powerPreference: 'high-performance',
         stencil: false,
         depth: true,
       });
-      // Cap pixel ratio at 1.5 by default — every 0.5 increment costs ~2.25×
-      // the fragment shader work. 2.0 looks marginally crisper but doubles
-      // the GPU bill on retina laptops for a small visual gain on a moving
-      // 3D scene where motion blur masks aliasing anyway.
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+      // Pixel-ratio cap 2.0 — covers retina laptops (DPR 2) at native and
+      // narrows the upscale on DPR-3 iPhones from 2× to 1.5×. 4× the
+      // fragment work of DPR=1, but iPhone GPUs handle this scene fine and
+      // the quality jump on phones is the whole point. Capping (vs. raw
+      // DPR) still protects retina laptops from 9× shader cost.
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2.0));
       renderer.setSize(container.clientWidth, container.clientHeight);
       renderer.setClearColor(0x000000, 0);
       renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -535,6 +537,11 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
             //   (sphereCenter * scaleFactor) - center
             const p = sphereCenter.clone().multiplyScalar(scaleFactor).sub(center);
             sphereLight.position.copy(p);
+            // Save the orb's angel-local Y for mobile phase-01 centering —
+            // the orb is the angel's focal point (bright, eye-catching), so
+            // placing it at the camera's lookAt (world Y=0) gives the
+            // perceptually-centered composition the user wants.
+            stateRef.current.orbLocalY = p.y;
             // Anchor the fairy dust at the orb's local position so the
             // particles drift around the sphere instead of around angel root.
             if (stateRef.current.materials.fairyDust) {
@@ -544,6 +551,56 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
 
           angel.add(model);
           modelLoaded = true;
+          // Cache the model's VISIBLE vertical bbox midpoint in angel-local
+          // frame, used by the mobile-phase-01 framing block to center the
+          // angel at the camera's lookAt point. Box3.setFromObject includes
+          // hidden meshes (the small anchor placeholders flagged
+          // visible=false earlier), inflating the bbox symmetrically to
+          // ±1.0 while the actual visible angel is asymmetric (wings reach
+          // ~+0.81, feet ~-1.00). Traverse + filter to use only the meshes
+          // the user can see.
+          {
+            const _savedY = angel.position.y;
+            angel.position.y = 0;
+            angel.updateMatrixWorld(true);
+            const _bbox = new THREE.Box3();
+            model.traverse((o) => {
+              if (!o.isMesh || !o.visible || !o.geometry) return;
+              if (!o.geometry.boundingBox) o.geometry.computeBoundingBox();
+              const _b = o.geometry.boundingBox.clone();
+              _b.applyMatrix4(o.matrixWorld);
+              _bbox.union(_b);
+            });
+            stateRef.current.modelCenterY = (_bbox.min.y + _bbox.max.y) / 2;
+            stateRef.current.modelBboxY = { min: _bbox.min.y, max: _bbox.max.y };
+            // Cache ALL visible mesh vertices in angel-local frame. The
+            // render loop applies the current angel rotation, projects with
+            // the live camera, and finds the perspective-corrected screen-
+            // space Y extremes. Bbox corners alone aren't enough because
+            // the corner (xMax, yMax, zMin) is often a void area outside
+            // the actual geometry — the real wing tip lives at some other
+            // point inside the bbox. Iterating real vertices guarantees we
+            // find true extremes. Total ~30 k floats = 360 KB; per-frame
+            // iteration of ~30 k verts is well under 1 ms on modern CPUs.
+            const _verts = [];
+            const _v = new THREE.Vector3();
+            model.traverse((o) => {
+              if (!o.isMesh || !o.visible || !o.geometry) return;
+              const pos = o.geometry.attributes.position;
+              if (!pos) return;
+              for (let i = 0; i < pos.count; i++) {
+                _v.fromBufferAttribute(pos, i).applyMatrix4(o.matrixWorld);
+                _verts.push(_v.x, _v.y, _v.z);
+              }
+            });
+            stateRef.current.modelVerts = new Float32Array(_verts);
+            angel.position.y = _savedY;
+            // Debug
+            window.__elyxie_debug = window.__elyxie_debug || {};
+            window.__elyxie_debug.modelCenterY = stateRef.current.modelCenterY;
+            window.__elyxie_debug.modelBboxY = stateRef.current.modelBboxY;
+            window.__elyxie_debug.vertCount = _verts.length / 3;
+          }
         },
         undefined,
         (err) => { console.error('Failed to load angel GLB:', err); },
@@ -675,9 +732,7 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
 
         // Phase 01 (BIENVENIDA) push the angel further to the right so the
         // headline copy can occupy the left half cleanly — matches the
-        // reference. Decays to 0 by phase 02 via phase01Proximity. Mobile
-        // keeps centered framing because the headline stacks above the
-        // angel on phones (a horizontal shift would break that layout).
+        // reference. Decays to 0 by phase 02 via phase01Proximity.
         if (!isMobile) {
           // Negative shift = move toward the viewer's LEFT (= toward the
           // angel's own right hand). Aligns the body center with the CSS
@@ -685,6 +740,14 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
           // because the natural pxBase places the angel further right at
           // narrow desktop aspects.
           pxBase += -0.10 * phase01Proximity;
+        } else {
+          // Mobile phase-01 horizontal trim: the -30° Y rotation projects
+          // the angel's anatomical RIGHT wing (viewer's LEFT) slightly
+          // larger than the LEFT wing, so the visible wing-tip midpoint
+          // sits a hair LEFT of world X=0. Small negative shift balances
+          // it. Gated by phase01Proximity → 0 outside phase 01 so phases
+          // 02-5 stay byte-perfect.
+          pxBase += -0.13 * phase01Proximity;
         }
         // Monotonic centering through the phase 01 → phase 02 transition.
         // smoothstep ramps from 0 at tRaw=0 to 1.0 at tRaw=0.20, so the
@@ -707,18 +770,13 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
         // And lift the model so the orb lands at ~47–49% of viewport Y and the
         // feet meet the photo's water line at ~65–70 % Y.
         const pyOriginShift = 0.30 * phaseOriginProximity;
-
-        const px = pxOrigin * (1 - phaseSoulProximity * 0.85)
-                 + Math.sin(clock.elapsed * 0.35) * 0.02;
-        const py = -0.05 + pyOffset + pyOriginShift
-                 + Math.sin(clock.elapsed * 0.4) * 0.03
-                 + Math.sin(tRaw * Math.PI) * 0.06;
         // Phase 01 (BIENVENIDA) depth push: sit the angel slightly further
         // from camera so the smoke that drifts in front feels more wrapping.
-        // Decays to 0 outside phase 01.
+        // Decays to 0 outside phase 01. Computed early so the mobile-phase-01
+        // centering math (below) can use it together with camZ.
         const pz01 = -0.6 * phase01Proximity;
-        angel.position.set(px, py, pz01);
 
+        // === camera Z (computed BEFORE py so screen-space centering can use it) ===
         let camZ;
         if (tRaw < 0.55) {
           camZ = lerp(3.6, 4.8, easeInOut(tRaw / 0.55));
@@ -751,21 +809,60 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
         // ~z=2.4 (face + upper torso in frame, wings spreading off the
         // sides) instead of crushing the angel into the wings.
         camZ -= 1.25 * faceCloseup;
+        // Phase 01 mobile extra pullback so the angel fits inside the WELCOME
+        // → DESLIZA window without wing tops overlapping the headline. Gated
+        // by phase01Proximity → 0 at tRaw≈0.18, leaving phases 02-5 untouched.
+        if (isMobile) {
+          camZ += 0.9 * phase01Proximity;
+        }
         camZ = Math.max(camZ, 2.0);
+
+        // Mobile phase 01 framing — center the ORB (the angel's bright
+        // focal point) at the camera's lookAt point. Camera looks at
+        // world (0,0,0), so setting angel.position.y = -orbLocalY puts the
+        // orb at world Y=0 → exactly at screen center vertically. Rotation
+        // around Y doesn't change the orb's Y, so this works regardless of
+        // the angel's phase-01 rotation. Gated by phase01Proximity so
+        // phases 02-5 remain byte-perfect. Much simpler than vertex-
+        // extremes centering (which mis-fired because back-facing wing
+        // vertices contribute to the bbox but are occluded visually).
+        const py01Mobile = (() => {
+          if (!isMobile) return 0;
+          const orbY = stateRef.current.orbLocalY;
+          if (orbY === undefined) return 0;
+          const baselinePy = -0.05 + pyOffset;
+          // Drop the orb slightly BELOW world-Y=0 so the angel sits at the
+          // visual center of the WELCOME-to-DESLIZA window (which lives below
+          // viewport center on portrait mobile because of the top headline).
+          const targetPy = -orbY - 0.31;
+          const shift = (targetPy - baselinePy) * phase01Proximity;
+          if (typeof window !== 'undefined') {
+            window.__elyxie_render_debug = { orbY, targetPy, baselinePy, shift, phase01Proximity };
+          }
+          return shift;
+        })();
+
+        const px = pxOrigin * (1 - phaseSoulProximity * 0.85)
+                 + Math.sin(clock.elapsed * 0.35) * 0.02;
+        const py = -0.05 + pyOffset + pyOriginShift + py01Mobile
+                 + Math.sin(clock.elapsed * 0.4) * 0.03
+                 + Math.sin(tRaw * Math.PI) * 0.06;
+        angel.position.set(px, py, pz01);
+
         camera.position.z = camZ;
         camera.position.x = Math.sin(clock.elapsed * 0.25) * 0.05;
         camera.position.y = Math.cos(clock.elapsed * 0.3) * 0.04;
-        // Track ONLY the angel's X during the close-up so the body slides
-        // toward horizontal center as the camera dives in. This brings the
-        // angel closer to the headline on the left half of the layout —
-        // without tracking, the dolly-in keeps the angel pinned to the
-        // right side of the frame (where phase 01 places it) and the
-        // headline feels disconnected. Y and Z stay at 0 to preserve the
-        // vertical framing exactly (face at ~40% from top, body filling
-        // lower 2/3). Decays to lookAt(0,0,0) at the phase anchors via
-        // faceCloseup → both anchors stay byte-perfect.
+        // Track the angel during the close-up so the body slides into the
+        // center of the frame as the camera dives in. X tracking pulls the
+        // figure away from phase 01's right-side pose toward horizontal
+        // center; Y tracking lifts the angel out of the low phase-01 mobile
+        // framing so the face/torso sit roughly at viewport vertical center
+        // during the close-up beat instead of slumping toward the bottom.
+        // Both decay to 0 at the phase anchors via faceCloseup → byte-perfect
+        // at tRaw=0 and tRaw=0.29.
         const lookFaceX = angel.position.x * faceCloseup;
-        camera.lookAt(lookFaceX, 0, 0);
+        const lookFaceY = angel.position.y * faceCloseup;
+        camera.lookAt(lookFaceX, lookFaceY, 0);
 
         // ===== Phase 02 (ORIGEN) light shaping =====
         // Same gaussian as the backdrop + framing, so light/camera/photo all
