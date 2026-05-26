@@ -1,0 +1,20 @@
+# Orphan image assets (not referenced from any *.jsx / *.html / *.css).
+# Kept in the repo for design reference but excluded from production deploy.
+# To restore: remove the matching line and the file will ship next deploy.
+assets/photography/angel-in-box-detail.jpg
+assets/photography/box-engraved-top.jpg
+assets/photography/angel-in-box-hero.jpg
+assets/photography/pendant-large.jpg
+assets/photography/angel-pendant-velvet.png
+assets/photography/instagram-feed.png
+
+# Pre-optimization model backup. Kept locally so you can rebuild a higher-poly
+# variant if needed; the live `angel.glb` is simplified + Draco-compressed
+# (4.6 MB → 2.8 MB, ~40% reduction).
+assets/models/angel.original.glb
+
+# Local-only artifacts
+.git.broken/
+HANDOFF.md
+.claude/
+.vercel/

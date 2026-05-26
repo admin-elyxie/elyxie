@@ -5,6 +5,32 @@
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>elyxie — un santuario que se lleva puesto</title>
   <link rel="icon" href="assets/elyxie-mark.svg"/>
+
+  <!-- Performance hints: open TCP+TLS to every cross-origin we touch on the
+       critical path BEFORE the parser hits the requests below. Cuts ~100-300 ms
+       off first-byte for each origin (handshake amortised across requests). -->
+  <link rel="preconnect" href="https://unpkg.com" crossorigin>
+  <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://api.fontshare.com" crossorigin>
+  <!-- Tell the browser to start fetching the heavy 3D model immediately,
+       in parallel with the rest of the critical path, so it's already in
+       cache by the time pendant.jsx asks for it. -->
+  <link rel="preload" as="fetch" href="assets/models/angel.glb" crossorigin>
+
+  <!-- Fonts: parallel <link> loads instead of nested @import inside
+       colors_and_type.css. Trimmed to ONLY the weights actually used:
+         • Cormorant Garamond — 300, 400, 500 + italic 300, 400
+         • Satoshi            — 300, 400, 500
+       Fustat and JetBrains Mono dropped (never used / system mono works).
+       display=swap shows a fallback immediately and swaps when ready, so
+       the page is never blocked by font network. -->
+  <link rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&display=swap"/>
+  <link rel="stylesheet"
+        href="https://api.fontshare.com/v2/css?f[]=satoshi@300,400,500&display=swap"/>
+
   <link rel="stylesheet" href="assets/colors_and_type.css"/>
   <link rel="stylesheet" href="styles.css"/>
 </head>
@@ -40,21 +66,19 @@
     window.dispatchEvent(new Event('three-ready'));
   </script>
 
-  <!-- React + Babel -->
-  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
-  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
-  <script src="https://unpkg.com/@babel/standalone@7.27.4/babel.min.js" crossorigin="anonymous"></script>
+  <!-- React PRODUCTION build (was .development.js → 5-10× slower, 3× larger). -->
+  <script src="https://unpkg.com/react@18.3.1/umd/react.production.min.js" crossorigin="anonymous" defer></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js" crossorigin="anonymous" defer></script>
 
-  <!-- Tweaks panel starter (provides TweaksPanel, TweakSection, TweakSlider, TweakColor, useTweaks) -->
-  <script type="text/babel" src="tweaks-panel.jsx"></script>
-
-  <!-- Pendant 3D scene (classic; uses window.THREE etc. populated by the preamble) -->
-  <script type="text/babel" src="pendant.jsx"></script>
-
-  <!-- Sections 2-7 -->
-  <script type="text/babel" src="sections.jsx"></script>
-
-  <!-- App -->
-  <script type="text/babel" src="app.jsx"></script>
+  <!-- App code: pre-compiled by build.js (`npm run build` / `npm run watch`).
+       Was: <script type="text/babel" src="*.jsx"> + @babel/standalone CDN.
+       Babel was downloading ~800 KB gzipped and blocking the main thread
+       300-1500 ms while it transpiled the JSX at load time. The pre-compiled
+       .js files run immediately and total ~65 KB. `defer` keeps them in
+       document order, executes after parsing, and doesn't block the parser. -->
+  <script src="dist/tweaks-panel.js" defer></script>
+  <script src="dist/pendant.js" defer></script>
+  <script src="dist/sections.js" defer></script>
+  <script src="dist/app.js" defer></script>
 </body>
 </html>

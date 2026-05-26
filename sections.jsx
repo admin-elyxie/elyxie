@@ -69,12 +69,13 @@ function SectionVideoHero({ lang }) {
 
         <figure className="MediaPlayer">
           {/* Poster-only; no MP4 source. Behaves as still until the user opens
-              the lightbox. */}
+              the lightbox. Modern browsers (97%+) accept WebP as a poster, so
+              swap to that for a ~30× weight reduction (4.2 MB → 130 KB). */}
           <video
             className="MediaPlayer__video"
             playsInline muted loop
             preload="metadata"
-            poster="assets/photography/video-poster.jpg"
+            poster="assets/photography/video-poster-1440.webp"
           ></video>
 
           <button className="PlayButton" onClick={() => setOpen(true)} aria-label={t.play}>
@@ -94,7 +95,10 @@ function SectionVideoHero({ lang }) {
         <div className="Lightbox" onClick={(e) => { if (e.target === e.currentTarget) setOpen(false); }}>
           <button className="Lightbox__close" onClick={() => setOpen(false)} aria-label="Close">×</button>
           <div className="Lightbox__inner">
-            <img src="assets/photography/video-poster.jpg" alt=""/>
+            <picture>
+              <source type="image/webp" srcSet="assets/photography/video-poster.webp"/>
+              <img src="assets/photography/video-poster.jpg" alt="" decoding="async"/>
+            </picture>
             <div className="Lightbox__overlay">
               <div className="Lightbox__title">{t.lbTitle}</div>
               <div className="Lightbox__sub">{t.lbSub}</div>
@@ -152,11 +156,21 @@ function SectionInstagramGrid({ lang }) {
         </div>
 
         <ul className="InstaGrid">
-          {INSTA.map((p, i) => (
+          {INSTA.map((p, i) => {
+            const webp = p.img.replace(/\.jpg$/, '.webp');
+            const webp480 = p.img.replace(/\.jpg$/, '-480.webp');
+            return (
             <li key={i} className="InstaCard">
               <a href={p.url} target="_blank" rel="noopener" aria-label={`Instagram post ${i + 1}`}>
                 <figure className="InstaCard__media" style={{ aspectRatio: p.ratio }}>
-                  <img src={p.img} alt="" loading="lazy"/>
+                  <picture>
+                    <source
+                      type="image/webp"
+                      srcSet={`${webp480} 480w, ${webp} 720w`}
+                      sizes="(max-width: 767px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                    />
+                    <img src={p.img} alt="" loading="lazy" decoding="async"/>
+                  </picture>
                   <span className="InstaCard__badge" aria-hidden>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <rect x="3" y="3" width="18" height="18" rx="5"/>
@@ -171,7 +185,8 @@ function SectionInstagramGrid({ lang }) {
                 </figcaption>
               </a>
             </li>
-          ))}
+            );
+          })}
         </ul>
 
         <CornerCrosses />
@@ -196,8 +211,23 @@ function SectionBrandStatement({ lang }) {
   return (
     <section className="Section theme-dark FullMediaHeadline" data-theme="dark" data-section="brand-statement" data-screen-label="04 Brand statement">
       <div className="FullMediaHeadline__media">
-        {/* Still poster — ambient slow zoom via CSS (Ken Burns) */}
-        <img className="FullMediaHeadline__bg" src="assets/photography/brand-statement-bg.jpg" alt=""/>
+        {/* Still poster — ambient slow zoom via CSS (Ken Burns).
+            Below the fold of the hero, so lazy + async is safe and saves
+            ~4 MB on initial load. */}
+        <picture>
+          <source
+            type="image/webp"
+            srcSet="assets/photography/brand-statement-bg-960.webp 960w, assets/photography/brand-statement-bg-1440.webp 1440w, assets/photography/brand-statement-bg.webp 1920w"
+            sizes="100vw"
+          />
+          <img
+            className="FullMediaHeadline__bg"
+            src="assets/photography/brand-statement-bg.jpg"
+            alt=""
+            loading="lazy"
+            decoding="async"
+          />
+        </picture>
         <div className="FullMediaHeadline__overlay"></div>
       </div>
 
@@ -249,7 +279,12 @@ function SectionNewsletter({ lang }) {
     <section className="Section theme-dark Section--banner" data-theme="dark" data-section="newsletter" data-screen-label="05 Newsletter">
       <div className="NewsletterBanner">
         <picture className="NewsletterBanner__bg">
-          <img src="assets/photography/newsletter-bg.jpg" alt="" loading="lazy"/>
+          <source
+            type="image/webp"
+            srcSet="assets/photography/newsletter-bg-960.webp 960w, assets/photography/newsletter-bg-1440.webp 1440w, assets/photography/newsletter-bg.webp 1920w"
+            sizes="100vw"
+          />
+          <img src="assets/photography/newsletter-bg.jpg" alt="" loading="lazy" decoding="async"/>
         </picture>
 
         <div className="NewsletterBanner__content">
