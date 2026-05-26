@@ -5,7 +5,10 @@
 // preamble in index.html and exposed on window; we wait for the
 // `three-ready` event (or window.__threeReady) before building the scene.
 
-const { useEffect, useRef, useImperativeHandle, forwardRef } = React;
+// `var` (not const) so the destructured hooks can share global scope with
+// app.jsx's matching destructure without a "already declared" SyntaxError
+// when the two compiled scripts both execute at the top of the page.
+var { useEffect, useRef, useImperativeHandle, forwardRef } = React;
 
 const easeInOut = (t) => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
 const lerp = (a, b, t) => a + (b - a) * t;
