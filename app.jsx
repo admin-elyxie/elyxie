@@ -695,12 +695,6 @@ function Nav({ lang, setLang }) {
 
         {/* Mobile icon buttons (hidden on desktop via CSS) */}
         <div className="nav__mobile-actions" aria-hidden={false}>
-          <button className="nav__icon-btn" aria-label="Search" type="button">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
-              <circle cx="11" cy="11" r="7"/>
-              <path d="M20 20l-3.5-3.5"/>
-            </svg>
-          </button>
           <button
             className="nav__icon-btn nav__icon-btn--menu"
             aria-label={drawerOpen ? 'Close menu' : 'Open menu'}
