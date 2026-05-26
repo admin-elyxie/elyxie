@@ -363,7 +363,11 @@ body[data-theme="dark"] {
 }
 .frame__v {
   position: absolute;
-  top: 0; bottom: 0; left: 56px;
+  /* Rail spans cross-to-cross: terminates at the vertical centers of
+     .frame__cross--tl (top: 75px + 5px) and .frame__cross--bl
+     (bottom: 24px + 5px) so the corner "+" marks act as caps instead of
+     decorative beads on a full-height line. */
+  top: 80px; bottom: 29px; left: 56px;
   width: 1px;
   background: currentColor;
   opacity: 0.22;
@@ -1668,7 +1672,9 @@ section[data-section="outro"] {
   /* Pull stepper / rail tighter to the edges */
   .stepper { left: 24px; }
   .rail { right: 28px; }
-  .frame__v { left: 44px; }
+  /* Rail recomputed for tablet cross positions (top: 70px / bottom: 22px,
+     10x10 → centers at top: 75px and bottom: 27px). */
+  .frame__v { left: 44px; top: 75px; bottom: 27px; }
   .frame__cross--tl { left: 39px; top: 70px; }
   .frame__cross--bl { left: 39px; bottom: 22px; }
   .frame__cross--tr { right: 22px; top: 70px; }
@@ -1919,18 +1925,24 @@ section[data-section="outro"] {
   .stepper,
   .rail { display: none !important; }
 
-  /* Frame: pull rail inward; tighten corner crosses */
-  .frame__v { left: 16px; opacity: 0.18; }
+  /* Frame: pull rail inward; tighten corner crosses.
+     Rail is clipped to the corner-cross column (top: 74px → bottom: 28px) so
+     it no longer cuts through the .nav__brand at the top or the
+     .edition-badge text at the bottom — the crosses become its terminations
+     instead of decorative ornaments on a full-height line. */
+  .frame__v { left: 16px; top: 74px; bottom: 28px; opacity: 0.18; }
   .frame__cross { width: 8px; height: 8px; opacity: 0.6; }
   .frame__cross--tl { top: 70px;    left: 12px; }
   .frame__cross--tr { top: 70px;    right: 12px; }
-  .frame__cross--bl { bottom: 16px; left: 12px; }
+  .frame__cross--bl { bottom: 24px; left: 12px; }
 
-  /* Edition badge — move to bottom-left, smaller */
+  /* Edition badge — bottom-strip, left-indented past the corner cross/rail
+     column (left: 36px clears the cross at left: 12–20 and the rail at
+     left: 16). Right stays at 16px so the serial keeps hugging the edge. */
   .edition-badge {
-    bottom: 16px;
+    bottom: 14px;
     right: 16px;
-    left: 16px;
+    left: 36px;
     flex-direction: row;
     justify-content: space-between;
     align-items: center;
