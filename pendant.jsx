@@ -610,7 +610,12 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
         // it decays to ≈0 at both phase anchors (tRaw=0 and tRaw=0.29),
         // leaving both fully byte-perfect. Drives camZ, lookAt target, and
         // the rotation release timing.
-        const faceCloseup = Math.exp(-Math.pow((tRaw - 0.13) / 0.045, 2));
+        // σ widened from 0.045 → 0.065 so the dolly's rate of change is gentler
+        // through the snap window (less screen motion per scroll millisecond).
+        // At tRaw=0.29 the gaussian still resolves to ≈0.003 — ORIGEN anchor
+        // stays effectively byte-perfect. At tRaw=0 it's ≈0.018 (camera offset
+        // ≈0.015 — imperceptible).
+        const faceCloseup = Math.exp(-Math.pow((tRaw - 0.13) / 0.065, 2));
 
         // Rotation EASE-IN RELEASE: quartic curve (1 - x⁴) holds the angel
         // near -30° during the early scroll and accelerates sharply near

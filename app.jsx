@@ -183,6 +183,107 @@ function Hero({ lang, tweaks, pendantRef }) {
     };
   }, [pendantRef]);
 
+  // Phase snap on idle — native scroll for input, smooth tween for snap.
+  // Letting the browser handle the wheel/touch directly keeps input feeling
+  // crisp (no interception lag, no velocity gap). When the user pauses for
+  // IDLE_MS the snap tween (easeOutCubic, 700 ms) carries scroll to the next
+  // phase midpoint in the direction of motion. Native momentum + tween share
+  // similar velocity magnitudes, so the handoff is continuous instead of a
+  // sudden kick. Honors prefers-reduced-motion (jumps instantly).
+  useEffect(() => {
+    const wrap = wrapRef.current;
+    if (!wrap) return;
+
+    // Midpoints of each phase range — active copy sits at peak legibility and
+    // phase-tied visuals (Laguna Negra backdrop peaks at 0.29) hit their
+    // designed maximum. 0 and 1 anchor the entry / exit boundaries.
+    const SNAP_POINTS = [0.00, 0.29, 0.50, 0.70, 0.90, 1.00];
+    const IDLE_MS = 160;
+    const SNAP_DURATION = 2100;
+    const PRM = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    let lastDirection = 1;
+    let idleTimer = 0;
+    let snapRaf = 0;
+    let snapping = false;
+    let lastY = window.scrollY;
+
+    const easeOutCubic = (k) => 1 - Math.pow(1 - k, 3);
+    const pinTop = () => wrap.offsetTop;
+    const pinTotal = () => Math.max(1, wrap.offsetHeight - window.innerHeight);
+    const progressY = (p) => pinTop() + p * pinTotal();
+    const currentProgress = () => Math.max(0, Math.min(1, (window.scrollY - pinTop()) / pinTotal()));
+    const isInside = () => {
+      const rect = wrap.getBoundingClientRect();
+      return rect.top <= 0.5 && rect.bottom >= window.innerHeight - 0.5;
+    };
+
+    function cancelSnap() {
+      if (snapRaf) cancelAnimationFrame(snapRaf);
+      snapRaf = 0;
+      snapping = false;
+    }
+    function tweenTo(targetProgress) {
+      cancelSnap();
+      const endY = progressY(targetProgress);
+      if (PRM) { window.scrollTo({ top: endY }); lastY = endY; return; }
+      snapping = true;
+      const startY = window.scrollY;
+      const t0 = performance.now();
+      function step(t) {
+        const k = Math.min(1, (t - t0) / SNAP_DURATION);
+        const next = startY + (endY - startY) * easeOutCubic(k);
+        lastY = next;
+        window.scrollTo({ top: next });
+        if (k < 1) snapRaf = requestAnimationFrame(step);
+        else { snapRaf = 0; snapping = false; }
+      }
+      snapRaf = requestAnimationFrame(step);
+    }
+
+    function snapToNext() {
+      if (snapping || !isInside()) return;
+      const p = currentProgress();
+      let target;
+      if (lastDirection > 0) target = SNAP_POINTS.find((s) => s > p + 0.005);
+      else for (let i = SNAP_POINTS.length - 1; i >= 0; i--) {
+        if (SNAP_POINTS[i] < p - 0.005) { target = SNAP_POINTS[i]; break; }
+      }
+      if (target === undefined) return; // already at an edge; let user exit
+      tweenTo(target);
+    }
+
+    function onScroll() {
+      const y = window.scrollY;
+      if (snapping) { lastY = y; return; }
+      const dy = y - lastY;
+      lastY = y;
+      if (dy !== 0) lastDirection = dy > 0 ? 1 : -1;
+      if (!isInside()) return;
+      clearTimeout(idleTimer);
+      idleTimer = setTimeout(snapToNext, IDLE_MS);
+    }
+    function onWheel(e) {
+      // Any user-initiated wheel during a snap cancels it; native scroll then
+      // takes over without competing with our tween.
+      if (snapping) cancelSnap();
+    }
+    function onTouchStart() {
+      if (snapping) cancelSnap();
+    }
+
+    window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('wheel', onWheel, { passive: true });
+    window.addEventListener('touchstart', onTouchStart, { passive: true });
+    return () => {
+      window.removeEventListener('scroll', onScroll);
+      window.removeEventListener('wheel', onWheel);
+      window.removeEventListener('touchstart', onTouchStart);
+      clearTimeout(idleTimer);
+      cancelSnap();
+    };
+  }, []);
+
   // Apply theme to body via data attr + CSS vars (lerped).
   // Throttled: the theme curve only changes meaningfully across the
   // 0.45 → 0.85 progress band, and the RGB outputs are rounded to integers.
@@ -314,13 +415,13 @@ function Hero({ lang, tweaks, pendantRef }) {
         {/* Phase content stacked, only one active */}
         {(() => {
           // Mirror the close-up gaussian from pendant.jsx (peak tRaw=0.13,
-          // σ=0.045) so we can dim the active phase's headline copy at the
+          // σ=0.065) so we can dim the active phase's headline copy at the
           // exact moment the camera dives in. Without this, the centered
           // close-up framing collides with the left-aligned text on tablet
           // and narrow desktop. The fade is applied to an inner wrapper so
           // the outer .phase-content keeps its 700ms active/inactive
           // opacity transition uninterrupted.
-          const closeupFade = Math.exp(-Math.pow((progress - 0.13) / 0.045, 2));
+          const closeupFade = Math.exp(-Math.pow((progress - 0.13) / 0.065, 2));
           return (
             <div className="phase-layer">
               {PHASES.map((p, i) => {
