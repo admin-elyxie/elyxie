@@ -1926,9 +1926,40 @@ section[data-section="outro"] {
     .pin-stage { cursor: default; }
   }
 
-  /* Hide left vertical stepper sidebar; the right .rail is repurposed below
-     as the mobile progress indicator. */
-  .stepper { display: none !important; }
+  /* 5-step phase indicator on the left rail. The desktop labels + tick list
+     don't fit at this width, so collapse `.stepper__col` (numbers + names)
+     and keep only the `::before` tick of each item. The 5 items distribute
+     via flex `space-between` on `.stepper`, so they sit at the rail's phase
+     positions; first and last coincide with the tl / bl corner crosses —
+     the "+" marks bookend the journey. The active tick extends right and
+     goes gold to mirror the right rail's progress fill (both rails share
+     the gold accent for "current state"). */
+  .stepper {
+    display: flex !important;
+    left: 16px;
+    top: 74px;
+    bottom: 28px;
+    width: 1px;
+    padding: 0;
+    opacity: 1;
+  }
+  .stepper__item {
+    padding-left: 0;
+    opacity: 1;
+  }
+  .stepper__col { display: none; }
+  .stepper__item::before {
+    left: -4px;
+    width: 8px;
+    background: var(--theme-fg);
+    opacity: 0.32;
+    transition: width 320ms ease, opacity 320ms ease, background-color 320ms ease;
+  }
+  .stepper__item[data-active="true"]::before {
+    width: 16px;
+    background: var(--color-gold-bright);
+    opacity: 1;
+  }
 
   /* Frame: pull rail inward; tighten corner crosses.
      Both vertical rails (.frame__v left, .rail right) are clipped to the
