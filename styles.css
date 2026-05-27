@@ -516,6 +516,14 @@ body[data-theme="dark"] {
   white-space: nowrap;
 }
 .stepper__item[data-active="true"] { opacity: 1; }
+/* Click affordance for the rail buttons (phases 01..05). Only adds a
+   pointer cursor on hover — no color, size, or position change.
+   The parent .stepper carries `pointer-events: none` so it doesn't block
+   the 3D canvas behind it, which means each interactive row must
+   re-enable pointer events explicitly. Without `pointer-events: auto`
+   the canvas captures the click and the row's onClick never fires. */
+.stepper__item[role="button"] { cursor: pointer; pointer-events: auto; }
+.stepper__item[role="button"]:focus-visible { outline: 1px solid currentColor; outline-offset: 4px; }
 /* Tick crossing the rail */
 .stepper__item::before {
   content: "";

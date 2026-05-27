@@ -37,7 +37,7 @@ Each `PHASES[i]` has `{num, label, title, sub, range:[start,end], position, them
 ## Conventions
 
 - **Easing:** prefer `smootherstep` (quintic: `6x⁵−15x⁴+10x³`) over `easeInOut` (cubic) when changes in camera or position would otherwise feel "punchy" — it zeros 1st AND 2nd derivative at endpoints
-- **Snap on scroll-idle:** controlled by `SNAP_DURATION` (currently 3000 ms) and `SNAP_POINTS = [0.00, 0.29, 0.50, 0.70, 0.90, 1.00]` in `app.jsx`
+- **Snap on scroll-idle:** controlled by `SNAP_DURATION` (currently 3000 ms — same duration also used by left-rail button clicks for a unified transition feel) and `SNAP_POINTS = [0.00, 0.29, 0.50, 0.70, 0.90, 1.00]` in `app.jsx`
 - **Bilingual copy:** every text node has `{ es: '…', en: '…' }`; user-facing strings live in the PHASES array or section components
 - **Comments:** long explanatory comments are normal here (especially in `pendant.jsx`) — they document *why* a magic number / gaussian σ was chosen
 

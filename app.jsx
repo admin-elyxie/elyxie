@@ -147,6 +147,11 @@ function Hero({ lang, tweaks, pendantRef }) {
   const [progress, setProgress] = useState(0);
   const progressRef = useRef(0);
   const rafRef = useRef(0);
+  // Exposed by the snap useEffect so the left-rail buttons can route their
+  // scroll through the SAME tween (with `snapping=true` flag), bypassing
+  // the idle-snap detector that would otherwise grab the in-flight smooth
+  // scroll and tween it to the wrong SNAP_POINT.
+  const tweenToRef = useRef(null);
 
   // pin viewports controlled by tweaks
   const pinVH = tweaks.pinViewports;
@@ -190,6 +195,8 @@ function Hero({ lang, tweaks, pendantRef }) {
   // phase midpoint in the direction of motion. Native momentum + tween share
   // similar velocity magnitudes, so the handoff is continuous instead of a
   // sudden kick. Honors prefers-reduced-motion (jumps instantly).
+  // The same 3000 ms duration is used for rail-button clicks (via tweenToRef)
+  // so the page has ONE consistent transition feel regardless of trigger.
   useEffect(() => {
     const wrap = wrapRef.current;
     if (!wrap) return;
@@ -207,6 +214,12 @@ function Hero({ lang, tweaks, pendantRef }) {
     let snapRaf = 0;
     let snapping = false;
     let lastY = window.scrollY;
+    // After a rail-button click finishes its tween, the final 'scroll'
+    // event arms idleTimer for snapToNext, which would yank the user
+    // off the SNAP_POINT they explicitly chose. Suppress snapToNext
+    // until this timestamp (performance.now() + 600 ms) when the tween
+    // was started by a click. Internal snap-to-next tweens leave it 0.
+    let snapCooldownUntil = 0;
 
     const easeOutCubic = (k) => 1 - Math.pow(1 - k, 3);
     const pinTop = () => wrap.offsetTop;
@@ -223,26 +236,46 @@ function Hero({ lang, tweaks, pendantRef }) {
       snapRaf = 0;
       snapping = false;
     }
-    function tweenTo(targetProgress) {
+    // `duration` is optional. Both idle-snap AND rail-button clicks use
+    // SNAP_DURATION (3000 ms) — the page has a single, consistent
+    // transition feel regardless of how the section change was initiated.
+    // `isUserClick` flags rail-button-initiated tweens: on completion we
+    // arm a 600 ms snap cooldown so the idle detector can't immediately
+    // pull the user off the SNAP_POINT they explicitly chose.
+    function tweenTo(targetProgress, duration, isUserClick) {
       cancelSnap();
       const endY = progressY(targetProgress);
-      if (PRM) { window.scrollTo({ top: endY }); lastY = endY; return; }
+      if (PRM) {
+        window.scrollTo({ top: endY });
+        lastY = endY;
+        if (isUserClick) snapCooldownUntil = performance.now() + 600;
+        return;
+      }
       snapping = true;
       const startY = window.scrollY;
+      const dur = (typeof duration === 'number' && duration > 0) ? duration : SNAP_DURATION;
       const t0 = performance.now();
       function step(t) {
-        const k = Math.min(1, (t - t0) / SNAP_DURATION);
+        const k = Math.min(1, (t - t0) / dur);
         const next = startY + (endY - startY) * easeOutCubic(k);
         lastY = next;
         window.scrollTo({ top: next });
         if (k < 1) snapRaf = requestAnimationFrame(step);
-        else { snapRaf = 0; snapping = false; }
+        else {
+          snapRaf = 0;
+          snapping = false;
+          if (isUserClick) snapCooldownUntil = performance.now() + 600;
+        }
       }
       snapRaf = requestAnimationFrame(step);
     }
+    // Expose to the rail-button click handler. Pass isUserClick=true so
+    // the cooldown is armed. Cleared in the cleanup below.
+    tweenToRef.current = (p, d) => tweenTo(p, d, true);
 
     function snapToNext() {
       if (snapping || !isInside()) return;
+      if (performance.now() < snapCooldownUntil) return;
       const p = currentProgress();
       let target;
       if (lastDirection > 0) target = SNAP_POINTS.find((s) => s > p + 0.005);
@@ -281,6 +314,7 @@ function Hero({ lang, tweaks, pendantRef }) {
       window.removeEventListener('touchstart', onTouchStart);
       clearTimeout(idleTimer);
       cancelSnap();
+      tweenToRef.current = null;
     };
   }, []);
 
@@ -319,6 +353,38 @@ function Hero({ lang, tweaks, pendantRef }) {
   // Find active phase from progress
   const activeIdx = PHASES.findIndex(p => progress >= p.range[0] && progress < p.range[1]);
   const activeIndex = activeIdx === -1 ? (progress >= 1 ? PHASES.length - 1 : 0) : activeIdx;
+
+  // Per-phase scroll targets (progress 0..1) for the left-rail stepper
+  // buttons. Mirror the SNAP_POINTS used by the idle-snap logic so a
+  // clicked phase lands exactly where the idle snap would put it:
+  //   01 BIENVENIDA → 0.00 (entry)
+  //   02 ORIGEN     → 0.29 (midpoint, peak of Laguna Negra backdrop)
+  //   03 MATERIA    → 0.50 (midpoint, trio peak)
+  //   04 ALMA       → 0.70 (midpoint)
+  //   05 EDICIÓN    → 0.90 (midpoint)
+  // All five phases are clickable; the click area matches each row's
+  // full label box (num + label inside the .stepper__item div).
+  const PHASE_SCROLL_TARGETS = [0.00, 0.29, 0.50, 0.70, 0.90];
+  const scrollToProgress = (p) => {
+    // Route through the snap useEffect's internal tween: it sets
+    // `snapping=true` for its duration so the snap's onScroll listener
+    // early-returns, and the idle-snap detector can't grab the in-flight
+    // scroll and pull it to a neighbouring SNAP_POINT.
+    // No duration override → uses SNAP_DURATION (2100 ms), so a rail-
+    // button click feels identical to the idle-snap transition (the
+    // "~3 seconds" feel the rest of the page already has).
+    if (tweenToRef.current) {
+      tweenToRef.current(p);
+      return;
+    }
+    // Fallback (shouldn't happen — the snap effect mounts alongside the
+    // rail). Native smooth-scroll if the ref isn't ready yet.
+    const wrap = wrapRef.current;
+    if (!wrap) return;
+    const total = Math.max(1, wrap.offsetHeight - window.innerHeight);
+    const top = wrap.offsetTop + p * total;
+    window.scrollTo({ top, behavior: 'smooth' });
+  };
 
   return (
     <section ref={wrapRef}
@@ -388,16 +454,44 @@ function Hero({ lang, tweaks, pendantRef }) {
           <div className="frame__cross frame__cross--br"></div>
         </div>
 
-        {/* Stepper sits along the left rail; ticks cross the rail line */}
-        <div className="stepper" aria-hidden>
-          {PHASES.map((p, i) => (
-            <div key={p.num} className="stepper__item" data-active={i === activeIndex}>
-              <div className="stepper__col">
-                <span className="stepper__num">{p.num}</span>
-                <span className="stepper__label">{p.label[lang]}</span>
+        {/* Stepper sits along the left rail; ticks cross the rail line.
+            Phases 01/02/03/05 act as click targets that scroll to their
+            snap-point (PHASE_SCROLL_TARGETS above); 04 ALMA stays inert by
+            design — its target is null. The stepper container drops
+            `aria-hidden` because some items are now real interactive
+            controls (kept hidden on items without a target). Visual layout
+            is untouched; only an interaction layer was added. */}
+        <div className="stepper">
+          {PHASES.map((p, i) => {
+            const target = PHASE_SCROLL_TARGETS[i];
+            const isClickable = target !== null;
+            const handleActivate = isClickable
+              ? () => scrollToProgress(target)
+              : undefined;
+            return (
+              <div
+                key={p.num}
+                className="stepper__item"
+                data-active={i === activeIndex}
+                role={isClickable ? 'button' : undefined}
+                tabIndex={isClickable ? 0 : undefined}
+                aria-hidden={isClickable ? undefined : true}
+                aria-label={isClickable ? `${p.num} ${p.label[lang]}` : undefined}
+                onClick={handleActivate}
+                onKeyDown={isClickable ? (e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    handleActivate();
+                  }
+                } : undefined}
+              >
+                <div className="stepper__col">
+                  <span className="stepper__num">{p.num}</span>
+                  <span className="stepper__label">{p.label[lang]}</span>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         {/* Progress rail (right) */}

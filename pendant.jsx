@@ -601,7 +601,16 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
             }
           }
 
-          angel.add(model);
+          // Wrap the central model in a dedicated spinner Group so we can
+          // apply a continuous Y-axis spin during phase 03 WITHOUT carrying
+          // the side angels along (they're siblings of centerSpinner under
+          // `angel`, so they keep their own independent rotation). Outside
+          // phase 03 centerSpinner.rotation.y stays at 0 → identical to the
+          // previous `angel.add(model)` setup.
+          const centerSpinner = new THREE.Group();
+          centerSpinner.add(model);
+          angel.add(centerSpinner);
+          stateRef.current.materials.centerSpinner = centerSpinner;
 
           // ===== Phase 03 (MATERIA) side angels =====
           // The center "gold" angel above is the one the user already sees in
@@ -675,17 +684,30 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
 
             // Wrap each clone in a Group so we can scale 0→1 with
             // phase03Proximity without touching the model's own scale (which
-            // encodes the fitting transform set above). Side offset of 2.8
-            // world units leaves ~0.8 of breathing room between the wing tips
-            // of adjacent angels (each angel fits a ~2.0-wide bbox).
+            // encodes the fitting transform set above).
+            //
+            // X offset (±0.7): tight inward spacing so the lateral wings
+            // OVERLAP the central angel's wings — reads as "two figures
+            // standing right next to" the gold center, not "a row of three".
+            // Z offset (+1.0): pushes each lateral forward toward the camera,
+            // so they appear to flank the viewer (the gold angel sits behind
+            // them). Combined with the X overlap this gives the "two people
+            // standing in front of me, close to me" composition. Each
+            // lateral also scales down by 30% during phase 03 (applied in
+            // the animate loop, multiplied with phase03Proximity).
+            //
+            // The Y offset that lifts each lateral so its head sits BETWEEN
+            // the central angel's head and orb is applied AFTER the
+            // visible-bbox cache below (needs modelBboxY + orbLocalY,
+            // computed there).
             const groupLeft  = new THREE.Group();
             groupLeft.add(modelLeft);
-            groupLeft.position.x = -2.8;
+            groupLeft.position.set(-0.7, 0, 1.0);
             groupLeft.scale.setScalar(0); // invisible outside phase 03
 
             const groupRight = new THREE.Group();
             groupRight.add(modelRight);
-            groupRight.position.x = 2.8;
+            groupRight.position.set(0.7, 0, 1.0);
             groupRight.scale.setScalar(0); // invisible outside phase 03
 
             angel.add(groupLeft);
@@ -743,6 +765,40 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
             window.__elyxie_debug.modelCenterY = stateRef.current.modelCenterY;
             window.__elyxie_debug.modelBboxY = stateRef.current.modelBboxY;
             window.__elyxie_debug.vertCount = _verts.length / 3;
+          }
+
+          // ===== Phase 03 (MATERIA) trio Y offset =====
+          // Compose the three angels as a triangle: central angel up, the
+          // two laterals dropped enough to read as "below" the central but
+          // not so far that they sink out of the frame. The reference drop
+          // (DROP_FACTOR=1.0) would land each lateral's head at the height
+          // of the central angel's ORB. We use 0.5 instead, lifting the
+          // laterals 50% — their heads land BETWEEN the central head and
+          // the central orb, which keeps the triangle tight without
+          // sinking the laterals visually.
+          //
+          //   DROP_FACTOR = 0   → laterals at the same height as central
+          //                       (no triangle, all heads aligned)
+          //   DROP_FACTOR = 0.5 → heads land between central head and orb
+          //                       (current — tight triangle, laterals high)
+          //   DROP_FACTOR = 1.0 → heads land at the central orb's height
+          //                       (deep drop)
+          // HEAD_BELOW_TOP is how far below the wing tips the head crown
+          // sits (modelBboxY.max is the wing tip). Lower → head higher.
+          {
+            const matSidesInit = stateRef.current.materials && stateRef.current.materials.materiaSideGroups;
+            const orbY  = stateRef.current.orbLocalY;
+            const bboxY = stateRef.current.modelBboxY;
+            if (matSidesInit && orbY !== undefined && bboxY) {
+              const HEAD_BELOW_TOP = 0.18;
+              const DROP_FACTOR    = 0.5;
+              const headLocalY  = bboxY.max - HEAD_BELOW_TOP;
+              const sideYOffset = (orbY - headLocalY) * DROP_FACTOR;
+              matSidesInit.left.position.y  = sideYOffset;
+              matSidesInit.right.position.y = sideYOffset;
+              window.__elyxie_debug = window.__elyxie_debug || {};
+              window.__elyxie_debug.materiaSideYOffset = sideYOffset;
+            }
           }
         },
         undefined,
@@ -949,10 +1005,12 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
         // photo's water line), per the reference composite.
         camZ = lerp(camZ, 6.9, phaseOriginProximity);
         // Phase 03 (MATERIA) framing: pull the camera back further so the
-        // three side-by-side angels (silver | gold | rhodium, ±2.8 world
-        // units apart) all fit in frame with breathing room. At the peak
-        // (tRaw=0.50, phase03Proximity=1.0) camZ resolves to 9.0 — wide
-        // enough that wing tips don't overlap and each finish is readable.
+        // three-angel triangle (silver | gold | rhodium, laterals at
+        // x=±0.7/z=+1.0 and dropped 50% of the way to the central orb)
+        // reads at full size. All three shrink to 70% during this phase
+        // (see TRIO_SCALE below), so the cluster sits tighter and a bit
+        // smaller than the solo central angel of phases 01-02. At the
+        // peak (tRaw=0.50, phase03Proximity=1.0) camZ resolves to 9.0.
         camZ = lerp(camZ, 9.0, phase03Proximity);
         // Narrow portrait viewports: vertical FOV is the bottleneck so the
         // model can look oversized. Push the camera back proportionally so
@@ -1007,8 +1065,22 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
           return shift;
         })();
 
+        // Phase 03 (MATERIA) horizontal shift: at world X=0 the trio lands
+        // under the "Tres acabados. Una sola alma." copy because the text
+        // column sits on the LEFT half. To center the trio in the empty
+        // space between the text and the right-edge progress rail, we
+        // shift it right by a fixed FRACTION of the visible world width
+        // at z=0 — so the shift scales correctly across viewports (less
+        // on mobile portrait, more on wide desktop). Gated by
+        // phase03Proximity so phases 01, 02, 04, 05 keep their existing
+        // X positioning. Skipped on narrow phones where the CSS layout
+        // stacks text ON TOP of the angel (no whitespace to fill).
+        const fovRadHalf = (camera.fov * Math.PI) / 180 / 2;
+        const worldWidthAtZ0 = 2 * camZ * Math.tan(fovRadHalf) * aspect;
+        const px03Shift = isMobile ? 0 : 0.20 * worldWidthAtZ0;
         const px = pxOrigin * (1 - phaseSoulProximity * 0.85)
-                 + Math.sin(clock.elapsed * 0.35) * 0.02;
+                 + Math.sin(clock.elapsed * 0.35) * 0.02
+                 + px03Shift * phase03Proximity;
         const py = -0.05 + pyOffset + pyOriginShift + py01Mobile
                  + Math.sin(clock.elapsed * 0.4) * 0.03
                  + Math.sin(tRaw * Math.PI) * 0.06;
@@ -1019,10 +1091,88 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
         // they inherit the rotation/position above; only the LOCAL scale of
         // each Group depends on phase. Outside [0.40, 0.60] the proximity is
         // negligible (<0.5%) so neither clone contributes to draw calls.
+        //
+        // Continuous slow Y-axis spin for the trio during phase 03. Each of
+        // the three wrappers gets the same rotation delta (dt × angVel ×
+        // phase03Proximity) so they all turn together at the same rate but
+        // each pivots around its OWN local Y axis (centerSpinner at the
+        // central angel's origin, groupLeft at x=-1.1/z=+1.0, groupRight at
+        // x=+1.1/z=+1.0). The proximity gating ramps the spin in/out at the
+        // phase boundaries so neighbouring phases don't see residual motion.
+        // 0.18 rad/s → a full revolution takes ~35 seconds, slow enough to
+        // feel meditative but visible during the phase 03 dwell.
+        // TRIO_SCALE = 0.7: each of the three angels shrinks to 70% during
+        // phase 03 so the cluster reads smaller and "further away from the
+        // camera" relative to phases 01-02 (where the central is solo at
+        // full size). For the laterals we multiply phase03Proximity by 0.7
+        // so they still ramp 0→0.7 cleanly. For the central we lerp from
+        // 1.0 (outside phase 03) → 0.7 (peak), which combines with the
+        // model's own fitting scale set at load time.
+        const TRIO_SCALE = 0.7;
         const matSides = stateRef.current.materials && stateRef.current.materials.materiaSideGroups;
         if (matSides) {
-          matSides.left.scale.setScalar(phase03Proximity);
-          matSides.right.scale.setScalar(phase03Proximity);
+          const lateralScale = phase03Proximity * TRIO_SCALE;
+          matSides.left.scale.setScalar(lateralScale);
+          matSides.right.scale.setScalar(lateralScale);
+          // HARD-RESET when phase 03 is fully OUT of frame. Outside this
+          // band, force the spin angle back to exactly 0 — no float
+          // residue, no "0.048° leftover", no possibility that the user
+          // perceives an off-axis pose in BIENVENIDA / ORIGEN / ALMA /
+          // EDICIÓN after a long MATERIA dwell. 0.001 is well below the
+          // visual threshold (~0.06°) but still well clear of the ramp
+          // edges of the phase-03 gaussian (which is >0.01 at tRaw≈0.40).
+          const PHASE03_OFF_THRESHOLD = 0.001;
+          if (phase03Proximity < PHASE03_OFF_THRESHOLD) {
+            stateRef.current.materiaSpinAngle = 0;
+          } else {
+            // Inside (or near) phase 03: accumulate at the proximity-gated rate.
+            stateRef.current.materiaSpinAngle =
+              (stateRef.current.materiaSpinAngle || 0) + dt * 0.18 * phase03Proximity;
+          }
+          // Wrap the accumulated angle to its SHORTEST equivalent in
+          // [-π, π] before applying proximity. Three.js treats Euler.y=π
+          // and Euler.y=-π as the same orientation, so the wrap is
+          // visually invisible during continuous spin. But on EXIT from
+          // phase 03, multiplying the wrapped value (≤π) by proximity
+          // un-winds along the shortest path back to 0 — instead of
+          // counter-rotating through every full revolution the user
+          // sat watching.
+          const TWO_PI = Math.PI * 2;
+          let wrappedSpin = stateRef.current.materiaSpinAngle % TWO_PI;
+          if (wrappedSpin >  Math.PI) wrappedSpin -= TWO_PI;
+          else if (wrappedSpin < -Math.PI) wrappedSpin += TWO_PI;
+          const visibleSpin = wrappedSpin * phase03Proximity;
+          matSides.left.rotation.y  = visibleSpin;
+          matSides.right.rotation.y = visibleSpin;
+          const cs = stateRef.current.materials.centerSpinner;
+          if (cs) {
+            cs.rotation.y = visibleSpin;
+            cs.scale.setScalar(lerp(1.0, TRIO_SCALE, phase03Proximity));
+          }
+          // DEBUG: expose runtime values for verification
+          window.__elyxie_debug = window.__elyxie_debug || {};
+          window.__elyxie_debug.materiaSpinAngle = stateRef.current.materiaSpinAngle;
+          window.__elyxie_debug.wrappedSpin = wrappedSpin;
+          window.__elyxie_debug.visibleSpin = visibleSpin;
+          window.__elyxie_debug.phase03Proximity = phase03Proximity;
+          window.__elyxie_debug.csRotY = cs ? cs.rotation.y : null;
+          window.__elyxie_debug.angelRotY = angel.rotation.y;
+          window.__elyxie_debug.csScaleX = cs ? cs.scale.x : null;
+          window.__elyxie_debug.angelPosX = angel.position.x;
+          window.__elyxie_debug.angelPosY = angel.position.y;
+          window.__elyxie_debug.angelPosZ = angel.position.z;
+          window.__elyxie_debug.tRaw = tRaw;
+          // Also expose the INNER model rotation (set once at load to
+          // -π/2 on X; we want to confirm Y/Z are still 0).
+          const modelInner = cs && cs.children[0];
+          if (modelInner) {
+            window.__elyxie_debug.modelRotX = modelInner.rotation.x;
+            window.__elyxie_debug.modelRotY = modelInner.rotation.y;
+            window.__elyxie_debug.modelRotZ = modelInner.rotation.z;
+            window.__elyxie_debug.modelPosX = modelInner.position.x;
+            window.__elyxie_debug.modelPosY = modelInner.position.y;
+            window.__elyxie_debug.modelPosZ = modelInner.position.z;
+          }
         }
 
         camera.position.z = camZ;
