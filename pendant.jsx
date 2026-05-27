@@ -11,6 +11,11 @@
 var { useEffect, useRef, useImperativeHandle, forwardRef } = React;
 
 const easeInOut = (t) => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+// Smootherstep (Perlin quintic): 6x⁵ − 15x⁴ + 10x³. Zeros 1st AND 2nd
+// derivative at both endpoints, so velocity AND acceleration glide in/out.
+// Use this in preference to easeInOut whenever the change in camera scale
+// or position would otherwise feel "punchy" near the segment boundaries.
+const smootherstep = (t) => { const x = t < 0 ? 0 : t > 1 ? 1 : t; return x * x * x * (x * (x * 6 - 15) + 10); };
 const lerp = (a, b, t) => a + (b - a) * t;
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
@@ -106,6 +111,53 @@ function buildGoldMaterial(THREE, tone) {
     color: new THREE.Color('#e0b558'),
     metalness: 1.0,
     roughness: 0.28,
+    envMapIntensity: 1.6,
+    side: THREE.DoubleSide,
+  });
+}
+
+// Sterling silver 950 — slightly warm white with a soft luster. Same metalness
+// as gold (=1.0) but a touch rougher than rhodium → a softer, more diffuse
+// reflection that reads as "real silver" against the studio env. Two variants
+// match the warm/bright split applied to the gold meshes for tonal cohesion.
+function buildSilverMaterial(THREE, tone) {
+  if (tone === 'bright') {
+    return new THREE.MeshStandardMaterial({
+      color: new THREE.Color('#f3f4f1'),
+      metalness: 1.0,
+      roughness: 0.18,
+      envMapIntensity: 1.55,
+      side: THREE.DoubleSide,
+    });
+  }
+  return new THREE.MeshStandardMaterial({
+    color: new THREE.Color('#dadbd6'),
+    metalness: 1.0,
+    roughness: 0.30,
+    envMapIntensity: 1.35,
+    side: THREE.DoubleSide,
+  });
+}
+
+// Rhodium plating — the brightest, coolest, most mirror-like of the three.
+// Very low roughness → sharp specular highlights; cool-white tint pulls the
+// reflected env map toward blue. Reads as "fresh" / "platinum-grade" against
+// the warm gold and softer silver on either side. Two variants for the same
+// warm/bright split.
+function buildRhodiumMaterial(THREE, tone) {
+  if (tone === 'bright') {
+    return new THREE.MeshStandardMaterial({
+      color: new THREE.Color('#fbfcff'),
+      metalness: 1.0,
+      roughness: 0.05,
+      envMapIntensity: 1.85,
+      side: THREE.DoubleSide,
+    });
+  }
+  return new THREE.MeshStandardMaterial({
+    color: new THREE.Color('#e8eaef'),
+    metalness: 1.0,
+    roughness: 0.12,
     envMapIntensity: 1.6,
     side: THREE.DoubleSide,
   });
@@ -550,6 +602,97 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
           }
 
           angel.add(model);
+
+          // ===== Phase 03 (MATERIA) side angels =====
+          // The center "gold" angel above is the one the user already sees in
+          // phases 01-02. For phase 03 (MATERIA, range [0.40, 0.60]) we add
+          // two MIRROR clones — left in silver, right in rhodium — so the
+          // user can read all three finish variants at the same time. Outside
+          // phase 03 they're scaled to 0 (literally not rendered).
+          //
+          // Implementation: .clone(true) shares geometry between original and
+          // clones (saves GPU memory), but materials are JUST REFERENCES at
+          // first. We re-traverse each clone and REASSIGN per-mesh materials
+          // (silver/rhodium for body, orb for the inner sphere). Each clone
+          // is wrapped in its own Group so the animate loop can multiply its
+          // scale by phase03Proximity without touching the geometry transform.
+          (function spawnMateriaSideAngels() {
+            const applyMaterialsToClone = (clonedModel, matSet) => {
+              // Re-run the same orb-detection criteria the original used so
+              // the clones identify the same sphere meshes (identical geom →
+              // identical aspect/sizeFrac → identical classification).
+              const cMeshInfos = [];
+              clonedModel.traverse((o) => {
+                if (!o.isMesh || !o.geometry) return;
+                if (!o.geometry.boundingBox) o.geometry.computeBoundingBox();
+                const cbb = o.geometry.boundingBox.clone();
+                cbb.applyMatrix4(o.matrixWorld);
+                const csz = new THREE.Vector3();
+                cbb.getSize(csz);
+                cMeshInfos.push({
+                  mesh: o,
+                  maxDim: Math.max(csz.x, csz.y, csz.z),
+                  minDim: Math.max(1e-9, Math.min(csz.x, csz.y, csz.z)),
+                  sizeV: csz,
+                });
+              });
+              const cGlobalSize = Math.max(
+                ...cMeshInfos.flatMap(m => [m.sizeV.x, m.sizeV.y, m.sizeV.z]),
+              );
+              let cidx = 0;
+              cMeshInfos.forEach(({ mesh, maxDim, minDim }) => {
+                const aspect = maxDim / minDim;
+                const sizeFrac = maxDim / cGlobalSize;
+                const triCount = mesh.geometry.index
+                  ? mesh.geometry.index.count / 3
+                  : mesh.geometry.attributes.position.count / 3;
+                if (triCount < 50 && mesh.name !== 'Group43989') {
+                  mesh.visible = false;
+                  return;
+                }
+                const isSphere = aspect < 1.2 && sizeFrac > 0.10 && sizeFrac < 0.25 && triCount > 200;
+                if (isSphere) {
+                  // Each clone gets its OWN orb material instance so the
+                  // glow color setter only mutates the center angel's orb.
+                  mesh.material = buildOrbMaterial(THREE);
+                } else {
+                  mesh.material = (cidx++ % 5 === 0) ? matSet.bright : matSet.warm;
+                }
+                mesh.castShadow = true;
+                mesh.receiveShadow = true;
+              });
+            };
+
+            const silverWarm   = buildSilverMaterial(THREE, 'warm');
+            const silverBright = buildSilverMaterial(THREE, 'bright');
+            const rhodiumWarm   = buildRhodiumMaterial(THREE, 'warm');
+            const rhodiumBright = buildRhodiumMaterial(THREE, 'bright');
+
+            const modelLeft = model.clone(true);
+            applyMaterialsToClone(modelLeft, { warm: silverWarm, bright: silverBright });
+            const modelRight = model.clone(true);
+            applyMaterialsToClone(modelRight, { warm: rhodiumWarm, bright: rhodiumBright });
+
+            // Wrap each clone in a Group so we can scale 0→1 with
+            // phase03Proximity without touching the model's own scale (which
+            // encodes the fitting transform set above). Side offset of 2.8
+            // world units leaves ~0.8 of breathing room between the wing tips
+            // of adjacent angels (each angel fits a ~2.0-wide bbox).
+            const groupLeft  = new THREE.Group();
+            groupLeft.add(modelLeft);
+            groupLeft.position.x = -2.8;
+            groupLeft.scale.setScalar(0); // invisible outside phase 03
+
+            const groupRight = new THREE.Group();
+            groupRight.add(modelRight);
+            groupRight.position.x = 2.8;
+            groupRight.scale.setScalar(0); // invisible outside phase 03
+
+            angel.add(groupLeft);
+            angel.add(groupRight);
+            stateRef.current.materials.materiaSideGroups = { left: groupLeft, right: groupRight };
+          })();
+
           modelLoaded = true;
           // Cache the model's VISIBLE vertical bbox midpoint in angel-local
           // frame, used by the mobile-phase-01 framing block to center the
@@ -661,18 +804,34 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
         // backdrop. Outside phase 01 this is essentially 0 → no effect.
         const phase01Proximity = Math.exp(-Math.pow(tRaw / 0.08, 2));
 
-        // Face close-up gaussian — peaks BETWEEN phase 01 and phase 02 so the
-        // camera dives in for a face detail beat before pulling back to the
-        // Laguna Negra wide shot. σ=0.045 keeps the bell narrow enough that
-        // it decays to ≈0 at both phase anchors (tRaw=0 and tRaw=0.29),
-        // leaving both fully byte-perfect. Drives camZ, lookAt target, and
-        // the rotation release timing.
-        // σ widened from 0.045 → 0.065 so the dolly's rate of change is gentler
-        // through the snap window (less screen motion per scroll millisecond).
-        // At tRaw=0.29 the gaussian still resolves to ≈0.003 — ORIGEN anchor
-        // stays effectively byte-perfect. At tRaw=0 it's ≈0.018 (camera offset
-        // ≈0.015 — imperceptible).
-        const faceCloseup = Math.exp(-Math.pow((tRaw - 0.13) / 0.065, 2));
+        // Phase 03 (MATERIA, scroll range 0.40–0.60) proximity. Peaks at the
+        // middle of the range (tRaw=0.50) with the same σ as phase 02 so the
+        // ramp shape feels consistent. Gates: (a) the visibility of the
+        // silver/rhodium SIDE ANGELS (scale 0→1) and (b) a camera pull-back
+        // so all three finishes fit comfortably in frame. At tRaw=0.29 this
+        // resolves to ≈0.001 — ORIGEN anchor stays effectively byte-perfect.
+        // At tRaw=0.70 same story for the SOUL anchor.
+        const phase03Proximity = Math.exp(-Math.pow((tRaw - 0.50) / 0.075, 2));
+
+        // Face close-up PLATEAU PULSE — peaks BETWEEN phase 01 and phase 02 so
+        // the camera dives in for a face detail beat before pulling back to
+        // the Laguna Negra wide shot. Previously a pure gaussian (σ=0.065)
+        // which touched its peak for a single instant; the user reported the
+        // closing "didn't pause" at maximum. Replaced with a smootherstep-
+        // edged trapezoidal pulse that RAMPS UP, HOLDS at 1, then RAMPS DOWN:
+        //   • [0.000 → 0.115]  rise via smootherstep (quintic)
+        //   • [0.115 → 0.155]  HOLD at 1.0   ← the "stop at max closing" beat
+        //   • [0.155 → 0.290]  fall via smootherstep (quintic)
+        // Drives camZ dip, lookAt target tracking, and the rotation release.
+        // Anchors stay byte-perfect: faceCloseup === 0 exactly at tRaw=0 and
+        // tRaw=0.29 (no gaussian tail leaking into ORIGEN or BIENVENIDA).
+        // Smootherstep zeros 1st AND 2nd derivative at the edges → no
+        // perceptible "kink" as the hold begins or ends.
+        const CU_HOLD_START = 0.115;
+        const CU_HOLD_END   = 0.155;
+        const closeupRise = smootherstep(tRaw / CU_HOLD_START);
+        const closeupFall = 1 - smootherstep((tRaw - CU_HOLD_END) / (0.29 - CU_HOLD_END));
+        const faceCloseup = Math.min(closeupRise, closeupFall);
 
         // Rotation EASE-IN RELEASE: quartic curve (1 - x⁴) holds the angel
         // near -30° during the early scroll and accelerates sharply near
@@ -789,6 +948,12 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
         // ~60% of viewport height (wings visible at top, feet meeting the
         // photo's water line), per the reference composite.
         camZ = lerp(camZ, 6.9, phaseOriginProximity);
+        // Phase 03 (MATERIA) framing: pull the camera back further so the
+        // three side-by-side angels (silver | gold | rhodium, ±2.8 world
+        // units apart) all fit in frame with breathing room. At the peak
+        // (tRaw=0.50, phase03Proximity=1.0) camZ resolves to 9.0 — wide
+        // enough that wing tips don't overlap and each finish is readable.
+        camZ = lerp(camZ, 9.0, phase03Proximity);
         // Narrow portrait viewports: vertical FOV is the bottleneck so the
         // model can look oversized. Push the camera back proportionally so
         // the angel sits comfortably inside the frame on phones.
@@ -848,6 +1013,17 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
                  + Math.sin(clock.elapsed * 0.4) * 0.03
                  + Math.sin(tRaw * Math.PI) * 0.06;
         angel.position.set(px, py, pz01);
+
+        // Phase 03 (MATERIA) side angels: scale from 0 (hidden) → 1 (full
+        // visible at the peak tRaw=0.50). They're children of `angel`, so
+        // they inherit the rotation/position above; only the LOCAL scale of
+        // each Group depends on phase. Outside [0.40, 0.60] the proximity is
+        // negligible (<0.5%) so neither clone contributes to draw calls.
+        const matSides = stateRef.current.materials && stateRef.current.materials.materiaSideGroups;
+        if (matSides) {
+          matSides.left.scale.setScalar(phase03Proximity);
+          matSides.right.scale.setScalar(phase03Proximity);
+        }
 
         camera.position.z = camZ;
         camera.position.x = Math.sin(clock.elapsed * 0.25) * 0.05;

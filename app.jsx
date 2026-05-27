@@ -42,12 +42,12 @@ const PHASES = [
     num: '03',
     label: { es: 'MATERIA', en: 'MATTER' },
     title: {
-      es: <>Plata 950. Oro 18 k. <span className="accent">Cristal soplado a mano.</span></>,
-      en: <>950 silver. 18k gold. <span className="accent">Hand-blown glass.</span></>,
+      es: <>Tres acabados. <span className="accent">Una sola alma.</span></>,
+      en: <>Three finishes. <span className="accent">One soul.</span></>,
     },
     sub: {
-      es: 'Tres materiales nobles construyen la morada. El metal no se exhibe. Es la casa que el agua eligió.',
-      en: 'Three noble materials build the dwelling. The metal does not display itself. It is the house the water chose.',
+      es: 'Plata 950 desnuda. Plata bañada en rodio. Plata micrada en oro 24 k. Eliges la piel; el agua viva dentro permanece intacta.',
+      en: 'Bare 950 silver. Rhodium-plated silver. Silver micron-plated in 24k gold. You choose the skin; the living water within remains untouched.',
     },
     range: [0.40, 0.60],
     position: 'left',
@@ -186,7 +186,7 @@ function Hero({ lang, tweaks, pendantRef }) {
   // Phase snap on idle — native scroll for input, smooth tween for snap.
   // Letting the browser handle the wheel/touch directly keeps input feeling
   // crisp (no interception lag, no velocity gap). When the user pauses for
-  // IDLE_MS the snap tween (easeOutCubic, 700 ms) carries scroll to the next
+  // IDLE_MS the snap tween (easeOutCubic, 3000 ms) carries scroll to the next
   // phase midpoint in the direction of motion. Native momentum + tween share
   // similar velocity magnitudes, so the handoff is continuous instead of a
   // sudden kick. Honors prefers-reduced-motion (jumps instantly).
@@ -199,7 +199,7 @@ function Hero({ lang, tweaks, pendantRef }) {
     // designed maximum. 0 and 1 anchor the entry / exit boundaries.
     const SNAP_POINTS = [0.00, 0.29, 0.50, 0.70, 0.90, 1.00];
     const IDLE_MS = 160;
-    const SNAP_DURATION = 2100;
+    const SNAP_DURATION = 3000;
     const PRM = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
     let lastDirection = 1;
