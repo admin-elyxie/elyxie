@@ -1247,14 +1247,17 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
                  + Math.sin(clock.elapsed * 0.35) * 0.02
                  + px03Shift * phase03Proximity;
         // Phase 04 (ALMA) vertical lift. With the angel scaled (0.65 desktop,
-        // 0.50 mobile) the body occupies less vertical space; lifting it puts
+        // 0.38 mobile) the body occupies less vertical space; lifting it puts
         // the orb (at chest level) in the upper third of the viewport so the
-        // title stack + sub-copy can sit comfortably below it. Mobile needs a
-        // BIGGER world-Y lift than desktop — the portrait camera framing keeps
-        // the angel large in screen-space and without aggressive lift the
-        // body ends up sitting on top of the copy. 0.65 was the empirical
-        // sweet spot where wing tips stay in frame on a 390-wide viewport.
-        const pyAlmaShift = (isMobile ? 0.65 : 0.45) * phase04Proximity;
+        // title stack + sub-copy can sit comfortably below it with REAL
+        // white-space between the angel's feet and the copy. On mobile the
+        // GLB pose has long legs that extend well below the torso — pinning
+        // the torso higher (lift +0.80) is what actually creates breathing
+        // room between the feet and the copy. The lift is safe at this
+        // scale: wings are only 38% of original world-Y so 0.80 is well
+        // inside the "wing tips stay in frame" envelope (proportional to
+        // the 0.55 ceiling we found at 0.65× scale).
+        const pyAlmaShift = (isMobile ? 0.80 : 0.45) * phase04Proximity;
         const py = -0.05 + pyOffset + pyOriginShift + py01Mobile
                  + pyAlmaShift
                  + Math.sin(clock.elapsed * 0.4) * 0.03
@@ -1367,7 +1370,7 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
             // because the portrait camera otherwise keeps the body too
             // large in screen-space and the title overlaps the legs.
             let centerScale = lerp(1.0, TRIO_SCALE, phase03Proximity);
-            const almaTargetScale = isMobile ? 0.50 : 0.65;
+            const almaTargetScale = isMobile ? 0.38 : 0.65;
             centerScale = lerp(centerScale, almaTargetScale, phase04Proximity);
             cs.scale.setScalar(centerScale);
           }
