@@ -673,16 +673,24 @@ body[data-theme="dark"] {
   height: 100%;
   display: flex;
   flex-direction: column;
-  /* Anchor everything to the BOTTOM half of the viewport; the upper half
-     is intentionally empty so the (now scaled-down + lifted) orb has
-     space to breathe in the upper third of the frame. */
-  justify-content: flex-end;
+  /* Push the copy block down to thigh-height — the title sits BELOW the
+     orb (so the orb stays the focal point) but still overlaps the angel's
+     legs (intentional, the user OK'd it). The text never crosses the
+     face or orb, which would steal attention from the focal element. */
+  justify-content: flex-start;
   align-items: center;
-  padding: 0 32px 9vh;
+  padding: 60vh 32px 0;
   max-width: 100%;
   text-align: center;
   margin: 0;
 }
+/* In ALMA the orb is the protagonist. Shrink the title typography so it
+   reads as a caption beneath the orb instead of competing with it. */
+.phase-content--alma .phase-title {
+  font-size: clamp(28px, 3.2vw, 48px);
+  margin: 0 0 10px 0;
+}
+.phase-content--alma .phase-sub { font-size: 14px; }
 .phase-content--alma .phase-content__inner {
   width: 100%;
   max-width: 760px;
@@ -712,19 +720,19 @@ body[data-theme="dark"] {
 
 @media (max-width: 1024px) {
   .phase-content.phase-content--alma {
-    padding: 0 24px 8vh;
+    padding: 60vh 24px 0;
     justify-self: stretch;
     margin: 0;
   }
 }
 @media (max-width: 767px) {
   /* Mobile: the .phase-layer override (align-items:flex-start + padding-top:90px)
-     fights our stretch, so reassert it. Bottom-anchored padding because the
-     orb (and angel) live in the upper portion of the viewport now. */
+     fights our stretch, so reassert it. Title at thigh-height — angel's
+     orb stays the focal point with the copy as caption below. */
   .phase-content.phase-content--alma {
     align-self: stretch;
     height: 100%;
-    padding: 0 16px 7vh;
+    padding: 58vh 16px 0;
     justify-self: stretch;
     margin: 0;
   }
