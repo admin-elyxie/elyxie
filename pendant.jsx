@@ -172,7 +172,16 @@ function whenThreeReady() {
 
 const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensity = 1.0 }, ref) {
   const containerRef = useRef(null);
-  const stateRef = useRef({ progress: 0, glowIntensity, glowColor });
+  const stateRef = useRef({
+    progress: 0,
+    glowIntensity,
+    glowColor,
+    // Phase 04 (ALMA) day/night beat. Target is set by setAlmaNight; the
+    // animate loop lerps `Actual` toward it each frame for a smooth swap
+    // that lines up with the CSS cross-fade on the temple backdrop.
+    almaNightTarget: 0,
+    almaNightActual: 0,
+  });
 
   useImperativeHandle(ref, () => ({
     setProgress: (p) => { stateRef.current.progress = p; },
@@ -201,6 +210,15 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
       if (labels && texts && texts[l]) {
         labels.forEach((el, i) => { el.textContent = texts[l][i]; });
       }
+    },
+    // Phase 04 (ALMA) day/night beat. app.jsx flips this boolean every 5 s
+    // while the user is parked inside ALMA's gaussian window. We don't
+    // snap the orb scalar here — we only set the target. The animate loop
+    // lerps `almaNightActual` toward this target each frame so the orb
+    // intensity transition matches the ~1.1 s CSS cross-fade on the
+    // temple backdrop.
+    setAlmaNight: (isNight) => {
+      stateRef.current.almaNightTarget = isNight ? 1 : 0;
     },
   }), []);
 
@@ -391,6 +409,33 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
       phaseSunBounce.position.set(-2.2, -1.2, 2.8);
       scene.add(phaseSunBounce);
 
+      // ---- Phase 04 (ALMA) DAY lighting rig ----
+      // The temple-day backdrop has a single dramatic god-ray descending from
+      // a skylight ABOVE and slightly BEHIND the angel (the bright cone runs
+      // from top of frame down through the centre, with the back wall lit
+      // and the columns flanking the angel in soft shadow). The default
+      // studio rig (key at +Z front, fill at +Z front) lights the angel
+      // from camera-side — that contradicts the backdrop and makes the
+      // model float over it instead of belonging to it.
+      //
+      // phase04DaySun: hard warm key from HIGH + BEHIND (positive Y, slightly
+      // negative Z) so the rim of the head, the top of each wing, and the
+      // shoulder blades catch the highlight while the camera-facing chest
+      // and dress fall into soft shadow — matching the backdrop's god-ray
+      // direction. Same warm tint as the temple stone (0xffe4b8).
+      const phase04DaySun = new THREE.DirectionalLight(0xffe4b8, 0);
+      phase04DaySun.position.set(0.6, 7.0, -2.5);
+      scene.add(phase04DaySun);
+      // phase04DayBounce: subtle warm bounce from the FLOOR of the temple
+      // (low Y, in front) so the camera-facing side isn't pitch black — the
+      // marble floor in the backdrop is bright and would bounce diffuse
+      // light up onto the angel's chin, chest, and the underside of the
+      // wings. Very low intensity, the chiaroscuro from the rear sun
+      // should still dominate.
+      const phase04DayBounce = new THREE.DirectionalLight(0xfff0d0, 0);
+      phase04DayBounce.position.set(0, -2.0, 3.0);
+      scene.add(phase04DayBounce);
+
       const angel = new THREE.Group();
       scene.add(angel);
 
@@ -507,11 +552,25 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
       angel.add(fairyDust);
 
       const sphereMeshes = [];
+      // Phase 04 (ALMA) orb day colour. Night uses the brand glowCol
+      // (turquoise phosphor of strontium aluminate); day swaps to a NEAR-
+      // WHITE cream tint (#FFF6E4) so the orb reads as a brilliant sun-
+      // sphere against the warm temple light — matching the reference
+      // image where the orb is essentially blown out at the centre with
+      // only a faint warm halo at the perimeter. Brighter, whiter colour
+      // + higher day-intensity scalar below ( phase04OrbScalar ) together
+      // reproduce that "solar core" look. `orbColorWork` is the scratch
+      // target the animate loop writes into and then copies onto the orb
+      // emissive + sphereLight each frame.
+      const dayOrbCol = new THREE.Color(0xfff6e4);
+      const orbColorWork = new THREE.Color();
+
       stateRef.current.materials = {
         rim, sphereLight, sphereMeshes, smokeShadowPlane,
         fairyDust, dustAxis, dustInitDir, dustAngSpd, dustOutSpd,
         dustLife, dustMaxLife, dustHistory, dustHistIdx, dustColors,
-        glowCol, DUST_COUNT, TRAIL_PTS, TRAIL_SEGS, _resetParticle,
+        glowCol, dayOrbCol, orbColorWork,
+        DUST_COUNT, TRAIL_PTS, TRAIL_SEGS, _resetParticle,
       };
 
       let modelLoaded = false;
@@ -964,6 +1023,23 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
         const tEase = easeInOut(tRaw);
 
         const phaseSoulProximity = Math.exp(-Math.pow((tRaw - 0.63) / 0.12, 2));
+        // Phase 04 (ALMA, scroll range 0.60-0.80) proximity. Peaks at the
+        // middle of the range (tRaw=0.70). Same σ shape as ORIGEN/MATERIA
+        // so phase boundaries don't leak: at tRaw=0.50 (MATERIA anchor)
+        // this resolves to ≈exp(-7.1)≈0.0008 — well below the visibility
+        // threshold. Used to gate the orb day/night brightness multiplier
+        // and the second fairy-dust visibility window introduced for ALMA.
+        const phase04Proximity = Math.exp(-Math.pow((tRaw - 0.70) / 0.075, 2));
+        // Smooth-lerp the actual night factor toward the target set by
+        // app.jsx (boolean flipped every 5 s). τ ≈ 0.55 s feels in sync
+        // with the 1.1 s CSS cross-fade on the temple backdrop.
+        {
+          const target = stateRef.current.almaNightTarget || 0;
+          const tau = 0.55;
+          const k = 1 - Math.exp(-dt / tau);
+          stateRef.current.almaNightActual += (target - stateRef.current.almaNightActual) * k;
+        }
+        const almaNightF = stateRef.current.almaNightActual;
         // Phase 02 (ORIGEN, scroll range 0.18–0.40) proximity. Peaks at the
         // middle of the range and falls off symmetrically so all phase-02
         // overrides (rotation, framing, lighting) ramp in/out together while
@@ -1197,7 +1273,14 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
         const px = pxOrigin * (1 - phaseSoulProximity * 0.85)
                  + Math.sin(clock.elapsed * 0.35) * 0.02
                  + px03Shift * phase03Proximity;
+        // Phase 04 (ALMA) vertical lift. On desktop the centre of mass
+        // sits roughly mid-viewport (lift +0.10). On mobile the lift is
+        // aggressive (+0.60) to close the dead space between the navbar
+        // and the top of the wings — at the 0.55× scale the wing tips
+        // still clear the top of a portrait viewport at this lift.
+        const pyAlmaShift = (isMobile ? 0.60 : 0.10) * phase04Proximity;
         const py = -0.05 + pyOffset + pyOriginShift + py01Mobile
+                 + pyAlmaShift
                  + Math.sin(clock.elapsed * 0.4) * 0.03
                  + Math.sin(tRaw * Math.PI) * 0.06;
         angel.position.set(px, py, pz01);
@@ -1298,7 +1381,19 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
           const cs = stateRef.current.materials.centerSpinner;
           if (cs) {
             cs.rotation.y = visibleSpin;
-            cs.scale.setScalar(lerp(1.0, TRIO_SCALE, phase03Proximity));
+            // Center-angel scale composes MATERIA shrink (1.0 → 0.7) with
+            // an ALMA shrink. The two proximities don't overlap (MATERIA
+            // peaks 0.50, ALMA peaks 0.70 with σ≈0.075) so the lerps don't
+            // fight — at MATERIA peak the second lerp is a no-op
+            // (phase04Proximity≈0) and vice versa. ALMA shrinks the angel
+            // so the orb sits in the upper third of the viewport with the
+            // title/sub stack below. Mobile gets an extra shrink (0.50)
+            // because the portrait camera otherwise keeps the body too
+            // large in screen-space and the title overlaps the legs.
+            let centerScale = lerp(1.0, TRIO_SCALE, phase03Proximity);
+            const almaTargetScale = isMobile ? 0.55 : 0.65;
+            centerScale = lerp(centerScale, almaTargetScale, phase04Proximity);
+            cs.scale.setScalar(centerScale);
           }
           // DEBUG: expose runtime values for verification
           window.__elyxie_debug = window.__elyxie_debug || {};
@@ -1400,10 +1495,35 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
         const phase01OrbLight     = lerp(1.0, 0.38, phase01Proximity);
         const phase01EnvMap       = lerp(1.0, 0.42, phase01Proximity);
 
-        ambient.intensity         = 0.22 * lerp(1.0, 0.08, phaseOriginProximity) * phase01AmbientMult;
-        fill.intensity            = 0.75 * lerp(1.0, 0.08, phaseOriginProximity) * phase01FillMult;
-        top.intensity             = 0.35 * lerp(1.0, 0.10, phaseOriginProximity) * phase01TopMult;
-        key.intensity             = 1.5  * phase01KeyMult;
+        // Phase 04 (ALMA) NIGHT angel dim. User asked to "copy the same
+        // lighting format as section 2" for the night beat — drop the
+        // angel's body lights so the orb stands alone as the only light
+        // source in the dark sanctum (the "glow in the dark indefinitely"
+        // brand idea). Target levels mirror ORIGEN's ambient/fill/top
+        // attenuation (8-10%); the multiplier is gated by phase04Proximity
+        // AND almaNightF so DAY (almaNightF=0) keeps the angel fully lit,
+        // and any other phase (phase04Proximity≈0) is untouched.
+        const phase04AngelDim = 1 - (phase04Proximity * almaNightF) * 0.92;
+        // Phase 04 (ALMA) DAY light direction match. The temple-day backdrop
+        // has its god-ray descending from above and behind the angel — the
+        // default studio rig lights from camera-front (+Z), which fights
+        // the backdrop and makes the model float over it. During ALMA DAY
+        // we dim the front-facing key/fill so the new phase04DaySun (high
+        // + behind) becomes the dominant directional source. Night and
+        // every other phase keep the default rig intact via phase04DayF→0.
+        const phase04DayF = phase04Proximity * (1 - almaNightF);
+        const phase04DayKeyMult  = lerp(1.0, 0.30, phase04DayF);
+        const phase04DayFillMult = lerp(1.0, 0.22, phase04DayF);
+        ambient.intensity         = 0.22 * lerp(1.0, 0.08, phaseOriginProximity) * phase01AmbientMult * phase04AngelDim;
+        fill.intensity            = 0.75 * lerp(1.0, 0.08, phaseOriginProximity) * phase01FillMult    * phase04AngelDim * phase04DayFillMult;
+        top.intensity             = 0.35 * lerp(1.0, 0.10, phaseOriginProximity) * phase01TopMult     * phase04AngelDim;
+        key.intensity             = 1.5  * phase01KeyMult                                             * phase04AngelDim * phase04DayKeyMult;
+        // ALMA DAY god-ray rig: hard warm key from high + behind matches the
+        // backdrop's descending shaft; subtle floor bounce keeps the chest
+        // from going pitch-black. Both gated by phase04DayF so they ONLY
+        // fire during ALMA DAY (and ramp to 0 in night and other phases).
+        phase04DaySun.intensity    = 3.2 * phase04DayF;
+        phase04DayBounce.intensity = 0.6 * phase04DayF;
 
         const breathe = 0.5 + 0.5 * Math.sin(clock.elapsed * (Math.PI * 2) / 4.0);
         const phaseBoost = 1.0 + 1.6 * Math.exp(-Math.pow((tRaw - 0.6) / 0.18, 2));
@@ -1416,6 +1536,17 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
         //     local rim of green on the nearest feathers still reads.
         const phaseOrbEmissive = lerp(1.0, 0.16, phaseOriginProximity);
         const phaseOrbLight    = lerp(1.0, 0.55, phaseOriginProximity);
+        // Phase 04 (ALMA) orb beat — phosphor logic. Strontium aluminate
+        // CHARGES under sunlight and EMITS in darkness; reproduce that
+        // physically: DAY → emissive 0 (the sphere is "off", just catching
+        // temple light passively, the way the brand copy describes "no
+        // ilumina para ser vista"), NIGHT → 2.0× (the orb is the only
+        // light source, "ilumina para recordar su propósito"). The
+        // multiplier is gated by phase04Proximity so this scalar resolves
+        // to 1.0 (no-op) anywhere outside ALMA, leaving ORIGEN/MATERIA
+        // orb logic untouched.
+        const phase04OrbScalar = lerp(0.00, 2.00, almaNightF);
+        const phase04OrbMult   = lerp(1.0, phase04OrbScalar, phase04Proximity);
         // Phase 02 wing/body shadow: drop envMapIntensity on the gold metals
         // hard. With metalness=1.0 the wings reflect the env map directly, so
         // their bright-gold body is NOT a direct-light effect — it's IBL. To
@@ -1424,18 +1555,37 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
         // and tips), the env contribution must drop to a small fraction of
         // its base. Lerp gated by phaseOriginProximity so other phases keep
         // their full metallic shine.
-        const phaseGoldEnv = lerp(1.0, 0.26, phaseOriginProximity) * phase01EnvMap;
+        // Phase 04 (ALMA) gold env dim at night. With the angel-rig lights
+        // attenuated above, the metal would still read bright via IBL
+        // (metalness=1.0 reflects the env map directly). Drop the env
+        // contribution so the wings settle into shadow too. Day = full env.
+        const phase04GoldEnv = lerp(1.0, 0.18, phase04Proximity * almaNightF);
+        const phaseGoldEnv   = lerp(1.0, 0.26, phaseOriginProximity) * phase01EnvMap * phase04GoldEnv;
         stateRef.current.materials.goldMaterials?.forEach(({ mat, baseEnv }) => {
           mat.envMapIntensity = baseEnv * phaseGoldEnv;
         });
         // Whisper-soft green rim — gold dominates. SOUL phase blooms the green.
         rim.intensity = (0.07 + breathe * 0.04) * stateRef.current.glowIntensity * phaseBoost;
+
+        // Phase 04 (ALMA) orb COLOUR lerp: day → warm cream-gold (matches
+        // temple's noon light), night → brand turquoise phosphor (the
+        // strontium-aluminate "glow in the dark" idea). Mix factor goes
+        // from 0 outside ALMA to up to 1 at ALMA-peak-day. Outside ALMA
+        // the work color resolves to the brand glowCol (no behaviour
+        // change for phases 01/02/03/05).
+        const brandOrbCol = stateRef.current.materials.glowCol;
+        const dayOrbCol2  = stateRef.current.materials.dayOrbCol;
+        const orbWork     = stateRef.current.materials.orbColorWork;
+        const dayMix      = phase04Proximity * (1 - almaNightF);
+        orbWork.copy(brandOrbCol).lerp(dayOrbCol2, dayMix);
         // Local-only orb glow: the PointLight is tight (1.5 range, 2.5 decay)
         // so this intensity only affects the orb and nearest feathers.
-        sphereLight.intensity = (0.45 + breathe * 0.30) * stateRef.current.glowIntensity * Math.min(phaseBoost, 2.0) * phaseOrbLight * phase01OrbLight;
+        sphereLight.color.copy(orbWork);
+        sphereLight.intensity = (0.45 + breathe * 0.30) * stateRef.current.glowIntensity * Math.min(phaseBoost, 2.0) * phaseOrbLight * phase01OrbLight * phase04OrbMult;
         stateRef.current.materials.sphereMeshes.forEach((m) => {
           if (m.material) {
-            m.material.emissiveIntensity = (0.85 + breathe * 0.35) * stateRef.current.glowIntensity * Math.min(phaseBoost, 1.8) * phaseOrbEmissive * phase01OrbEmissive;
+            m.material.emissive.copy(orbWork);
+            m.material.emissiveIntensity = (0.85 + breathe * 0.35) * stateRef.current.glowIntensity * Math.min(phaseBoost, 1.8) * phaseOrbEmissive * phase01OrbEmissive * phase04OrbMult;
           }
         });
 
@@ -1456,7 +1606,19 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
         if (stateRef.current.materials.fairyDust) {
           const fadeIn  = easeInOut(Math.max(0, Math.min(1, (tRaw - 0.10) / 0.03)));
           const fadeOut = 1 - easeInOut(Math.max(0, Math.min(1, (tRaw - 0.42) / 0.10)));
-          const dustOpacity = fadeIn * fadeOut * 0.7;
+          const dustOpacity02 = fadeIn * fadeOut * 0.7;
+          // Phase 04 (ALMA) second visibility window. The user asked for the
+          // orb to "glow exactly like in section 2 — with the glow plus
+          // those particles around it" inside ALMA, but ONLY at night —
+          // during the lit-temple day beat there should be no swarm. The
+          // multiplication by almaNightF hard-gates the dust to nighttime
+          // and lerps it cleanly through the cross-fade window so particles
+          // don't pop in/out instantly when the temple flips. Envelope:
+          // rise 0.60→0.65, hold, fall 0.75→0.80.
+          const fadeIn04  = easeInOut(Math.max(0, Math.min(1, (tRaw - 0.60) / 0.05)));
+          const fadeOut04 = 1 - easeInOut(Math.max(0, Math.min(1, (tRaw - 0.75) / 0.05)));
+          const dustOpacity04 = fadeIn04 * fadeOut04 * 0.7 * almaNightF * 1.1;
+          const dustOpacity = Math.max(dustOpacity02, dustOpacity04);
           const dust = stateRef.current.materials.fairyDust;
           dust.material.opacity = dustOpacity;
 
