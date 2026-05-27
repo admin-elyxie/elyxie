@@ -409,6 +409,33 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
       phaseSunBounce.position.set(-2.2, -1.2, 2.8);
       scene.add(phaseSunBounce);
 
+      // ---- Phase 04 (ALMA) DAY lighting rig ----
+      // The temple-day backdrop has a single dramatic god-ray descending from
+      // a skylight ABOVE and slightly BEHIND the angel (the bright cone runs
+      // from top of frame down through the centre, with the back wall lit
+      // and the columns flanking the angel in soft shadow). The default
+      // studio rig (key at +Z front, fill at +Z front) lights the angel
+      // from camera-side — that contradicts the backdrop and makes the
+      // model float over it instead of belonging to it.
+      //
+      // phase04DaySun: hard warm key from HIGH + BEHIND (positive Y, slightly
+      // negative Z) so the rim of the head, the top of each wing, and the
+      // shoulder blades catch the highlight while the camera-facing chest
+      // and dress fall into soft shadow — matching the backdrop's god-ray
+      // direction. Same warm tint as the temple stone (0xffe4b8).
+      const phase04DaySun = new THREE.DirectionalLight(0xffe4b8, 0);
+      phase04DaySun.position.set(0.6, 7.0, -2.5);
+      scene.add(phase04DaySun);
+      // phase04DayBounce: subtle warm bounce from the FLOOR of the temple
+      // (low Y, in front) so the camera-facing side isn't pitch black — the
+      // marble floor in the backdrop is bright and would bounce diffuse
+      // light up onto the angel's chin, chest, and the underside of the
+      // wings. Very low intensity, the chiaroscuro from the rear sun
+      // should still dominate.
+      const phase04DayBounce = new THREE.DirectionalLight(0xfff0d0, 0);
+      phase04DayBounce.position.set(0, -2.0, 3.0);
+      scene.add(phase04DayBounce);
+
       const angel = new THREE.Group();
       scene.add(angel);
 
@@ -1483,10 +1510,26 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
         // AND almaNightF so DAY (almaNightF=0) keeps the angel fully lit,
         // and any other phase (phase04Proximity≈0) is untouched.
         const phase04AngelDim = 1 - (phase04Proximity * almaNightF) * 0.92;
+        // Phase 04 (ALMA) DAY light direction match. The temple-day backdrop
+        // has its god-ray descending from above and behind the angel — the
+        // default studio rig lights from camera-front (+Z), which fights
+        // the backdrop and makes the model float over it. During ALMA DAY
+        // we dim the front-facing key/fill so the new phase04DaySun (high
+        // + behind) becomes the dominant directional source. Night and
+        // every other phase keep the default rig intact via phase04DayF→0.
+        const phase04DayF = phase04Proximity * (1 - almaNightF);
+        const phase04DayKeyMult  = lerp(1.0, 0.30, phase04DayF);
+        const phase04DayFillMult = lerp(1.0, 0.22, phase04DayF);
         ambient.intensity         = 0.22 * lerp(1.0, 0.08, phaseOriginProximity) * phase01AmbientMult * phase04AngelDim;
-        fill.intensity            = 0.75 * lerp(1.0, 0.08, phaseOriginProximity) * phase01FillMult    * phase04AngelDim;
+        fill.intensity            = 0.75 * lerp(1.0, 0.08, phaseOriginProximity) * phase01FillMult    * phase04AngelDim * phase04DayFillMult;
         top.intensity             = 0.35 * lerp(1.0, 0.10, phaseOriginProximity) * phase01TopMult     * phase04AngelDim;
-        key.intensity             = 1.5  * phase01KeyMult                                             * phase04AngelDim;
+        key.intensity             = 1.5  * phase01KeyMult                                             * phase04AngelDim * phase04DayKeyMult;
+        // ALMA DAY god-ray rig: hard warm key from high + behind matches the
+        // backdrop's descending shaft; subtle floor bounce keeps the chest
+        // from going pitch-black. Both gated by phase04DayF so they ONLY
+        // fire during ALMA DAY (and ramp to 0 in night and other phases).
+        phase04DaySun.intensity    = 3.2 * phase04DayF;
+        phase04DayBounce.intensity = 0.6 * phase04DayF;
 
         const breathe = 0.5 + 0.5 * Math.sin(clock.elapsed * (Math.PI * 2) / 4.0);
         const phaseBoost = 1.0 + 1.6 * Math.exp(-Math.pow((tRaw - 0.6) / 0.18, 2));
