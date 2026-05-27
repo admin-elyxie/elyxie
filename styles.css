@@ -727,12 +727,13 @@ body[data-theme="dark"] {
 }
 @media (max-width: 767px) {
   /* Mobile: the .phase-layer override (align-items:flex-start + padding-top:90px)
-     fights our stretch, so reassert it. Title at thigh-height — angel's
-     orb stays the focal point with the copy as caption below. */
+     fights our stretch, so reassert it. The angel is bigger AND lifted
+     higher in mobile — the orb now sits ~45vh down, so the caption
+     drops to ~50vh to stay just below it. */
   .phase-content.phase-content--alma {
     align-self: stretch;
     height: 100%;
-    padding: 58vh 16px 0;
+    padding: 52vh 16px 0;
     justify-self: stretch;
     margin: 0;
   }

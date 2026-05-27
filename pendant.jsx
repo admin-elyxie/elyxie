@@ -1273,11 +1273,12 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
         const px = pxOrigin * (1 - phaseSoulProximity * 0.85)
                  + Math.sin(clock.elapsed * 0.35) * 0.02
                  + px03Shift * phase03Proximity;
-        // Phase 04 (ALMA) vertical lift. Centre of mass roughly at
-        // viewport-mid: the silhouette feels anchored, wings don't clip
-        // against the top, and the title can sit at thigh-height below
-        // the orb (overlap with the legs is intentional).
-        const pyAlmaShift = (isMobile ? 0.18 : 0.10) * phase04Proximity;
+        // Phase 04 (ALMA) vertical lift. On desktop the centre of mass
+        // sits roughly mid-viewport (lift +0.10). On mobile the lift is
+        // aggressive (+0.60) to close the dead space between the navbar
+        // and the top of the wings — at the 0.55× scale the wing tips
+        // still clear the top of a portrait viewport at this lift.
+        const pyAlmaShift = (isMobile ? 0.60 : 0.10) * phase04Proximity;
         const py = -0.05 + pyOffset + pyOriginShift + py01Mobile
                  + pyAlmaShift
                  + Math.sin(clock.elapsed * 0.4) * 0.03
@@ -1390,7 +1391,7 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
             // because the portrait camera otherwise keeps the body too
             // large in screen-space and the title overlaps the legs.
             let centerScale = lerp(1.0, TRIO_SCALE, phase03Proximity);
-            const almaTargetScale = isMobile ? 0.38 : 0.65;
+            const almaTargetScale = isMobile ? 0.55 : 0.65;
             centerScale = lerp(centerScale, almaTargetScale, phase04Proximity);
             cs.scale.setScalar(centerScale);
           }
