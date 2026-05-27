@@ -463,6 +463,27 @@ body[data-theme="dark"] {
   will-change: opacity;
 }
 
+/* ---------- Phase 04 (ALMA) temple backdrop ----------
+   Two stacked layers (day + night). Both sit at the same z-index 0 as
+   .laguna-bg; only one is at opacity > 0 at any moment. app.jsx toggles
+   the `--alma-night` flag every 5 s (only while ALMA is visible), and
+   each layer's inline opacity = phaseSoulProximity × (active ? 1 : 0).
+   The 1100 ms CSS transition gives a smooth cross-fade between the two
+   temple photos and avoids a hard cut at the moment of the toggle. */
+.alma-bg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background-size: cover;
+  background-position: center center;
+  background-repeat: no-repeat;
+  pointer-events: none;
+  transition: opacity 1100ms cubic-bezier(0.4, 0, 0.2, 1);
+  will-change: opacity;
+}
+.alma-bg--day   { background-image: url("assets/temple-day.jpg"); }
+.alma-bg--night { background-image: url("assets/temple-night.jpg"); }
+
 /* Ensure the 3D canvas host sits above the backdrop so the angel composites on
    top of the photograph. Editorial chrome (.frame, .phase-layer, stepper…)
    already has higher z-index, so they remain in front of the canvas. */
@@ -633,6 +654,82 @@ body[data-theme="dark"] {
 .phase-content[data-position="right"]  { justify-self: end;    margin-right: 0; text-align: right; }
 .phase-content[data-position="center"] { justify-self: center; text-align: center; }
 .phase-content[data-position="right"] .phase-eyebrow { justify-content: flex-end; }
+
+/* ---------- Phase 04 (ALMA) split layout ----------
+   The "soul" beat focuses on the angel's glowing orb at chest level. The
+   user asked for the title ABOVE the orb and the sub-copy BELOW it, with
+   a generous gap so neither layer ever covers the sphere itself (which
+   IS the soul, per the brand language). We override the centered single-
+   block layout by stretching this phase-content to fill the grid cell
+   and splitting its inner into a top anchor + bottom anchor with the 3D
+   canvas showing through the empty middle band where the orb lives.
+   The doubled selector `.phase-content.phase-content--alma` bumps the
+   specificity to (0,2,0) so it outranks the later `@media .phase-content`
+   tablet/mobile blocks below (lines ~1832 + ~2177) — without that, those
+   later rules clobber our padding back to the standard 160px-left layout
+   and the title gets pushed to the very top of the viewport. */
+.phase-content.phase-content--alma {
+  align-self: stretch;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  /* Anchor everything to the BOTTOM half of the viewport; the upper half
+     is intentionally empty so the (now scaled-down + lifted) orb has
+     space to breathe in the upper third of the frame. */
+  justify-content: flex-end;
+  align-items: center;
+  padding: 0 32px 9vh;
+  max-width: 100%;
+  text-align: center;
+  margin: 0;
+}
+.phase-content--alma .phase-content__inner {
+  width: 100%;
+  max-width: 760px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.phase-content--alma .phase-title  { text-align: center; margin: 0; }
+/* ALMA title cross-fade. Both h2's share one grid cell so they overlap
+   at the same line height — the stack auto-sizes to whichever title is
+   taller so the layout never reflows during the swap. Each h2 carries
+   inline opacity from app.jsx (driven by `almaNight`) and the 900 ms
+   transition lines up with the temple background cross-fade. */
+.phase-title-stack {
+  display: grid;
+  width: 100%;
+  justify-items: center;
+}
+.phase-title-stack .phase-title--alma-slot {
+  grid-row: 1;
+  grid-column: 1;
+  transition: opacity 900ms cubic-bezier(0.4, 0, 0.2, 1);
+  will-change: opacity;
+}
+.phase-content--alma .phase-sub    { text-align: center; max-width: 52ch; margin: 0 auto 14px; }
+.phase-content--alma .phase-bilingual { text-align: center; }
+
+@media (max-width: 1024px) {
+  .phase-content.phase-content--alma {
+    padding: 0 24px 8vh;
+    justify-self: stretch;
+    margin: 0;
+  }
+}
+@media (max-width: 767px) {
+  /* Mobile: the .phase-layer override (align-items:flex-start + padding-top:90px)
+     fights our stretch, so reassert it. Bottom-anchored padding because the
+     orb (and angel) live in the upper portion of the viewport now. */
+  .phase-content.phase-content--alma {
+    align-self: stretch;
+    height: 100%;
+    padding: 0 16px 7vh;
+    justify-self: stretch;
+    margin: 0;
+  }
+  .phase-content--alma .phase-sub { max-width: 38ch; }
+}
 
 /* ---------- Stepper (floating labels on the LEFT edge of the viewport) ----------
    In the reference, the step labels sit directly on the left margin with

@@ -359,6 +359,30 @@ function Hero({ lang, tweaks, pendantRef }) {
     pendantRef.current.setLang(lang);
   }, [lang, pendantRef]);
 
+  // Phase 04 (ALMA) day/night cycle. Two temple photos cross-fade every 10 s
+  // while the user is parked inside ALMA's gaussian window. The flag also
+  // drives the orb glow + color + the angel-rig dimming in pendant.jsx
+  // (setAlmaNight bridge) so background + lighting + orb hue move together:
+  // bright temple → orb warm-gold, angel fully lit, no fairy dust.
+  // dark temple → orb brand-teal at full bloom, angel dimmed (ORIGEN-style),
+  // fairy dust swarming. The interval only mounts while the user is actually
+  // looking at ALMA, so we don't keep a timer alive across the rest of the
+  // page.
+  const [almaNight, setAlmaNight] = React.useState(false);
+  const almaGate = Math.exp(-Math.pow((progress - 0.70) / 0.085, 2));
+  const almaIsVisible = almaGate > 0.05;
+  useEffect(() => {
+    if (!almaIsVisible) return;
+    const id = setInterval(() => setAlmaNight(n => !n), 10000);
+    return () => clearInterval(id);
+  }, [almaIsVisible]);
+  // Sync the night flag down to the 3D scene so the orb emissive + the
+  // green PointLight follow the same beat as the CSS background swap.
+  useEffect(() => {
+    if (!pendantRef.current || !pendantRef.current.setAlmaNight) return;
+    pendantRef.current.setAlmaNight(almaNight);
+  }, [almaNight, pendantRef]);
+
   // Find active phase from progress
   const activeIdx = PHASES.findIndex(p => progress >= p.range[0] && progress < p.range[1]);
   const activeIndex = activeIdx === -1 ? (progress >= 1 ? PHASES.length - 1 : 0) : activeIdx;
@@ -440,6 +464,22 @@ function Hero({ lang, tweaks, pendantRef }) {
             <div className="hero-vignette-03" aria-hidden style={{ opacity: o03 }} />
           ) : null;
         })()}
+
+        {/* Phase 04 (ALMA) temple backdrop — two stacked layers (day + night)
+            that cross-fade every 5 s. The CSS transition on .alma-bg gives a
+            ~1.1 s ease; the wrapping `almaGate` gaussian (peak tRaw=0.70) keeps
+            both layers hidden outside ALMA. Skipped from the tree entirely
+            below 0.5% gate so phases 01/02/03/05 don't pay any cost. */}
+        {almaGate > 0.005 ? (
+          <React.Fragment>
+            <div className="alma-bg alma-bg--day"
+                 aria-hidden
+                 style={{ opacity: almaGate * (almaNight ? 0 : 1) }} />
+            <div className="alma-bg alma-bg--night"
+                 aria-hidden
+                 style={{ opacity: almaGate * (almaNight ? 1 : 0) }} />
+          </React.Fragment>
+        ) : null}
 
         {/* Phase 02 (ORIGEN) backdrop — Laguna Negra photograph. Sits behind the
             transparent 3D canvas; opacity is driven by a gaussian centered on
@@ -545,18 +585,61 @@ function Hero({ lang, tweaks, pendantRef }) {
               {PHASES.map((p, i) => {
                 const isActive = i === activeIndex;
                 const innerStyle = isActive ? { opacity: 1 - closeupFade } : undefined;
+                // Phase 04 (ALMA) gets a special split: title pinned high,
+                // sub-copy + bilingual label pinned low, with the WebGL
+                // canvas showing the orb in the middle band. Other phases
+                // keep the original single-inner stack untouched.
+                const isAlma = p.num === '04';
                 return (
                   <div key={p.num}
-                       className="phase-content"
+                       className={`phase-content${isAlma ? ' phase-content--alma' : ''}`}
                        data-active={isActive}
                        data-position={p.position}>
-                    <div className="phase-content__inner" style={innerStyle}>
-                      <h2 className="phase-title">{p.title[lang]}</h2>
-                      <p className="phase-sub">{p.sub[lang]}</p>
-                      <span className="phase-bilingual">
-                        {lang === 'es' ? p.label.en : p.label.es}
-                      </span>
-                    </div>
+                    {isAlma ? (
+                      /* ALMA layout: orb (rendered by the WebGL canvas) sits
+                         in the upper third of the viewport thanks to the
+                         pyAlmaShift + 0.65× scale in pendant.jsx. ALL the
+                         copy stacks together at the bottom: big title first
+                         (cross-faded with the day/night cycle), small
+                         sub-copy directly below, bilingual label last. */
+                      <div className="phase-content__inner phase-content__inner--alma-bottom"
+                           style={innerStyle}>
+                        {/* ALMA title cross-fades with the temple cycle:
+                            DAY → "Se carga con la luz." (the orb is
+                            charging — phosphor metaphor); NIGHT → "Brilla
+                            en la oscuridad. Indefinidamente." Two h2's
+                            stacked via CSS grid so they overlap at the
+                            same line height; each opacity is driven by
+                            almaNight inline + the CSS 900ms transition
+                            matches the temple cross-fade. */}
+                        <div className="phase-title-stack">
+                          <h2 className="phase-title phase-title--alma-slot"
+                              style={{ opacity: almaNight ? 0 : 1 }}
+                              aria-hidden={almaNight ? 'true' : undefined}>
+                            {lang === 'es'
+                              ? <>Se carga con la <span className="accent">luz.</span></>
+                              : <>It charges with <span className="accent">light.</span></>}
+                          </h2>
+                          <h2 className="phase-title phase-title--alma-slot"
+                              style={{ opacity: almaNight ? 1 : 0 }}
+                              aria-hidden={almaNight ? undefined : 'true'}>
+                            {p.title[lang]}
+                          </h2>
+                        </div>
+                        <p className="phase-sub">{p.sub[lang]}</p>
+                        <span className="phase-bilingual">
+                          {lang === 'es' ? p.label.en : p.label.es}
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="phase-content__inner" style={innerStyle}>
+                        <h2 className="phase-title">{p.title[lang]}</h2>
+                        <p className="phase-sub">{p.sub[lang]}</p>
+                        <span className="phase-bilingual">
+                          {lang === 'es' ? p.label.en : p.label.es}
+                        </span>
+                      </div>
+                    )}
                   </div>
                 );
               })}
