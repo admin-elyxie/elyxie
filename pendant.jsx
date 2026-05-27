@@ -191,6 +191,17 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
         }
       }
     },
+    // Push language changes into the MATERIA labels. The labels are created
+    // imperatively (DOM siblings of the WebGL canvas) so React's re-render
+    // path doesn't reach them — app.jsx calls this whenever `lang` toggles.
+    setLang: (l) => {
+      stateRef.current.lang = l;
+      const labels = stateRef.current.materiaLabels;
+      const texts  = stateRef.current.materiaLabelTexts;
+      if (labels && texts && texts[l]) {
+        labels.forEach((el, i) => { el.textContent = texts[l][i]; });
+      }
+    },
   }), []);
 
   useEffect(() => {
@@ -247,6 +258,29 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
       renderer.shadowMap.needsUpdate = true;
       container.appendChild(renderer.domElement);
       renderer.domElement.classList.add('scene-canvas');
+
+      // ===== MATERIA labels (HTML overlay) =====
+      // Three brand labels — one per angel in the trio. Created here as DOM
+      // siblings of the canvas (NOT React children — Pendant's useEffect runs
+      // once and React doesn't re-render the canvas host). The animate loop
+      // projects each angel's bbox-bottom world position to screen and writes
+      // the label's CSS transform + opacity. Opacity is gated by
+      // phase03Proximity so the labels are invisible outside MATERIA.
+      const labelTexts = {
+        es: ['plata', 'oro', 'rodio'],
+        en: ['silver', 'gold', 'rhodium'],
+      };
+      const initialLang = stateRef.current.lang || 'es';
+      stateRef.current.lang = initialLang;
+      stateRef.current.materiaLabelTexts = labelTexts;
+      stateRef.current.materiaLabels = [0, 1, 2].map((i) => {
+        const el = document.createElement('div');
+        el.className = 'materia-label';
+        el.textContent = labelTexts[initialLang][i];
+        el.style.opacity = '0';
+        container.appendChild(el);
+        return el;
+      });
 
       // Warm studio palette: reflections on the gold should read as gold,
       // not green. The orb's own emissive + a tight PointLight cast the
@@ -308,6 +342,22 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
       phase01Spot.shadow.normalBias =  0.02;
       phase01Spot.shadow.radius     =  8;
       scene.add(phase01Spot);
+
+      // Phase 03 (MATERIA) warm rim light — matches the apparent source of
+      // the .hero-vignette-03 CSS atmosphere (cone from the top-right corner
+      // of the frame). World position (5.5, 6.0, 2.8) sits up-and-to-the-
+      // right-front so the directional vector hits the upper-right quadrant
+      // of every wing tip across the trio, producing the warm crest highlight
+      // visible in the reference handoff image. Color 0xffd29a (warm amber)
+      // matches the cone's tint stops in the CSS so the actual angel rim and
+      // the painted atmospheric glow read as one light. NO shadows (would
+      // double-cost the autoUpdate=false optimisation and the trio doesn't
+      // need cast shadows during MATERIA). Intensity is driven by the
+      // animate loop from phase03Proximity → zero outside the [0.40, 0.60]
+      // band so the original studio rig is intact in every other phase.
+      const phase03Spot = new THREE.DirectionalLight(0xffd29a, 0);
+      phase03Spot.position.set(5.5, 6.0, 2.8);
+      scene.add(phase03Spot);
 
       // Phase 01 (BIENVENIDA) smoke-shadow catcher plane. Sits behind the
       // angel; receives the phase01Spot shadow so the angel's silhouette
@@ -677,10 +727,64 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
             const rhodiumWarm   = buildRhodiumMaterial(THREE, 'warm');
             const rhodiumBright = buildRhodiumMaterial(THREE, 'bright');
 
+            // The scene's `environment` is an amber/warm studio map tuned for
+            // the central GOLD angel. Silver and rhodium at metalness=1.0
+            // reflect nearly 100% of the env, so a warm env makes both read as
+            // bronze. Build a dedicated COOL/neutral env (cool greys, no
+            // amber, a bright cool accent) and assign it via `material.envMap`
+            // — Three.js samples material.envMap in preference to
+            // scene.environment when both are present, so this override is
+            // per-material without leaking onto the gold center. PMREM-
+            // prefiltered like the scene env. ONE env map shared between
+            // silver + rhodium → 1 cube generation + 1 PMREM pass amortised
+            // across both metals. Rhodium uses the SAME cool env but its own
+            // material params are tuned cooler/brighter (color #fbfcff vs
+            // silver's #f3f4f1, roughness 0.05 vs 0.18, envMapIntensity 1.85
+            // vs 1.55) so it reads as "platinum white / ice white" while
+            // silver reads as slightly warmer grey — matches the real-world
+            // hierarchy where rhodium plating (70-80% reflectivity) is the
+            // whitest, most mirror-like of the three finishes and silver
+            // (~40% in its natural matte state) sits a half-step warmer.
+            const coolMetalEnv = buildStudioEnvMap(THREE, renderer, {
+              warm:   '#c0c8d2', // cool light grey-blue replacing the amber side
+              cool:   '#2a313c', // deeper cool grey for shadow side
+              accent: '#e6ecf2', // bright cool white highlight
+              top:    '#1e2230', // cool dark sky
+              floor:  '#080a0e', // very dark cool floor
+            });
+            silverWarm.envMap    = coolMetalEnv;
+            silverBright.envMap  = coolMetalEnv;
+            rhodiumWarm.envMap   = coolMetalEnv;
+            rhodiumBright.envMap = coolMetalEnv;
+            silverWarm.needsUpdate    = true;
+            silverBright.needsUpdate  = true;
+            rhodiumWarm.needsUpdate   = true;
+            rhodiumBright.needsUpdate = true;
+
             const modelLeft = model.clone(true);
             applyMaterialsToClone(modelLeft, { warm: silverWarm, bright: silverBright });
             const modelRight = model.clone(true);
             applyMaterialsToClone(modelRight, { warm: rhodiumWarm, bright: rhodiumBright });
+
+            // Collect the unique materials owned by each side clone (warm + bright
+            // body + per-mesh orb instances) so the animate loop can drive their
+            // .opacity from phase03Proximity. The user explicitly asked for a
+            // fade-in instead of the previous scale-from-zero "pop" — we keep the
+            // side groups at constant TRIO_SCALE and only animate alpha. Each
+            // material gets `transparent: true` so opacity actually takes effect;
+            // without that flag Three.js ignores opacity on MeshStandardMaterial.
+            const collectMaterials = (root) => {
+              const seen = new Set();
+              root.traverse((o) => {
+                if (!o.isMesh || !o.material) return;
+                if (seen.has(o.material)) return;
+                seen.add(o.material);
+                o.material.transparent = true;
+              });
+              return Array.from(seen);
+            };
+            const leftMaterials  = collectMaterials(modelLeft);
+            const rightMaterials = collectMaterials(modelRight);
 
             // Wrap each clone in a Group so we can scale 0→1 with
             // phase03Proximity without touching the model's own scale (which
@@ -689,30 +793,42 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
             // X offset (±0.7): tight inward spacing so the lateral wings
             // OVERLAP the central angel's wings — reads as "two figures
             // standing right next to" the gold center, not "a row of three".
-            // Z offset (+1.0): pushes each lateral forward toward the camera,
-            // so they appear to flank the viewer (the gold angel sits behind
-            // them). Combined with the X overlap this gives the "two people
-            // standing in front of me, close to me" composition. Each
-            // lateral also scales down by 30% during phase 03 (applied in
-            // the animate loop, multiplied with phase03Proximity).
+            // Z offset (0): the THREE angels are COPLANAR. Earlier this was
+            // +1.0 (pushing the laterals forward to "flank" the viewer), but
+            // the trio is also shifted RIGHT in world space by px03Shift to
+            // fill the empty space next to the text column — while the camera
+            // keeps looking at world (0,0,0). With the laterals at z=+1.0
+            // that off-axis perspective made the right-side gap project ~61%
+            // wider than the left-side gap (uneven distances from the central
+            // angel). Coplanar (z=0) guarantees that left and right project
+            // at the same screen-space distance from the central angel at
+            // any spin angle. Each lateral also scales down by 30% during
+            // phase 03 (applied in the animate loop).
             //
             // The Y offset that lifts each lateral so its head sits BETWEEN
             // the central angel's head and orb is applied AFTER the
             // visible-bbox cache below (needs modelBboxY + orbLocalY,
             // computed there).
+            // Side groups start INVISIBLE (Object3D.visible=false skips the entire
+            // subtree from rendering). The animate loop flips visible=true and
+            // drives material.opacity from phase03Proximity. Scale stays at the
+            // final TRIO_SCALE (0.7) — no zoom-in animation, only alpha. This is
+            // the change the user asked for: "que ahí aparezca el fade in sin la
+            // necesidad de mover la posición XYZ."
             const groupLeft  = new THREE.Group();
             groupLeft.add(modelLeft);
-            groupLeft.position.set(-0.7, 0, 1.0);
-            groupLeft.scale.setScalar(0); // invisible outside phase 03
+            groupLeft.position.set(-0.7, 0, 0);
+            groupLeft.visible = false;
 
             const groupRight = new THREE.Group();
             groupRight.add(modelRight);
-            groupRight.position.set(0.7, 0, 1.0);
-            groupRight.scale.setScalar(0); // invisible outside phase 03
+            groupRight.position.set(0.7, 0, 0);
+            groupRight.visible = false;
 
             angel.add(groupLeft);
             angel.add(groupRight);
             stateRef.current.materials.materiaSideGroups = { left: groupLeft, right: groupRight };
+            stateRef.current.materials.materiaSideMaterials = { left: leftMaterials, right: rightMaterials };
           })();
 
           modelLoaded = true;
@@ -1006,7 +1122,7 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
         camZ = lerp(camZ, 6.9, phaseOriginProximity);
         // Phase 03 (MATERIA) framing: pull the camera back further so the
         // three-angel triangle (silver | gold | rhodium, laterals at
-        // x=±0.7/z=+1.0 and dropped 50% of the way to the central orb)
+        // x=±0.7/z=0 and dropped 50% of the way to the central orb)
         // reads at full size. All three shrink to 70% during this phase
         // (see TRIO_SCALE below), so the cluster sits tighter and a bit
         // smaller than the solo central angel of phases 01-02. At the
@@ -1086,34 +1202,69 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
                  + Math.sin(tRaw * Math.PI) * 0.06;
         angel.position.set(px, py, pz01);
 
-        // Phase 03 (MATERIA) side angels: scale from 0 (hidden) → 1 (full
-        // visible at the peak tRaw=0.50). They're children of `angel`, so
-        // they inherit the rotation/position above; only the LOCAL scale of
-        // each Group depends on phase. Outside [0.40, 0.60] the proximity is
-        // negligible (<0.5%) so neither clone contributes to draw calls.
+        // Phase 03 (MATERIA) side angels: appear via pure ALPHA fade-in at
+        // their final position. Previously they scaled from 0 → 0.7 along
+        // with phase03Proximity, which felt like a "pop" because nothing was
+        // visible until the proximity got past ~10% and then the angels
+        // grew quickly into frame. The user asked for "que ahí aparezca el
+        // fade in sin la necesidad de mover la posición XYZ" — so we now
+        // keep scale CONSTANT at TRIO_SCALE and drive material.opacity from
+        // phase03Proximity instead. group.visible gates the entire subtree
+        // out of rendering when proximity is essentially 0 (outside the
+        // [0.40, 0.60] band) so neither clone costs draw calls there.
         //
         // Continuous slow Y-axis spin for the trio during phase 03. Each of
         // the three wrappers gets the same rotation delta (dt × angVel ×
         // phase03Proximity) so they all turn together at the same rate but
         // each pivots around its OWN local Y axis (centerSpinner at the
-        // central angel's origin, groupLeft at x=-1.1/z=+1.0, groupRight at
-        // x=+1.1/z=+1.0). The proximity gating ramps the spin in/out at the
+        // central angel's origin, groupLeft at x=-0.7/z=0, groupRight at
+        // x=+0.7/z=0). The proximity gating ramps the spin in/out at the
         // phase boundaries so neighbouring phases don't see residual motion.
         // 0.18 rad/s → a full revolution takes ~35 seconds, slow enough to
         // feel meditative but visible during the phase 03 dwell.
         // TRIO_SCALE = 0.7: each of the three angels shrinks to 70% during
         // phase 03 so the cluster reads smaller and "further away from the
         // camera" relative to phases 01-02 (where the central is solo at
-        // full size). For the laterals we multiply phase03Proximity by 0.7
-        // so they still ramp 0→0.7 cleanly. For the central we lerp from
-        // 1.0 (outside phase 03) → 0.7 (peak), which combines with the
-        // model's own fitting scale set at load time.
+        // full size). The CENTRAL angel still animates 1.0 → 0.7 (it's the
+        // settle-into-position the user described as "el oro está bien
+        // centrado"); the laterals stay at fixed 0.7 and only fade alpha.
         const TRIO_SCALE = 0.7;
+        // Side angels appear ONLY in the last 5% of the gold angel's settle —
+        // user request: "que aparezcan justo cuando esté a punto de llegar
+        // la última parte del último 5%". phase03Proximity is the gaussian
+        // that drives every other phase-03 transition (camera Z, trio
+        // centering, center-scale lerp 1.0→0.7). When it hits 1.0 the gold
+        // angel is fully in its final pose. Remap the [0.95, 1.0] tail of
+        // that ramp into a [0, 1] alpha for the laterals via smootherstep
+        // (quintic — zero 1st and 2nd derivative at the endpoints so the
+        // fade has no perceptible "click" entering or leaving). Below 0.95
+        // they're literally invisible (group.visible = false), so neither
+        // clone costs draw calls during the long approach.
+        const SIDE_FADE_START = 0.95;
+        const sideOpacity = smootherstep((phase03Proximity - SIDE_FADE_START) / (1.0 - SIDE_FADE_START));
         const matSides = stateRef.current.materials && stateRef.current.materials.materiaSideGroups;
+        const matSideMats = stateRef.current.materials && stateRef.current.materials.materiaSideMaterials;
         if (matSides) {
-          const lateralScale = phase03Proximity * TRIO_SCALE;
-          matSides.left.scale.setScalar(lateralScale);
-          matSides.right.scale.setScalar(lateralScale);
+          // Toggle the whole subtree out of rendering when the side fade is
+          // essentially 0. Cheaper than rendering a fully-transparent angel
+          // (which would still pay the depth/fragment cost per pixel of wing).
+          const visible = sideOpacity > 0.001;
+          if (matSides.left.visible !== visible) matSides.left.visible = visible;
+          if (matSides.right.visible !== visible) matSides.right.visible = visible;
+          if (visible) {
+            // Constant scale — no zoom animation. The "appearing" comes from
+            // the opacity drive a few lines below.
+            matSides.left.scale.setScalar(TRIO_SCALE);
+            matSides.right.scale.setScalar(TRIO_SCALE);
+            // Both side angels share the same opacity so the pair reads as
+            // one composition rather than two independent fades.
+            if (matSideMats) {
+              const l = matSideMats.left;
+              const r = matSideMats.right;
+              for (let i = 0; i < l.length; i++) l[i].opacity = sideOpacity;
+              for (let i = 0; i < r.length; i++) r[i].opacity = sideOpacity;
+            }
+          }
           // HARD-RESET when phase 03 is fully OUT of frame. Outside this
           // band, force the spin angle back to exactly 0 — no float
           // residue, no "0.048° leftover", no possibility that the user
@@ -1222,6 +1373,12 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
         // The phase 02 dimmer composes multiplicatively below — both
         // gaussians can be active at the curve tails without conflict.
         phase01Spot.intensity     = 3.0 * phase01Proximity;
+        // Phase 03 warm rim: ramps up with the same MATERIA gaussian as the
+        // CSS atmosphere and the trio reveal. Peak 3.5 picks up the wing
+        // crests cleanly without blowing out the silver/rhodium env
+        // reflections (first draft at 2.4 was too subtle to read against
+        // the atmospheric warm cone painted in CSS behind the canvas).
+        phase03Spot.intensity     = 3.5 * phase03Proximity;
         // Smoke-shadow catcher: opacity follows phase01 proximity. Visible
         // only when phase01Spot is also active, so the projected silhouette
         // appears in sync with the spotlight. ShadowMaterial draws nothing
@@ -1455,6 +1612,57 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
           renderer.shadowMap.autoUpdate = false;
         }
 
+        // ===== Update MATERIA labels =====
+        // Project each angel's bbox-bottom (in object-local space) into screen
+        // coordinates and write the label CSS transform. Only runs when MATERIA
+        // is in proximity to keep the cost off the budget during phases 1/2/4/5.
+        // The label X tracks the angel horizontally; Y is dropped a fixed pixel
+        // padding (PAD_PX) below the projected feet so the type sits cleanly
+        // under each silhouette regardless of viewport. matSides may not exist
+        // yet on the first frames before the GLB resolves — gate on that too.
+        {
+          const labels   = stateRef.current.materiaLabels;
+          const matSidesL = stateRef.current.materials && stateRef.current.materials.materiaSideGroups;
+          const bboxY    = stateRef.current.modelBboxY;
+          if (labels && matSidesL && bboxY && phase03Proximity > 0.005) {
+            camera.updateMatrixWorld();
+            const PAD_PX = 22;
+            const cw = container.clientWidth;
+            const ch = container.clientHeight;
+            // Each label follows its own angel's visibility: the lateral
+            // labels ride sideOpacity (last-5% reveal) so they don't float
+            // under empty air while plata/rodio are still hidden; "oro" stays
+            // tied to phase03Proximity so it appears with the center angel.
+            const targets = [
+              { obj: matSidesL.left,                              opacity: sideOpacity },
+              { obj: stateRef.current.materials.centerSpinner,    opacity: phase03Proximity },
+              { obj: matSidesL.right,                             opacity: sideOpacity },
+            ];
+            for (let i = 0; i < 3; i++) {
+              const { obj, opacity } = targets[i];
+              const el = labels[i];
+              if (!obj || !el) continue;
+              _projVec.set(0, bboxY.min, 0);
+              obj.localToWorld(_projVec);
+              _projVec.project(camera);
+              // Skip if the point is behind the camera — projection would
+              // mirror it to the wrong side of the screen.
+              if (_projVec.z > 1) { el.style.opacity = '0'; continue; }
+              const x = (_projVec.x * 0.5 + 0.5) * cw;
+              const y = (-_projVec.y * 0.5 + 0.5) * ch;
+              el.style.transform =
+                `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px) translate(-50%, ${PAD_PX}px)`;
+              el.style.opacity = opacity.toFixed(3);
+            }
+          } else if (labels) {
+            // Outside MATERIA → zero opacity. Skip the transform write so we
+            // don't burn cycles on positions nobody will see.
+            for (let i = 0; i < labels.length; i++) {
+              if (labels[i].style.opacity !== '0') labels[i].style.opacity = '0';
+            }
+          }
+        }
+
         renderer.render(scene, camera);
       }
 
@@ -1505,6 +1713,12 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
         io.disconnect();
         document.removeEventListener('visibilitychange', onVisibility);
         window.removeEventListener('resize', onResize);
+        if (stateRef.current.materiaLabels) {
+          stateRef.current.materiaLabels.forEach((el) => {
+            if (el && el.parentNode) el.parentNode.removeChild(el);
+          });
+          stateRef.current.materiaLabels = null;
+        }
         renderer.dispose();
         envMap.dispose();
         scene.traverse((o) => {

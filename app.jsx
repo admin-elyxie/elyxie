@@ -350,6 +350,15 @@ function Hero({ lang, tweaks, pendantRef }) {
     pendantRef.current.setGlowColor(tweaks.glowColor);
   }, [tweaks.glowIntensity, tweaks.glowColor, pendantRef]);
 
+  // Push language to the pendant so its imperatively-created MATERIA labels
+  // ("plata / oro / rodio" ↔ "silver / gold / rhodium") swap with the rest
+  // of the page. setLang no-ops gracefully if labels haven't been created
+  // yet (first paint before GLB resolves).
+  useEffect(() => {
+    if (!pendantRef.current || !pendantRef.current.setLang) return;
+    pendantRef.current.setLang(lang);
+  }, [lang, pendantRef]);
+
   // Find active phase from progress
   const activeIdx = PHASES.findIndex(p => progress >= p.range[0] && progress < p.range[1]);
   const activeIndex = activeIdx === -1 ? (progress >= 1 ? PHASES.length - 1 : 0) : activeIdx;
@@ -416,6 +425,20 @@ function Hero({ lang, tweaks, pendantRef }) {
               <div className="hero-smoke-front" aria-hidden style={{ opacity: o01 * 0.95 }} />
             </React.Fragment>
           );
+        })()}
+
+        {/* Phase 03 (MATERIA) atmosphere — warm cone of light from the
+            top-right corner, soft volumetric haze around the trio, and
+            tiny cream-tinted star particles. Recreates the reference
+            handoff visual; pairs with the phase03Spot DirectionalLight in
+            pendant.jsx so the CSS atmosphere and the angels' rim
+            highlights share one apparent source. Mounted only while the
+            gaussian is non-trivial to keep phases 01/02/04/05 untouched. */}
+        {(() => {
+          const o03 = Math.exp(-Math.pow((progress - 0.50) / 0.085, 2));
+          return o03 > 0.005 ? (
+            <div className="hero-vignette-03" aria-hidden style={{ opacity: o03 }} />
+          ) : null;
         })()}
 
         {/* Phase 02 (ORIGEN) backdrop — Laguna Negra photograph. Sits behind the
