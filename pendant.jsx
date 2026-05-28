@@ -1008,6 +1008,11 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
       // mask) only fade in during phase 01 anyway, so sub-pixel updates do
       // nothing visually but force a mask rasterisation each frame.
       let lastAngelXWrite = -999;
+      // --alma-day-mix throttle: 0..1 cross-fade for the ALMA day-mode UI
+      // recoloring. Driven by phase04DayF = phase04Proximity * (1 - almaNightF)
+      // so it follows BOTH scroll position and the day/night toggle in one
+      // value, perfectly synced with the temple background cross-fade.
+      let lastAlmaDayMixWrite = -1;
 
       function animate(now) {
         raf = requestAnimationFrame(animate);
@@ -1273,12 +1278,12 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
         const px = pxOrigin * (1 - phaseSoulProximity * 0.85)
                  + Math.sin(clock.elapsed * 0.35) * 0.02
                  + px03Shift * phase03Proximity;
-        // Phase 04 (ALMA) vertical lift. On desktop the centre of mass
-        // sits roughly mid-viewport (lift +0.10). On mobile the lift is
-        // aggressive (+0.60) to close the dead space between the navbar
-        // and the top of the wings — at the 0.55× scale the wing tips
-        // still clear the top of a portrait viewport at this lift.
-        const pyAlmaShift = (isMobile ? 0.60 : 0.10) * phase04Proximity;
+        // Phase 04 (ALMA) vertical lift. The copy block now sits at the
+        // very TOP of the viewport (just under the navbar), so the angel
+        // drops back to a near-centred lift on mobile (was +0.60 when the
+        // copy lived at thigh-height). Desktop stays at +0.10 — the wider
+        // aspect already places the orb mid-frame without help.
+        const pyAlmaShift = (isMobile ? 0.20 : 0.10) * phase04Proximity;
         const py = -0.05 + pyOffset + pyOriginShift + py01Mobile
                  + pyAlmaShift
                  + Math.sin(clock.elapsed * 0.4) * 0.03
@@ -1305,13 +1310,16 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
         // phase boundaries so neighbouring phases don't see residual motion.
         // 0.18 rad/s → a full revolution takes ~35 seconds, slow enough to
         // feel meditative but visible during the phase 03 dwell.
-        // TRIO_SCALE = 0.7: each of the three angels shrinks to 70% during
-        // phase 03 so the cluster reads smaller and "further away from the
-        // camera" relative to phases 01-02 (where the central is solo at
-        // full size). The CENTRAL angel still animates 1.0 → 0.7 (it's the
-        // settle-into-position the user described as "el oro está bien
-        // centrado"); the laterals stay at fixed 0.7 and only fade alpha.
-        const TRIO_SCALE = 0.7;
+        // TRIO_SCALE = 0.805: each of the three angels shrinks to ~80.5%
+        // during phase 03 (was 0.7; +15% per user request — the cluster was
+        // reading too small). Still smaller than phases 01-02 (where the
+        // central is solo at full size) so the "further away from camera"
+        // editorial framing is preserved. The CENTRAL angel still animates
+        // 1.0 → 0.805 (the settle-into-position) and the laterals stay at
+        // fixed 0.805 and only fade alpha. ALMA phase 04 is untouched —
+        // its almaTargetScale (0.55 mobile / 0.65 desktop) overrides this
+        // via the phase04Proximity lerp a few hundred lines below.
+        const TRIO_SCALE = 0.805;
         // Side angels appear ONLY in the last 5% of the gold angel's settle —
         // user request: "que aparezcan justo cuando esté a punto de llegar
         // la última parte del último 5%". phase03Proximity is the gaussian
@@ -1763,6 +1771,16 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
             document.documentElement.style.setProperty('--angel-x', `${angelScreenXPct.toFixed(2)}%`);
             lastAngelXWrite = angelScreenXPct;
           }
+        }
+
+        // Publish --alma-day-mix for the section-4 day-mode UI recoloring in
+        // CSS (color-mix consumers in styles.css). Throttled to 0.005 deltas
+        // (0.5%) — finer than the eye can pick up but coarse enough to avoid
+        // a per-frame setProperty when the value is parked at 0 (outside
+        // ALMA) or 1 (mid-day peak). phase04DayF is already computed above.
+        if (Math.abs(phase04DayF - lastAlmaDayMixWrite) > 0.005) {
+          document.documentElement.style.setProperty('--alma-day-mix', phase04DayF.toFixed(3));
+          lastAlmaDayMixWrite = phase04DayF;
         }
 
         // Toggle shadow rendering ONLY when phase01Spot is contributing.
