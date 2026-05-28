@@ -46,8 +46,8 @@ const PHASES = [
       en: <>Three finishes. <span className="accent">One soul.</span></>,
     },
     sub: {
-      es: 'Plata 950 desnuda. Plata bañada en rodio. Plata micrada en oro 24 k. Eliges la piel; el agua viva dentro permanece intacta.',
-      en: 'Bare 950 silver. Rhodium-plated silver. Silver micron-plated in 24k gold. You choose the skin; the living water within remains untouched.',
+      es: 'Plata 950. Sola, con rodio, o enchapada en oro. Eliges la piel; el agua viva dentro permanece intacta.',
+      en: '950 silver. Bare, with rhodium, or gold-plated. You choose the skin; the living water within remains untouched.',
     },
     range: [0.40, 0.60],
     position: 'left',
@@ -57,8 +57,8 @@ const PHASES = [
     num: '04',
     label: { es: 'ALMA', en: 'SOUL' },
     title: {
-      es: <>Brilla en la oscuridad. <span className="accent">Indefinidamente.</span></>,
-      en: <>It glows in the dark. <span className="accent">Indefinitely.</span></>,
+      es: <>La devuelve en <span className="accent">la oscuridad.</span></>,
+      en: <>It returns it in <span className="accent">the dark.</span></>,
     },
     sub: {
       es: 'Aluminato de estroncio fusionado al agua madre. No ilumina para ser vista. Ilumina para recordar su propósito.',
@@ -605,22 +605,21 @@ function Hero({ lang, tweaks, pendantRef }) {
                       <div className="phase-content__inner phase-content__inner--alma-bottom"
                            style={innerStyle}>
                         {/* ALMA title cross-fades with the temple cycle:
-                            DAY → "Se carga con la luz." (the orb is
-                            charging — phosphor metaphor); NIGHT → "Brilla
-                            en la oscuridad. Indefinidamente." Two h2's
-                            stacked via CSS grid so they overlap at the
-                            same line height; each opacity is driven by
-                            almaNight inline + the CSS 900ms transition
-                            matches the temple cross-fade. */}
+                            DAY → "Guarda la luz." (the orb absorbs/holds
+                            the light); NIGHT → "La devuelve en la oscuridad."
+                            (gives it back). Two h2's stacked via CSS grid
+                            so they overlap at the same line height; each
+                            opacity is driven by almaNight inline + the CSS
+                            900ms transition matches the temple cross-fade. */}
                         <div className="phase-title-stack">
                           <h2 className="phase-title phase-title--alma-slot"
                               style={{ opacity: almaNight ? 0 : 1 }}
                               aria-hidden={almaNight ? 'true' : undefined}>
                             {lang === 'es'
-                              ? <>Se carga con la <span className="accent">luz.</span></>
-                              : <>It charges with <span className="accent">light.</span></>}
+                              ? <>Guarda <span className="accent">la luz.</span></>
+                              : <>It keeps <span className="accent">the light.</span></>}
                           </h2>
-                          <h2 className="phase-title phase-title--alma-slot"
+                          <h2 className="phase-title phase-title--alma-slot phase-title--alma-night"
                               style={{ opacity: almaNight ? 1 : 0 }}
                               aria-hidden={almaNight ? undefined : 'true'}>
                             {p.title[lang]}

@@ -673,13 +673,14 @@ body[data-theme="dark"] {
   height: 100%;
   display: flex;
   flex-direction: column;
-  /* Push the copy block down to thigh-height — the title sits BELOW the
-     orb (so the orb stays the focal point) but still overlaps the angel's
-     legs (intentional, the user OK'd it). The text never crosses the
-     face or orb, which would steal attention from the focal element. */
+  /* Pull the copy block UP — the title sits ABOVE the angel's head, over
+     the upper wing area. The wings (dark gold + deep shadows between
+     feathers) give better contrast than the bright lower temple marble,
+     and the overlap with the wings is intentional (user OK'd it for both
+     day and night). The orb stays clear and remains the focal point. */
   justify-content: flex-start;
   align-items: center;
-  padding: 60vh 32px 0;
+  padding: 13vh 32px 0;
   max-width: 100%;
   text-align: center;
   margin: 0;
@@ -720,20 +721,21 @@ body[data-theme="dark"] {
 
 @media (max-width: 1024px) {
   .phase-content.phase-content--alma {
-    padding: 60vh 24px 0;
+    padding: 12vh 24px 0;
     justify-self: stretch;
     margin: 0;
   }
 }
 @media (max-width: 767px) {
-  /* Mobile: the .phase-layer override (align-items:flex-start + padding-top:90px)
-     fights our stretch, so reassert it. The angel is bigger AND lifted
-     higher in mobile — the orb now sits ~45vh down, so the caption
-     drops to ~50vh to stay just below it. */
+  /* Mobile (also covers small tablets ≤ 767px wide). Text needs to sit
+     RIGHT below the navbar — the user wants the copy as high as possible.
+     `.phase-layer { padding-top: 90px }` (line ~2282) already pushes the
+     grid 14px below the 76px navbar, so our own padding-top can drop to
+     0 and the title lands flush below the chrome. */
   .phase-content.phase-content--alma {
     align-self: stretch;
     height: 100%;
-    padding: 52vh 16px 0;
+    padding: 0 16px;
     justify-self: stretch;
     margin: 0;
   }
@@ -2558,4 +2560,118 @@ section[data-section="outro"] {
   .grain { animation: none; }
   .FullMediaHeadline__bg { animation: none; }
   .scroll-hint__line { animation: none; }
+}
+
+/* ===========================================================
+   ALMA (phase 04) day-mode UI recoloring — section 4 ONLY
+   -----------------------------------------------------------
+   The ALMA day temple background is a bright cream/stone hall
+   in sunlight. The default light foreground (--theme-fg ≈ white
+   during the hero) reads invisible against that brightness, so
+   every text/divider element layered over the temple needs to
+   recolor to a dark contrast tone.
+
+   Driver: pendant.jsx publishes `--alma-day-mix` on documentElement
+   each frame, equal to `phase04Proximity * (1 - almaNightF)`:
+     - any other phase     → 0  (UI unchanged, original colors)
+     - ALMA night peak     → 0  (orb-protagonist, dark temple, original colors)
+     - ALMA day peak       → 1  (bright temple, dark UI)
+     - mid cross-fade      → 0.x (linear blend, matches bg opacity tween)
+
+   `color-mix(in srgb, dark X%, original)` interpolates per-pixel
+   without needing CSS transitions, so the recoloring is locked
+   1:1 with the scene's day/night beat and the temple cross-fade.
+
+   IMPORTANT: only elements that overlay the hero pin during ALMA
+   are listed here. Post-hero sections (editions grid, video,
+   newsletter, footer) are NOT visible at progress≈0.70, so they
+   stay untouched. =========================================== */
+:root {
+  --alma-day-mix: 0;
+  --alma-day-fg: #0F1714;          /* near-black green, sits well against cream */
+  --alma-day-fg-soft: #2A3A33;     /* slightly lifted for hairlines / dividers */
+}
+
+/* Brand-typed elements that sit over the bright temple marble (navbar at
+   the top, rail/badge at the bottom) — they cross-fade toward the page's
+   own light foreground in night, dark in day. */
+.nav__brand,
+.nav__link,
+.nav__lang,
+.nav__lang button,
+.nav__icon-btn,
+.rail__label,
+.rail__pct,
+.edition-badge {
+  color: color-mix(in srgb,
+    var(--alma-day-fg) calc(var(--alma-day-mix, 0) * 100%),
+    var(--theme-fg));
+}
+
+/* ALMA phase title + sub — they sit at the TOP of the viewport, overlapping
+   the upper wings. Two failure modes were spotted in QA:
+     (a) The default theme-fg in ALMA lerps to a whitish mid-tone that
+         disappears against the bright cream temple at the day peak.
+     (b) The .accent gold span has very low contrast against cream marble.
+   Both colors cross-fade with --alma-day-mix:
+     - night (mix=0): pure white text + brand gold accent + soft dark halo
+     - day   (mix=1): near-black text + deep amber accent + halo fades out
+   `color-mix` interpolates per-pixel from a numeric mix value, so the
+   recoloring is locked 1:1 with the day/night cross-fade (no transitions
+   needed). The text-shadow alpha also fades via color-mix → transparent. */
+.phase-content--alma .phase-title,
+.phase-content--alma .phase-sub {
+  color: color-mix(in srgb,
+    var(--alma-day-fg) calc(var(--alma-day-mix, 0) * 100%),
+    #FFFFFF);
+  text-shadow:
+    0 1px 8px color-mix(in srgb,
+      transparent calc(var(--alma-day-mix, 0) * 100%),
+      rgba(0, 0, 0, 0.55)),
+    0 0 22px color-mix(in srgb,
+      transparent calc(var(--alma-day-mix, 0) * 100%),
+      rgba(0, 0, 0, 0.32));
+}
+.phase-content--alma .phase-title .accent {
+  color: color-mix(in srgb,
+    #5C3A1A calc(var(--alma-day-mix, 0) * 100%),
+    var(--color-gold-bright));
+}
+/* Night title accent ("la oscuridad") — phosphor glow override. The
+   canonical brand glow (--phosphor-400 = #7DFFB2) matches the orb's
+   night emissive, so the words read as if THEY were emitting light too.
+   Two text-shadow layers stack a soft inner and a wider outer halo at
+   low alpha (faint by design — the user wants "bien sutil, bien tenue").
+   Higher specificity than the cross-fade rule above (same 0,3,0 but
+   later in the cascade), so this wins for the night-only title. The
+   day title accent stays on its amber/gold cross-fade untouched. */
+.phase-content--alma .phase-title--alma-night .accent {
+  color: var(--color-phosphor, #7DFFB2);
+  text-shadow:
+    0 0 6px rgba(125, 255, 178, 0.32),
+    0 0 16px rgba(125, 255, 178, 0.18);
+}
+
+/* Hairlines / dividers (rail line, lang toggle border).
+   Mix toward a softer dark so they read as lines, not bold strokes. */
+.rail {
+  background-color: color-mix(in srgb,
+    var(--alma-day-fg-soft) calc(var(--alma-day-mix, 0) * 55%),
+    var(--theme-fg-hairline));
+}
+.nav__lang {
+  border-color: color-mix(in srgb,
+    var(--alma-day-fg-soft) calc(var(--alma-day-mix, 0) * 60%),
+    var(--theme-fg-hairline));
+  background: color-mix(in srgb,
+    var(--alma-day-fg) calc(var(--alma-day-mix, 0) * 10%),
+    color-mix(in srgb, var(--theme-fg) 12%, transparent));
+}
+.nav__lang::before {
+  border-color: color-mix(in srgb,
+    var(--alma-day-fg-soft) calc(var(--alma-day-mix, 0) * 60%),
+    var(--theme-fg-hairline));
+  background: color-mix(in srgb,
+    var(--alma-day-fg) calc(var(--alma-day-mix, 0) * 16%),
+    color-mix(in srgb, var(--theme-fg) 18%, transparent));
 }
