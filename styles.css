@@ -2685,8 +2685,8 @@ section[data-section="outro"] {
 .phase-content--alma .phase-title--alma-night .accent {
   color: var(--color-phosphor, #7DFFB2);
   text-shadow:
-    0 0 6px rgba(125, 255, 178, 0.32),
-    0 0 16px rgba(125, 255, 178, 0.18);
+    0 0 6px rgba(125, 255, 178, 0.384),
+    0 0 16px rgba(125, 255, 178, 0.216);
 }
 
 /* Hairlines / dividers (rail line, lang toggle border).
