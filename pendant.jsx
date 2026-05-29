@@ -1279,11 +1279,15 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
                  + Math.sin(clock.elapsed * 0.35) * 0.02
                  + px03Shift * phase03Proximity;
         // Phase 04 (ALMA) vertical lift. The copy block now sits at the
-        // very TOP of the viewport (just under the navbar), so the angel
-        // drops back to a near-centred lift on mobile (was +0.60 when the
-        // copy lived at thigh-height). Desktop stays at +0.10 — the wider
-        // aspect already places the orb mid-frame without help.
-        const pyAlmaShift = (isMobile ? 0.20 : 0.10) * phase04Proximity;
+        // very TOP of the viewport (just under the navbar). Mobile and tablet
+        // get a stronger lift so the angel rides up closer to the SOUL eyebrow
+        // (the user felt the gap between the copy and the top of the wings was
+        // too large on those narrow viewports). Desktop now DROPS the angel
+        // slightly (negative shift): on the wide/tall desktop frame the copy
+        // block up top was overlapping the bright upper wings, and there was
+        // unused space between the feet and the page base. Lowering the angel
+        // moves the wings clear of the subtitle and fills that bottom band.
+        const pyAlmaShift = (isMobile ? 0.34 : isTablet ? 0.18 : -0.06) * phase04Proximity;
         const py = -0.05 + pyOffset + pyOriginShift + py01Mobile
                  + pyAlmaShift
                  + Math.sin(clock.elapsed * 0.4) * 0.03

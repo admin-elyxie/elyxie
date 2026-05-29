@@ -685,13 +685,6 @@ body[data-theme="dark"] {
   text-align: center;
   margin: 0;
 }
-/* In ALMA the orb is the protagonist. Shrink the title typography so it
-   reads as a caption beneath the orb instead of competing with it. */
-.phase-content--alma .phase-title {
-  font-size: clamp(28px, 3.2vw, 48px);
-  margin: 0 0 10px 0;
-}
-.phase-content--alma .phase-sub { font-size: 14px; }
 .phase-content--alma .phase-content__inner {
   width: 100%;
   max-width: 760px;
@@ -2615,15 +2608,39 @@ section[data-section="outro"] {
      (b) The .accent gold span has very low contrast against cream marble.
    Both colors cross-fade with --alma-day-mix:
      - night (mix=0): pure white text + brand gold accent + soft dark halo
-     - day   (mix=1): near-black text + deep amber accent + halo fades out
+     - day   (mix=1): near-black text + deep amber accent + soft WHITE halo
    `color-mix` interpolates per-pixel from a numeric mix value, so the
    recoloring is locked 1:1 with the day/night cross-fade (no transitions
-   needed). The text-shadow alpha also fades via color-mix → transparent. */
+   needed). The halo does NOT fade to transparent in day: a dark glyph over
+   the bright temple still gets lost where it crosses the gold wings and the
+   sun-shaft (mixed mid-tones), so the shadow cross-fades from a dark halo
+   (night, separates white text from the dark temple) to a soft white halo
+   (day, separates dark text from the gold feathers + bright shaft). Blur
+   radii are identical at both ends so the NIGHT look is byte-unchanged. */
 .phase-content--alma .phase-title,
 .phase-content--alma .phase-sub {
   color: color-mix(in srgb,
     var(--alma-day-fg) calc(var(--alma-day-mix, 0) * 100%),
     #FFFFFF);
+}
+/* The sub keeps its day halo: it's small (15px) and thin (weight 300),
+   so it still needs the soft white separation where it crosses the gold
+   wings / sun-shaft. Night (mix=0) resolves to the dark legibility halo. */
+.phase-content--alma .phase-sub {
+  text-shadow:
+    0 1px 8px color-mix(in srgb,
+      rgba(255, 255, 255, 0.9) calc(var(--alma-day-mix, 0) * 100%),
+      rgba(0, 0, 0, 0.55)),
+    0 0 22px color-mix(in srgb,
+      rgba(255, 255, 255, 0.6) calc(var(--alma-day-mix, 0) * 100%),
+      rgba(0, 0, 0, 0.32));
+}
+/* Title ("Guarda la luz." in day): the DAY white halo is removed — it
+   fades to transparent as the day mix climbs, leaving clean near-black
+   type on the bright cream temple (the big 66px display clears AA on the
+   temple without a halo). Night (mix=0) keeps its dark legibility halo
+   byte-unchanged, so "La devuelve en la oscuridad." is untouched. */
+.phase-content--alma .phase-title {
   text-shadow:
     0 1px 8px color-mix(in srgb,
       transparent calc(var(--alma-day-mix, 0) * 100%),
@@ -2631,6 +2648,26 @@ section[data-section="outro"] {
     0 0 22px color-mix(in srgb,
       transparent calc(var(--alma-day-mix, 0) * 100%),
       rgba(0, 0, 0, 0.32));
+}
+/* The sub is the worst-hit: small (15px), thin (weight 300) and the base
+   `.phase-sub` rule drops it to opacity 0.72 — fine over the dark night
+   temple, but in day that 28% transparency bleeds the bright background
+   through the dark glyphs and washes them out. Ramp opacity back to full
+   as the day mix climbs; night stays at the subtle 0.72. */
+.phase-content--alma .phase-sub {
+  opacity: calc(0.72 + var(--alma-day-mix, 0) * 0.28);
+}
+/* The SOUL eyebrow label was never in the day-recolor set, so it stayed
+   light-on-cream and vanished at the day peak (same failure as the sub).
+   Cross-fade it to dark and lift its opacity a touch — the dark-on-cream
+   contrast alone carries legibility, so no halo is needed. At night
+   (mix=0) every term resolves to the original look: --theme-fg, opacity
+   0.5 — byte-unchanged. */
+.phase-content--alma .phase-bilingual {
+  color: color-mix(in srgb,
+    var(--alma-day-fg) calc(var(--alma-day-mix, 0) * 100%),
+    var(--theme-fg));
+  opacity: calc(0.5 + var(--alma-day-mix, 0) * 0.3);
 }
 .phase-content--alma .phase-title .accent {
   color: color-mix(in srgb,
