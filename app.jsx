@@ -25,16 +25,19 @@ const PHASES = [
     theme: 'dark',
   },
   {
-    // Slot 02 — now BIENVENIDA (the welcome, moved to second). Swapped with ORIGEN.
+    // Slot 02 — HISTORIA. Ancestral framing in the title, philosophical
+    // pivot in the sub. Accent on "el alma." / "the soul." — closes the
+    // title with the brand-tying word (ALMA is also phase 04) and follows
+    // the editorial pattern of accenting the meaning-bearing tail.
     num: '02',
-    label: { es: 'BIENVENIDA',  en: 'WELCOME' },
+    label: { es: 'HISTORIA',  en: 'HISTORY' },
     title: {
-      es: <>Un santuario <span className="accent">se acerca</span>.</>,
-      en: <>A sanctuary <span className="accent">approaches</span>.</>,
+      es: <>La laguna más poderosa <span className="accent">del Perú.</span></>,
+      en: <>The most powerful lagoon <span className="accent">in Peru.</span></>,
     },
     sub: {
-      es: 'No para ser visto. Para ser sentido.',
-      en: 'Not to be seen. To be felt.',
+      es: 'Durante milenios, curanderos usaban el agua para romper maldiciones y cerrar heridas invisibles. Porque entendían algo que el mundo moderno olvidó: Que no todo daño… es visible.',
+      en: 'For millennia, healers used this water to break curses and close invisible wounds. Because they understood something that the modern world has forgotten: That not every harm… is visible.',
     },
     range: [0.18, 0.40],
     position: 'left',
