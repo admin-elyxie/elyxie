@@ -2280,9 +2280,26 @@ section[data-section="outro"] {
      wrapped to 3+ lines on left-positioned phases (MATERIA / ALMA).
      max-width grown 48→64% so the wider start point doesn't truncate the
      subcopy. */
-  .phase-content { padding: 0 32px 0 160px; max-width: min(540px, 64%); }
+  /* ORIGEN / BIENVENIDA / MATERIA all resolve their 3D model to world-x≈0
+     (horizontally CENTRED) on tablet — the transitionCenter ramp pulls the
+     angel to centre by tRaw≈0.20 and px03Shift is excluded on tablet (see
+     pendant.jsx). A LEFT-column headline at this narrow width (its min(540,64%)
+     box reaches past screen-centre) therefore lands right on top of the centred
+     figure. Stack like mobile instead: copy anchored to the TOP, centred, with
+     the rotating/centred angel in the open space below. ALMA + EDICIÓN keep
+     their own (0,2,0) `align-self: stretch` layouts, so this generic (0,1,0)
+     rule never touches them. */
+  .phase-content {
+    align-self: start;
+    padding: 104px 32px 0;
+    max-width: 100%;
+    justify-self: center !important;
+    text-align: center !important;
+    margin: 0 !important;
+  }
+  .phase-content .phase-eyebrow { justify-content: center !important; }
   .phase-title { font-size: clamp(38px, 5.6vw, 58px); }
-  .phase-sub { font-size: 14px; max-width: 38ch; }
+  .phase-sub { font-size: 14px; max-width: 46ch; margin: 0 auto 24px; }
 
   /* Beam + haze widened on tablet so the volumetric shaft still reads as
      a dramatic column rather than a thin thread. */

@@ -1222,17 +1222,56 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
         const rotX = Math.min(tRaw / 0.13, 1.0);
         const rotHold = 1.0 - rotX * rotX * rotX * rotX;
 
+        // ===== ORIGEN opener self-spin =====
+        // ORIGEN is now slot 01 (the opener at tRaw=0). The user asked for the
+        // angel to rotate continuously on its OWN Y axis toward the viewer's
+        // RIGHT — i.e. the chest/front sweeps rightward — STARTING from its
+        // current initial pose (-30°). Positive rotation.y turns a +Z (front)
+        // point toward +X (screen right), the same "to the right" convention
+        // the EDICIÓN finale spin already uses, so the motion reads rightward.
+        //
+        // Mechanics mirror the MATERIA trio spin: accumulate an angle while
+        // ORIGEN is in frame, gate it by phaseOriginProximity, and HARD-RESET
+        // it the instant ORIGEN leaves frame so re-entry always restarts from
+        // the -30° pose. The accumulated angle is wrapped to its shortest
+        // equivalent in [-π, π] BEFORE the proximity multiply, so scrolling
+        // away un-winds along the short path back to forward instead of
+        // counter-spinning through every revolution the user watched.
+        //   • first paint (tRaw=0, spin=0, prox=1): rotation.y = -30° exactly
+        //     → the "posición inicial" the user wants to start from;
+        //   • ORIGEN dwell: spin accumulates at ~0.25 rad/s (~one turn / 25 s,
+        //     a slow meditative rotation) → the angel turns to its right;
+        //   • toward BIENVENIDA (slot 02): both rotHold and phaseOriginProximity
+        //     collapse to 0 well before its 0.29 peak, so the angel resolves to
+        //     forward and BIENVENIDA / MATERIA / ALMA / EDICIÓN stay byte-perfect.
+        const ORIGIN_SPIN_OFF = 0.001;
+        if (phaseOriginProximity < ORIGIN_SPIN_OFF) {
+          stateRef.current.originSpinAngle = 0;
+        } else {
+          stateRef.current.originSpinAngle =
+            (stateRef.current.originSpinAngle || 0) + dt * 0.25 * phaseOriginProximity;
+        }
+        let originSpin = 0;
+        {
+          const TWO_PI = Math.PI * 2;
+          let wrapped = (stateRef.current.originSpinAngle || 0) % TWO_PI;
+          if (wrapped > Math.PI) wrapped -= TWO_PI;
+          else if (wrapped < -Math.PI) wrapped += TWO_PI;
+          originSpin = wrapped * phaseOriginProximity;
+        }
+
         if (window.__debugFreezeY !== undefined) {
           angel.rotation.y = window.__debugFreezeY;
           angel.rotation.x = 0;
           angel.rotation.z = 0;
         } else {
-          // Phase 01 (BIENVENIDA) self-rotation: angel turns 30° on its own
-          // Y axis toward ITS RIGHT (= viewer's left → negative rotation.y in
-          // Three.js convention). Hold-and-release curve above replaces the
-          // old gaussian decay so the rotation lingers during the camera
-          // close-up beat, then resolves during the pull-back to phase 02.
-          angel.rotation.y = -(Math.PI / 6) * rotHold;
+          // BIENVENIDA (slot 02) keeps the original -30°→0° hold-and-release via
+          // rotHold (anchored at tRaw=0, resolved by 0.13). ORIGEN (slot 01)
+          // ADDS the continuous self-spin on top of the same -30° base. Both
+          // terms are ≈1 at tRaw=0 and ≈0 by BIENVENIDA's peak, so they don't
+          // fight: at the opener the spin dominates; by BIENVENIDA both collapse
+          // to 0 (forward).
+          angel.rotation.y = -(Math.PI / 6) * rotHold + originSpin;
           angel.rotation.x = 0;
           angel.rotation.z = 0;
         }
@@ -1307,7 +1346,17 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
         const pxOrigin = lerp(pxCentered, 0, phaseOriginProximity);
         // And lift the model so the orb lands at ~47–49% of viewport Y and the
         // feet meet the photo's water line at ~65–70 % Y.
-        const pyOriginShift = 0.30 * phaseOriginProximity;
+        // ORIGEN vertical framing, per-device:
+        //   • Mobile  (+0.30): floats the angel up over the Laguna under the
+        //     top-stacked copy.
+        //   • Tablet  (-0.05): copy is stacked on top, so a small drop keeps the
+        //     wing tips clear of the headline/eyebrow.
+        //   • Desktop (-0.10): the headline sits in the LEFT column and the angel
+        //     to its right; the user asked for the figure ~10% of the viewport
+        //     LOWER than the previous +0.30 lift, so it sits more grounded over
+        //     the lake (≈0.40 world units ≈ 10% of the ORIGEN frame height).
+        // Gated by phaseOriginProximity → byte-perfect at every other phase.
+        const pyOriginShift = (isMobile ? 0.30 : isTablet ? -0.05 : -0.10) * phaseOriginProximity;
         // Phase 01 (BIENVENIDA) depth push: sit the angel slightly further
         // from camera so the smoke that drifts in front feels more wrapping.
         // Decays to 0 outside phase 01. Computed early so the mobile-phase-01
@@ -1400,7 +1449,12 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
         // stacks text ON TOP of the angel (no whitespace to fill).
         const fovRadHalf = (camera.fov * Math.PI) / 180 / 2;
         const worldWidthAtZ0 = 2 * camZ * Math.tan(fovRadHalf) * aspect;
-        const px03Shift = isMobile ? 0 : 0.20 * worldWidthAtZ0;
+        // Tablet now stacks the hero like mobile (top-centred copy, see the
+        // tablet @media .phase-content block in styles.css), so the MATERIA
+        // trio must stay CENTRED under that copy instead of shifting right
+        // into a (now non-existent) right-hand whitespace column. Desktop
+        // keeps the rightward shift to fill the space beside the left copy.
+        const px03Shift = (isMobile || isTablet) ? 0 : 0.20 * worldWidthAtZ0;
         // Phase 05 (EDICIÓN) now uses a section-2/3-style layout: copy on the
         // LEFT, angel shifted RIGHT into the empty column (with the rotating
         // sacred-geometry behind it). Same fractional-of-world-width shift as
@@ -1412,10 +1466,40 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
         // so they keep the angel on the optical centre line — otherwise it
         // drifts right and breaks alignment with the centred Metatron + copy.
         const px05Shift = (isMobile || isTablet) ? 0 : 0.22 * worldWidthAtZ0;
+        // Desktop ORIGEN horizontal framing: the headline owns the LEFT column,
+        // so the angel must NOT sit at raw screen-centre — the user wants it
+        // centred in the OPEN region between the headline's right edge and the
+        // right rail line. That region is NOT a fixed pixel offset: the headline
+        // column is `max-width: min(760px, 55%)` with a `5.2vw` font, so on a
+        // narrow desktop (~1072px) the text ends ~494px while on a wide one
+        // (~1440px) it ends ~664px — a fixed offset over-shoots the angel into
+        // the rail on narrow desktops. So MEASURE both edges from the DOM every
+        // frame and centre between them; this self-corrects at any width. The
+        // headline columns for ORIGEN/BIENVENIDA share the same geometry, so the
+        // active title's right edge is the correct left bound. Convert the
+        // screen midpoint to a world-X via the visible world width at z=0.
+        // Tablet/mobile stack the copy on top (centred angel below) → shift 0.
+        // Gated by phaseOriginProximity → byte-perfect at every other phase.
+        let pxOriginRightCenter = 0;
+        if (!isMobile && !isTablet && phaseOriginProximity > 0.001) {
+          const titleEl = document.querySelector('.phase-content[data-active="true"] .phase-title')
+                       || document.querySelector('.phase-content .phase-title');
+          const railEl = document.querySelector('.rail');
+          if (titleEl && railEl) {
+            const tr = titleEl.getBoundingClientRect();
+            const rr = railEl.getBoundingClientRect();
+            if (tr.width > 0 && rr.width > 0 && rr.left > tr.right) {
+              const midX = (tr.right + rr.left) / 2;
+              const worldShift = (midX - vw / 2) * worldWidthAtZ0 / vw;
+              pxOriginRightCenter = worldShift * phaseOriginProximity;
+            }
+          }
+        }
         const px = pxOrigin * (1 - phaseSoulProximity * 0.85)
                  + Math.sin(clock.elapsed * 0.35) * 0.02 * (1 - phase05Proximity * 0.7)
                  + px03Shift * phase03Proximity
-                 + px05Shift * phase05Proximity;
+                 + px05Shift * phase05Proximity
+                 + pxOriginRightCenter;
         // Phase 04 (ALMA) vertical lift. The copy block now sits at the
         // very TOP of the viewport (just under the navbar). Mobile and tablet
         // get a stronger lift so the angel rides up closer to the SOUL eyebrow
@@ -1746,14 +1830,14 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
         const phase01FillMult     = lerp(1.0, 0.15, phase01Proximity);
         const phase01TopMult      = lerp(1.0, 4.20, phase01Proximity);
         const phase01AmbientMult  = lerp(1.0, 0.32, phase01Proximity);
-        // Orb during phase 01: keep the green emissive PROMINENT (slight
-        // dim from base) and dial the inner PointLight WAY down so the orb
-        // reads as a saturated green sphere instead of a white flashlight.
-        // The new overhead `phase01Spot` adds a small white specular
-        // highlight at the top of the orb — that's the cherry-on-top in
-        // the reference; pumping emissive keeps green dominant beneath it.
-        const phase01OrbEmissive  = lerp(1.0, 0.85, phase01Proximity);
-        const phase01OrbLight     = lerp(1.0, 0.38, phase01Proximity);
+        // Orb during BIENVENIDA (slot 02): the user moved the glow + fairy-dust
+        // beat OUT of this section and into ORIGEN, so here the orb must NOT
+        // shine. Pull both the emissive AND the inner PointLight well down so it
+        // reads as a quiet, dormant sphere — still present as the "soul", just
+        // not the luminous beacon it is in ORIGEN. The overhead phase01Spot
+        // still grazes a soft highlight across the top.
+        const phase01OrbEmissive  = lerp(1.0, 0.26, phase01Proximity);
+        const phase01OrbLight     = lerp(1.0, 0.30, phase01Proximity);
         const phase01EnvMap       = lerp(1.0, 0.42, phase01Proximity);
 
         // Phase 04 (ALMA) NIGHT angel dim. User asked to "copy the same
@@ -1788,15 +1872,18 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
 
         const breathe = 0.5 + 0.5 * Math.sin(clock.elapsed * (Math.PI * 2) / 4.0);
         const phaseBoost = 1.0 + 1.6 * Math.exp(-Math.pow((tRaw - 0.6) / 0.18, 2));
-        // Phase 02 (ORIGEN) orb dim: the orb material is `toneMapped: false`,
-        // so the global exposure dip does NOT darken it — making the orb read
-        // blown-white against a dimmed body. Decouple two scalars:
-        //   - phaseOrbEmissive: pull the white emissive WAY down so the orb
-        //     reads as a soft teal sphere, not a flashlight.
-        //   - phaseOrbLight:    keep the green PointLight more present so the
-        //     local rim of green on the nearest feathers still reads.
-        const phaseOrbEmissive = lerp(1.0, 0.16, phaseOriginProximity);
-        const phaseOrbLight    = lerp(1.0, 0.55, phaseOriginProximity);
+        // ORIGEN (slot 01, the opener) orb GLOW. The user moved the glowing-orb
+        // + fairy-dust beat HERE (it used to be dimmed to a soft teal sphere for
+        // the old Laguna "noir" look). Now ORIGEN is the opener and the orb is
+        // the luminous focal point with the fairy dust orbiting it. The orb
+        // material is `toneMapped: false`, so these scalars drive the glow
+        // directly:
+        //   - phaseOrbEmissive: BOOST the green emissive so the sphere blooms.
+        //   - phaseOrbLight:    BOOST the inner green PointLight so the phosphor
+        //     glow visibly reflects onto the angel's gold feathers/body — the
+        //     "los reflejos … reflejados en el ángel" the user asked for.
+        const phaseOrbEmissive = lerp(1.0, 1.15, phaseOriginProximity);
+        const phaseOrbLight    = lerp(1.0, 1.60, phaseOriginProximity);
         // Phase 04 (ALMA) orb beat — phosphor logic. Strontium aluminate
         // CHARGES under sunlight and EMITS in darkness; reproduce that
         // physically: DAY → emissive 0 (the sphere is "off", just catching
@@ -1877,9 +1964,14 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
         // 0.13→0.42 (through phase 02), fade out 0.42→0.52 (as phase 03
         // takes over). Skip the per-particle loop when the gate is closed.
         if (stateRef.current.materials.fairyDust) {
-          const fadeIn  = easeInOut(Math.max(0, Math.min(1, (tRaw - 0.10) / 0.03)));
-          const fadeOut = 1 - easeInOut(Math.max(0, Math.min(1, (tRaw - 0.42) / 0.10)));
-          const dustOpacity02 = fadeIn * fadeOut * 0.7;
+          // ORIGEN (slot 01, opener) fairy-dust window. This was a fixed tRaw
+          // window [0.10, 0.52] that, after the 01↔02 swap, ended up blooming
+          // over BIENVENIDA (slot 02) instead of ORIGEN. Re-gate it to
+          // phaseOriginProximity so the comet trails orbit the orb during the
+          // ORIGEN opener — and rotate WITH it, since the dust is parented to
+          // the spinning angel's centerSpinner. ≈0 by tRaw≈0.15, so BIENVENIDA
+          // and every later phase are byte-perfect (clear of the trails).
+          const dustOpacity02 = phaseOriginProximity * 0.7;
           // Phase 04 (ALMA) second visibility window. The user asked for the
           // orb to "glow exactly like in section 2 — with the glow plus
           // those particles around it" inside ALMA, but ONLY at night —
