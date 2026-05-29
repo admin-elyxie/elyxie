@@ -1,0 +1,25 @@
+{
+  "id": "58c09ba6",
+  "phase": "agent_error",
+  "pageUrl": "/index.html",
+  "sourceFile": null,
+  "expectedVariants": 3,
+  "arrivedVariants": 0,
+  "visibleVariant": 0,
+  "paramValues": {},
+  "pendingEventSeq": null,
+  "pendingEvent": null,
+  "deliveryLease": null,
+  "checkpointRevision": 1,
+  "activeOwner": "9b8ba29a",
+  "sourceMarkers": {},
+  "fallbackMode": null,
+  "annotationArtifacts": [],
+  "diagnostics": [
+    {
+      "error": "agent_error",
+      "message": "Este elemento no se puede variar en modo live: el span .accent vive dentro del objeto de datos { es, en } en app.jsx, no en markup renderizado. Inyectar variantes hermanas rompe el JS. Elige un elemento que sea markup real (un bloque, botón, tarjeta o el <h2> ya renderizado), o pideme animar .accent vía CSS directo fuera de live."
+    }
+  ],
+  "updatedAt": "2026-05-28T23:11:19.134Z"
+}

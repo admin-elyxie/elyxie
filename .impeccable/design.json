@@ -1,0 +1,193 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-05-28T00:00:00.000Z",
+  "title": "Design System: ELYXIE",
+  "extensions": {
+    "colorMeta": {
+      "emerald-canvas": {
+        "role": "primary",
+        "displayName": "Esmeralda Lienzo",
+        "canonical": "#0A2620",
+        "tonalRamp": ["#051613", "#081E18", "#0A2620", "#0E3328", "#0E5547", "#1A6B58", "#5D9885", "#B4D2C8"]
+      },
+      "emerald-void": {
+        "role": "primary",
+        "displayName": "Esmeralda Vacío",
+        "canonical": "#051613",
+        "tonalRamp": ["#051613", "#081E18", "#0A2620", "#0E3328", "#0E5547", "#1A6B58", "#3A7E69", "#88B5A6"]
+      },
+      "surface": {
+        "role": "primary",
+        "displayName": "Superficie",
+        "canonical": "#0E2E26",
+        "tonalRamp": ["#081E18", "#0B241D", "#0E2E26", "#143C32", "#1A6B58", "#3A7E69", "#5D9885", "#88B5A6"]
+      },
+      "champagne": {
+        "role": "secondary",
+        "displayName": "Champán",
+        "canonical": "#E9D7B1",
+        "tonalRamp": ["#2A2213", "#463A20", "#6A5631", "#8C7340", "#C9A66B", "#D4B07A", "#E9D7B1", "#F7ECCE"]
+      },
+      "gold-metallic": {
+        "role": "secondary",
+        "displayName": "Oro Metálico",
+        "canonical": "#C9A66B",
+        "tonalRamp": ["#2A2213", "#463A20", "#6A5631", "#8C7340", "#A88752", "#C9A66B", "#D4B07A", "#E9D7B1"]
+      },
+      "phosphor": {
+        "role": "tertiary",
+        "displayName": "Verde Fósforo",
+        "canonical": "#7DFFB2",
+        "tonalRamp": ["#0B4329", "#136B40", "#1E9A5C", "#34C97A", "#5BEC95", "#7DFFB2", "#B9FFD4", "#EBFFF3"]
+      },
+      "phosphor-core": {
+        "role": "tertiary",
+        "displayName": "Fósforo Núcleo",
+        "canonical": "#34C97A",
+        "tonalRamp": ["#0B4329", "#136B40", "#1E9A5C", "#34C97A", "#5BEC95", "#7DFFB2", "#94FBC2", "#D3FFE3"]
+      },
+      "ivory": {
+        "role": "neutral",
+        "displayName": "Marfil",
+        "canonical": "#F6F2E8",
+        "tonalRamp": ["#463A20", "#6A5631", "#8C7340", "#DBCDA7", "#ECE2C9", "#F6F2E8", "#FBF8EF", "#FFFFFF"]
+      },
+      "white": {
+        "role": "neutral",
+        "displayName": "Blanco",
+        "canonical": "#FFFFFF",
+        "tonalRamp": ["#0A2620", "#2A4B43", "#3D6A5E", "#5D9885", "#88B5A6", "#B4D2C8", "#DCEAE5", "#FFFFFF"]
+      },
+      "border": {
+        "role": "neutral",
+        "displayName": "Borde",
+        "canonical": "#2A4B43",
+        "tonalRamp": ["#0A2620", "#0E3328", "#2A4B43", "#3D6A5E", "#5D9885", "#88B5A6", "#B4D2C8", "#DCEAE5"]
+      },
+      "error": {
+        "role": "signal",
+        "displayName": "Bronce Señal",
+        "canonical": "#D97757",
+        "tonalRamp": ["#3A1C12", "#5E2D1E", "#82412C", "#A85A3E", "#D97757", "#E59A82", "#F0BDAE", "#FAE0D8"]
+      }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display", "purpose": "Titulares hero y de fase, Cormorant italic. Techo 96px." },
+      "headline": { "displayName": "Headline", "purpose": "Títulos de sección (h1/h2) en serif." },
+      "title": { "displayName": "Title", "purpose": "Subtítulos serif (h3); el escalón donde el serif cede al sans." },
+      "body": { "displayName": "Body", "purpose": "Texto corrido Satoshi, máx ~64ch." },
+      "label": { "displayName": "Label", "purpose": "Eyebrows, seriales y etiquetas de botón: uppercase, tracking 0.32em." }
+    },
+    "shadows": [
+      { "name": "card", "value": "0 20px 60px rgba(5,22,19,0.55)", "purpose": "Elevación funcional bajo cards y bloques destacados." },
+      { "name": "glow-phosphor", "value": "0 0 60px 4px rgba(125,255,178,0.55), 0 0 140px 12px rgba(125,255,178,0.18)", "purpose": "Halo de firma del orbe y elementos vivos." },
+      { "name": "glow-gold", "value": "0 0 30px rgba(233,215,177,0.25)", "purpose": "Aura cálida del CTA primario en reposo." },
+      { "name": "glow-gold-hover", "value": "0 0 60px rgba(233,215,177,0.35), 0 0 120px rgba(233,215,177,0.18)", "purpose": "Aura del CTA primario en hover." },
+      { "name": "ring-inner-card", "value": "inset 0 1px 0 rgba(255,255,255,0.08)", "purpose": "Highlight superior sutil sobre tarjetas y vidrio." },
+      { "name": "ring-focus", "value": "0 0 0 2px #051613, 0 0 0 4px #E9D7B1", "purpose": "Anillo de foco: 2px champán con offset oscuro." }
+    ],
+    "motion": [
+      { "name": "ease-standard", "value": "cubic-bezier(0.4, 0, 0.2, 1)", "purpose": "Hover y cambios de estado por defecto." },
+      { "name": "ease-out", "value": "cubic-bezier(0.2, 0, 0, 1)", "purpose": "Salidas y micro-desplazamientos (flecha del botón)." },
+      { "name": "dur-fast", "value": "180ms", "purpose": "Press y micro-estado." },
+      { "name": "dur-base", "value": "300ms", "purpose": "Hover y fade." },
+      { "name": "dur-slow", "value": "600ms", "purpose": "Reveals de sección." },
+      { "name": "dur-breathe", "value": "4000ms", "purpose": "El pulso fosforescente que respira." }
+    ],
+    "breakpoints": [
+      { "name": "sm", "value": "640px" },
+      { "name": "md", "value": "810px" },
+      { "name": "lg", "value": "1200px" },
+      { "name": "xl", "value": "1440px" },
+      { "name": "2xl", "value": "1920px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "CTA de máxima prioridad: degradado champán→oro, esquina viva, glow oro y flecha que se desplaza en hover.",
+      "html": "<button class=\"ds-btn-primary\">RESERVAR PIEZA <span class=\"ds-btn-arrow\">&rarr;</span></button>",
+      "css": ".ds-btn-primary { display: inline-flex; align-items: center; gap: 14px; padding: 16px 28px; font-family: 'Satoshi', Inter, system-ui, sans-serif; font-size: 11px; font-weight: 500; letter-spacing: 0.32em; text-transform: uppercase; color: #0A2620; background: linear-gradient(180deg, #E9D7B1, #C9A66B); border: 1px solid transparent; border-radius: 0; cursor: pointer; box-shadow: 0 0 30px rgba(233,215,177,0.25); transition: box-shadow 240ms cubic-bezier(0.4,0,0.2,1), transform 220ms cubic-bezier(0.2,0,0,1); } .ds-btn-primary:hover { box-shadow: 0 0 60px rgba(233,215,177,0.35), 0 0 120px rgba(233,215,177,0.18); } .ds-btn-primary:focus-visible { outline: none; box-shadow: 0 0 0 2px #051613, 0 0 0 4px #E9D7B1; } .ds-btn-arrow { font-size: 16px; letter-spacing: 0; transition: transform 220ms cubic-bezier(0.2,0,0,1); } .ds-btn-primary:hover .ds-btn-arrow { transform: translateX(5px); }"
+    },
+    {
+      "name": "Ghost Button",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "Botón secundario transparente con borde tenue; borde y texto pasan a champán en hover.",
+      "html": "<button class=\"ds-btn-ghost\">DESCUBRIR <span class=\"ds-btn-arrow\">&rarr;</span></button>",
+      "css": ".ds-btn-ghost { display: inline-flex; align-items: center; gap: 14px; padding: 16px 28px; font-family: 'Satoshi', Inter, system-ui, sans-serif; font-size: 11px; font-weight: 500; letter-spacing: 0.32em; text-transform: uppercase; color: #fff; background: transparent; border: 1px solid rgba(255,255,255,0.30); border-radius: 0; cursor: pointer; transition: border-color 240ms ease, color 240ms ease; } .ds-btn-ghost:hover { border-color: #E9D7B1; color: #E9D7B1; } .ds-btn-ghost:focus-visible { outline: none; box-shadow: 0 0 0 2px #051613, 0 0 0 4px #E9D7B1; } .ds-btn-ghost .ds-btn-arrow { font-size: 16px; letter-spacing: 0; transition: transform 220ms cubic-bezier(0.2,0,0,1); } .ds-btn-ghost:hover .ds-btn-arrow { transform: translateX(5px); }"
+    },
+    {
+      "name": "Newsletter Input",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Campo de esquina viva con floating label CSS-only: la etiqueta sube y se vuelve micro-caps champán al enfocar o con valor.",
+      "html": "<label class=\"ds-field\"><input type=\"email\" placeholder=\" \" /><span>Correo electrónico</span></label>",
+      "css": ".ds-field { position: relative; display: block; } .ds-field input { width: 100%; height: 56px; padding: 22px 18px 8px 18px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.18); border-radius: 0; color: #fff; font-family: 'Satoshi', Inter, system-ui, sans-serif; font-size: 14px; outline: none; transition: border-color 240ms ease, background-color 240ms ease; } .ds-field input:focus { border-color: #E9D7B1; background: rgba(255,255,255,0.06); } .ds-field span { position: absolute; left: 18px; top: 50%; transform: translateY(-50%); font-family: 'Satoshi', Inter, system-ui, sans-serif; font-size: 13px; color: rgba(255,255,255,0.55); pointer-events: none; letter-spacing: 0.02em; transition: top 220ms ease, font-size 220ms ease, color 220ms ease, letter-spacing 220ms ease, transform 220ms ease; } .ds-field input:focus + span, .ds-field input:not(:placeholder-shown) + span { top: 12px; transform: translateY(0); font-size: 10px; letter-spacing: 0.28em; text-transform: uppercase; color: #E9D7B1; }"
+    },
+    {
+      "name": "Surface Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Superficie elevada de esquina redondeada (18px) sobre el lienzo, con hairline y highlight interior.",
+      "html": "<article class=\"ds-card\"><h3>Mamayacu</h3><p>El agua que no refleja el cielo: lo absorbe.</p></article>",
+      "css": ".ds-card { background: #0E2E26; border: 1px solid rgba(255,255,255,0.06); border-radius: 18px; padding: 32px; box-shadow: 0 20px 60px rgba(5,22,19,0.55), inset 0 1px 0 rgba(255,255,255,0.08); color: #fff; max-width: 360px; } .ds-card h3 { margin: 0 0 12px; font-family: 'Cormorant Garamond', 'EB Garamond', Georgia, serif; font-style: italic; font-weight: 400; font-size: 26px; line-height: 1.2; color: #E9D7B1; } .ds-card p { margin: 0; font-family: 'Satoshi', Inter, system-ui, sans-serif; font-size: 16px; line-height: 1.65; color: rgba(255,255,255,0.80); }"
+    },
+    {
+      "name": "Progress Rail",
+      "kind": "custom",
+      "refersTo": null,
+      "description": "Firma de navegación scroll-driven: riel vertical de 1px con relleno champán, etiqueta de fase arriba y porcentaje mono abajo.",
+      "html": "<div class=\"ds-rail\"><span class=\"ds-rail-label\">ALMA</span><span class=\"ds-rail-fill\"></span><span class=\"ds-rail-pct\">70%</span></div>",
+      "css": ".ds-rail { position: relative; height: 280px; width: 1px; background: rgba(255,255,255,0.12); } .ds-rail-fill { position: absolute; top: 0; left: 0; right: 0; height: 70%; background: #E9D7B1; transition: height 80ms linear; } .ds-rail-label { position: absolute; right: 8px; top: -28px; font-family: 'Satoshi', Inter, system-ui, sans-serif; font-size: 10px; letter-spacing: 0.32em; text-transform: uppercase; color: rgba(255,255,255,0.5); white-space: nowrap; } .ds-rail-pct { position: absolute; right: 8px; bottom: -28px; font-family: ui-monospace, 'SFMono-Regular', Menlo, monospace; font-size: 10px; letter-spacing: 0.18em; color: rgba(255,255,255,0.5); white-space: nowrap; }"
+    },
+    {
+      "name": "Edition Badge",
+      "kind": "chip",
+      "refersTo": "chip",
+      "description": "Número de serie de la edición limitada en Label champán con cifras tabulares.",
+      "html": "<span class=\"ds-edition\">N&ordm; 01/100</span>",
+      "css": ".ds-edition { display: inline-block; font-family: 'Satoshi', Inter, system-ui, sans-serif; font-size: 10px; font-weight: 500; letter-spacing: 0.32em; text-transform: uppercase; color: #E9D7B1; font-variant-numeric: tabular-nums; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "El Altar Nocturno",
+    "overview": "ELYXIE se compone como la mesa de un curandero del norte vista de noche: una superficie verde casi negra sobre la que reposa un único objeto que guarda luz propia. La oscuridad no es un tema decorativo, es el lienzo; el oro marca lo precioso y lo escrito, el verde fósforo es la luz guardada que el aluminato de estroncio devuelve en la oscuridad. La densidad es alta y el ritmo es lento. El tono visual es reverente, susurrado y cinematográfico; lo místico es grave y ancestral, no woo-woo, y la tradición del curanderismo del norte se representa con precisión y dignidad, nunca como adorno exótico.",
+    "keyCharacteristics": [
+      "Dark-first absoluto: el esmeralda casi negro es el suelo de toda composición.",
+      "Un solo punto de luz: el verde fósforo aparece como brillo emergente, no como relleno.",
+      "Oro como lo precioso y lo escrito: champán para texto-acento, metálico para el objeto.",
+      "Serif italic display + sans neutra: Cormorant Garamond contra Satoshi.",
+      "Bordes nítidos en lo interactivo (botones e inputs a 0px); curvatura solo en superficies.",
+      "Modo día/noche: el mismo sistema en marfil cálido o en vacío esmeralda."
+    ],
+    "rules": [
+      { "name": "The One Light Rule", "body": "El verde fósforo es una sola luz en la oscuridad. Aparece en ≤10% de cualquier pantalla y casi siempre como brillo emergente (glow, halo, respiración), no como superficie. Su rareza es el significado.", "section": "colors" },
+      { "name": "The No Pure Black Rule", "body": "El negro de la marca siempre es esmeralda (#051613/#0A2620), nunca #000000. El agua tiñe hasta la oscuridad.", "section": "colors" },
+      { "name": "The Italic Serif Rule", "body": "El wordmark y la mayoría de titulares display van en Cormorant italic, en minúsculas o sentence-case. Es la firma escrita de la marca.", "section": "typography" },
+      { "name": "The Caps-Only-For-Labels Rule", "body": "Las mayúsculas con tracking ancho (0.32em) se reservan a etiquetas ≤4 palabras, eyebrows y seriales. Nunca cuerpo en mayúsculas.", "section": "typography" },
+      { "name": "The Glow-Over-Shadow Rule", "body": "Cuando algo deba destacar, primero se considera un glow (la luz que sale del objeto), no una drop-shadow más fuerte. La sombra eleva; el glow significa.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do mantener el esmeralda casi negro como suelo de toda composición; la oscuridad es el lienzo, no un modo.",
+      "Do usar el verde fósforo como una sola luz emergente (glow, halo, respiración), en ≤10% de la pantalla.",
+      "Do escribir titulares en Cormorant italic; reservar las mayúsculas tracked solo para etiquetas, eyebrows y seriales.",
+      "Do dar esquina viva (0px) a botones e inputs, y redondeo solo a superficies (12–18px).",
+      "Do verificar contraste ≥4.5:1 para todo cuerpo de texto sobre oscuro o sobre imágenes vivas; los textos sobre el ángel/alas brillantes necesitan halo o reubicación.",
+      "Do ofrecer alternativa de prefers-reduced-motion (crossfade/estado estático) sin dejar contenido invisible.",
+      "Do tratar cada texto como bilingüe { es, en }; ningún significado atado a un solo idioma."
+    ],
+    "donts": [
+      "Don't parecer e-commerce de joyería genérico: grids de producto, badges de descuento, Añadir al carrito como protagonista, reviews.",
+      "Don't caer en lujo blanco/minimalista aireado tipo Apple/escandinavo; ELYXIE es nocturno y denso.",
+      "Don't usar kitsch new-age de tienda de cristales: degradados arcoíris, chakras de clip-art, energías sanadoras.",
+      "Don't usar negro puro (#000000); el negro de la marca siempre es esmeralda (#051613).",
+      "Don't usar rojo vibrante para errores; el único error es el bronce desaturado #D97757.",
+      "Don't rellenar la pantalla con verde fósforo ni con múltiples acentos compitiendo; la contención es la fuerza.",
+      "Don't usar side-stripe borders (border-left >1px de color), gradient text, ni glassmorphism decorativo por defecto.",
+      "Don't poner el cuerpo de texto en mayúsculas ni usar grises planos sobre fondos de color (lava el texto)."
+    ]
+  }
+}
