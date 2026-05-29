@@ -1041,7 +1041,12 @@ body[data-theme="dark"] {
     justify-content: flex-end;
     align-items: flex-start;
     text-align: left;
-    padding: 0 22px 8.5vh;
+    /* Horizontal padding raised 22→30px so the inscription clears the frame
+       rails (.frame__v left + .rail right sit 16px from each edge) with a
+       ~14px gutter instead of crowding them. Bottom padding raised 8.5→14vh so
+       the inscription rises toward the relic (forming one centred altarpiece)
+       instead of being stranded at the very bottom under a tall void. */
+    padding: 0 30px 14vh;
     max-width: 100%;
   }
   .phase-content--edition .phase-content__inner--edition {
@@ -1049,10 +1054,12 @@ body[data-theme="dark"] {
     max-width: 100%;
     align-items: flex-start;
   }
-  .edition-eyebrow { margin: 0 0 14px; }
-  .phase-title--edition { font-size: clamp(32px, 8.6vw, 43px); line-height: 1.05; margin: 0 0 16px; }
+  .edition-eyebrow { margin: 0 0 16px; }
+  .phase-title--edition { font-size: clamp(32px, 8.6vw, 43px); line-height: 1.05; margin: 0 0 18px; }
   .phase-content--edition .phase-sub {
-    font-size: 14.5px; line-height: 1.6; max-width: 42ch; margin: 0 0 22px; opacity: 0.85;
+    /* max-width trimmed 42→34ch so the body never runs to the right frame rail
+       on narrow phones; keeps a clear right gutter and a 60-65ch measure. */
+    font-size: 14.5px; line-height: 1.62; max-width: 34ch; margin: 0 0 26px; opacity: 0.85;
   }
   .edition-cta { align-self: flex-start; }
   /* Bloom recentred on the (small) angel up top; oversized so the phosphor

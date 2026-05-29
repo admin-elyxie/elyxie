@@ -1536,7 +1536,33 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
         // (framed by the Metatron) and the inscription is bottom-anchored below
         // it (see the edition @media blocks in styles.css). The bigger upward
         // lift here is what opens the clean gap between the figure and the copy.
-        const pyEditionShift = (isMobile ? 1.15 : isTablet ? 0.6 : 0.10) * phase05Proximity;
+        // Mobile lift raised 1.15→1.52: on tall portrait phones (aspect ~0.46)
+        // the camera pulls way back, so the relic was floating small and low
+        // with a big void above it. Lifting it into the upper third — paired with
+        // the bigger editionTargetScale + the inscription raised via the mobile
+        // @media bottom-padding — turns the two halves into one balanced,
+        // centred altarpiece instead of a small figure stranded over text.
+        // Tablet/desktop branches unchanged.
+        //
+        // editionAspectComp sizes + lifts the relic per phone aspect ratio. The
+        // relic's on-screen footprint scales with `aspect` (the global camZ
+        // pull-back grows as portrait gets taller: camZ *= 0.75/aspect). A fixed
+        // lift/scale undersizes it on a tall 430×932 (aspect 0.46 → big void) and
+        // oversizes it on a short 375×667 (0.56 → collides with the fixed-height
+        // inscription). We don't just neutralise that (÷aspect): tall phones have
+        // spare room ABOVE the inscription so the relic SHOULD grow there, while
+        // short phones need it to yield. The 1.6 exponent gives that "big on tall,
+        // smaller on short" curve, referenced to 0.473 (the user's phone, where it
+        // was tuned). Clamp matches the camZ block's Math.max(aspect, 0.45).
+        const editionAspectComp = (isMobile && aspect < 0.75)
+          ? Math.pow(0.473 / Math.max(aspect, 0.45), 1.6)
+          : 1;
+        // Lift stays HIGH on every phone (not comp'd): keeping the relic's centre
+        // in the upper third means that on short phones the (heavily shrunk, via
+        // editionAspectComp) relic's feet ride well ABOVE the tall fixed-height
+        // inscription, leaving a clean gap instead of colliding with the eyebrow.
+        // Only the SCALE is comp'd below.
+        const pyEditionShift = (isMobile ? 1.52 : isTablet ? 0.6 : 0.10) * phase05Proximity;
         const py = -0.05 + pyOffset + pyOriginShift + py01Mobile
                  + pyAlmaShift
                  + pyEditionShift
@@ -1736,7 +1762,13 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
             // for the inscription (seal · title · message · CTA). Composed last;
             // phase05Proximity is 0 at every ALMA/MATERIA anchor so this lerp is
             // a no-op there (those phases keep their scale untouched).
-            const editionTargetScale = isMobile ? 0.44 : isTablet ? 0.58 : 0.72;
+            // Mobile bumped 0.44→0.76: the relic was far too small on tall phones
+            // (the portrait camera pullback shrinks it), leaving a large empty halo
+            // above and below. A bigger figure commands its upper band so the
+            // composition reads as a deliberate altarpiece, not a figure lost in void.
+            // editionAspectComp (defined above) divides out the aspect-driven size
+            // variance so the relic is the same on a 375×667 and a 430×932 phone.
+            const editionTargetScale = isMobile ? 0.76 * editionAspectComp : isTablet ? 0.58 : 0.72;
             centerScale = lerp(centerScale, editionTargetScale, phase05Proximity);
             cs.scale.setScalar(centerScale);
           }

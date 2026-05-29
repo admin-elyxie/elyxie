@@ -696,7 +696,7 @@ function Hero({ lang, tweaks, pendantRef }) {
                         </h2>
                         <p className="phase-sub">{p.sub[lang]}</p>
                         <a className="Button Button--ghost edition-cta" href="#contact">
-                          {lang === 'es' ? 'Recibir en custodia' : 'Receive in custody'}
+                          {lang === 'es' ? 'Solicitar la custodia' : 'Request custody'}
                           <span className="Button__arrow">→</span>
                         </a>
                       </div>
