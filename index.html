@@ -31,8 +31,8 @@
   <link rel="stylesheet"
         href="https://api.fontshare.com/v2/css?f[]=satoshi@300,400,500&display=swap"/>
 
-  <link rel="stylesheet" href="assets/colors_and_type.css?v=64"/>
-  <link rel="stylesheet" href="styles.css?v=64"/>
+  <link rel="stylesheet" href="assets/colors_and_type.css?v=101"/>
+  <link rel="stylesheet" href="styles.css?v=101"/>
 
   <!-- Inline splash so the user sees the brand instantly while JS loads.
        Removed by the IIFE at the bottom of <body> once React mounts. Uses
@@ -54,7 +54,7 @@
       color: #E9D7B1;
       display: flex; align-items: center; justify-content: center;
       flex-direction: column;
-      gap: 28px;
+      gap: 33.6px;
       z-index: 9999;
       font-family: "Cormorant Garamond", "EB Garamond", Georgia, serif;
       transition: opacity 600ms cubic-bezier(0.4, 0, 0.2, 1);
@@ -63,7 +63,7 @@
     #__splash .__sp-mark {
       font-style: italic;
       font-weight: 300;
-      font-size: clamp(64px, 8vw, 96px);
+      font-size: clamp(77px, 9.6vw, 115px);
       letter-spacing: -0.02em;
       line-height: 1;
       color: #E9D7B1;
@@ -72,11 +72,53 @@
     }
     #__splash .__sp-tag {
       font-family: "Satoshi", "Inter", system-ui, sans-serif;
-      font-size: 10px;
+      font-size: 12px;
       font-weight: 500;
       letter-spacing: 0.32em;
       text-transform: uppercase;
       color: rgba(233, 215, 177, 0.5);
+    }
+    /* Loading bar. CRITICAL: the angel GLB decode + WebGL shader compile +
+       env-map generation block the MAIN THREAD for several seconds in long
+       synchronous chunks. Any JS-driven counter (requestAnimationFrame) is
+       starved during those blocks and therefore stutters / snaps. So the bar
+       is animated with `transform: scaleX()`, which the browser runs on the
+       COMPOSITOR thread — it keeps gliding smoothly even while the main
+       thread is frozen building the scene. A live numeric digit can't be kept
+       smooth this way (text repaint is main-thread), so we intentionally use
+       a wordless bar instead of a 0–100 number. */
+    #__splash .__sp-loader {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 19.2px;
+      margin-top: 14.4px;
+    }
+    #__splash .__sp-track {
+      width: 264px;
+      max-width: 72vw;
+      height: 1.2px;
+      background: rgba(233, 215, 177, 0.16);
+      overflow: hidden;
+    }
+    #__splash .__sp-fill {
+      width: 100%;
+      height: 100%;
+      transform: scaleX(0);
+      transform-origin: left center;
+      background: linear-gradient(90deg,
+        rgba(201, 166, 107, 0.7) 0%,
+        #E9D7B1 100%);
+      box-shadow: 0 0 12px rgba(233, 215, 177, 0.5);
+      /* Bulk of the travel happens in the first ~3.5s, then it crawls slowly
+         toward 0.97 so it never visually stalls while the model finishes —
+         JS completes it to scaleX(1) on `angel-ready`. */
+      animation: __sp-fill-grow 9000ms linear forwards;
+    }
+    @keyframes __sp-fill-grow {
+      0%   { transform: scaleX(0); }
+      40%  { transform: scaleX(0.78); }
+      100% { transform: scaleX(0.97); }
     }
     @keyframes __sp-breathe {
       0%, 100% { opacity: 0.85; text-shadow: 0 0 30px rgba(233, 215, 177, 0.20); }
@@ -84,13 +126,17 @@
     }
     @media (prefers-reduced-motion: reduce) {
       #__splash .__sp-mark { animation: none; }
+      #__splash .__sp-fill { animation-duration: 600ms; }
     }
   </style>
 </head>
 <body data-theme="dark">
   <div id="__splash" aria-hidden="true">
     <span class="__sp-mark">elyxie</span>
-    <span class="__sp-tag">Sacred Water · Ancestral Jewelry</span>
+    <span class="__sp-tag">Sacred Waters</span>
+    <div class="__sp-loader" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-label="Cargando">
+      <div class="__sp-track"><div class="__sp-fill" id="__sp-fill"></div></div>
+    </div>
   </div>
   <div id="root"></div>
 
@@ -133,30 +179,54 @@
        300-1500 ms while it transpiled the JSX at load time. The pre-compiled
        .js files run immediately and total ~65 KB. `defer` keeps them in
        document order, executes after parsing, and doesn't block the parser. -->
-  <script src="dist/tweaks-panel.js?v=64" defer></script>
-  <script src="dist/pendant.js?v=64" defer></script>
-  <script src="dist/sections.js?v=64" defer></script>
-  <script src="dist/app.js?v=64" defer></script>
+  <script src="dist/tweaks-panel.js?v=101" defer></script>
+  <script src="dist/pendant.js?v=101" defer></script>
+  <script src="dist/sections.js?v=101" defer></script>
+  <script src="dist/app.js?v=101" defer></script>
 
-  <!-- Splash removal: poll cheaply (every 80 ms) until React mounts a child
-       into #root, then fade and remove the overlay. Cheaper than a
-       MutationObserver in the critical path and the polling stops as soon
-       as the first child appears. -->
+  <!-- Loader controller. The splash stays up until the angel GLB is genuinely
+       loaded AND painted: pendant.js fires `angel-ready` once the model has
+       been rendered for a frame. The visible fill bar is animated entirely in
+       CSS via `transform: scaleX()` (compositor thread) so it glides smoothly
+       even while the main thread is frozen decoding the GLB / compiling
+       shaders. This script does almost nothing during load — it only listens
+       for `angel-ready`, then glides the bar to full and fades the splash, so
+       the page is never revealed before the angel is on screen. -->
   <script>
     (function () {
       const splash = document.getElementById('__splash');
-      const root   = document.getElementById('root');
-      if (!splash || !root) return;
-      function check() {
-        if (root.firstChild) {
+      if (!splash) return;
+      const fill = document.getElementById('__sp-fill');
+      let done = false;
+
+      function complete() {
+        if (done) return;
+        done = true;
+        if (fill) {
+          // Freeze the compositor keyframe at wherever it currently is, then
+          // glide the remaining distance to full — a continuous motion, never
+          // a snap, regardless of how far the keyframe had travelled.
+          const cs = getComputedStyle(fill).transform;
+          fill.style.animation = 'none';
+          fill.style.transform = (cs && cs !== 'none') ? cs : 'scaleX(0)';
+          requestAnimationFrame(function () {
+            fill.style.transition = 'transform 480ms cubic-bezier(0.4, 0, 0.2, 1)';
+            fill.style.transform = 'scaleX(1)';
+          });
+        }
+        // Let the bar top out, then fade + remove the splash.
+        setTimeout(function () {
           splash.dataset.hidden = 'true';
           setTimeout(function () { splash.remove(); }, 700);
-          return;
-        }
-        setTimeout(check, 80);
+        }, 520);
       }
-      // First check just after current frame so React has a chance to mount.
-      setTimeout(check, 50);
+
+      if (window.__angelReady) complete();
+      else window.addEventListener('angel-ready', complete);
+
+      // Safety valve: if angel-ready never arrives (catastrophic load failure
+      // with no error event), release after 30 s so the page isn't stuck.
+      setTimeout(complete, 30000);
     })();
   </script>
 </body>

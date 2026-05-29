@@ -646,6 +646,7 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
           // as authored. Do NOT replace its geometry or hide it.
           let idx = 0;
           let sphereCenter = null;
+          const centerBodyMeshes = [];
           meshInfos.forEach(({ mesh, maxDim, minDim, center }) => {
             const aspect = maxDim / minDim;
             const sizeFrac = maxDim / globalSize;
@@ -666,7 +667,12 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
               sphereMeshes.push(mesh);
               sphereCenter = center;
             } else {
-              mesh.material = (idx++ % 5 === 0) ? goldBright : goldWarm;
+              const tone = (idx++ % 5 === 0) ? 'bright' : 'warm';
+              mesh.material = (tone === 'bright') ? goldBright : goldWarm;
+              // Track the center angel's BODY meshes (+ their warm/bright tone)
+              // so the EDICIÓN finale can re-skin them gold→rhodium→silver on
+              // each completed revolution.
+              centerBodyMeshes.push({ mesh, tone });
             }
             // Cast & receive shadows so phase01Spot can throw the hand's
             // shadow onto the orb (and the body onto the smoke catcher
@@ -719,7 +725,32 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
           const centerSpinner = new THREE.Group();
           centerSpinner.add(model);
           angel.add(centerSpinner);
+          // Re-parent the orb's inner PointLight (and its fairy-dust trails)
+          // from `angel` onto `centerSpinner` so they ROTATE + SCALE with the
+          // orb. The light was added to `angel` before the spinner existed; in
+          // spinning phases (03 MATERIA and 05 EDICIÓN) the orb mesh orbits the
+          // Y axis inside the spinner while the light stayed put on `angel` →
+          // the glow centre visibly lagged the sphere ("off-centre"). Its local
+          // position `p` was set relative to the centred model, which is exactly
+          // centerSpinner-local space, and the spinner is identity at rest, so
+          // re-parenting introduces no jump — it only makes the glow track the
+          // orb through rotation and the MATERIA/ALMA scale.
+          if (stateRef.current.materials && stateRef.current.materials.sphereLight) {
+            centerSpinner.add(stateRef.current.materials.sphereLight);
+          }
+          if (stateRef.current.materials && stateRef.current.materials.fairyDust) {
+            centerSpinner.add(stateRef.current.materials.fairyDust);
+          }
           stateRef.current.materials.centerSpinner = centerSpinner;
+          // EDICIÓN finale material cycling: the center body meshes + the metal
+          // material sets, so the animate loop can re-skin the angel
+          // gold→rhodium→silver on each completed revolution. Silver/rhodium are
+          // added to `metalSets` further down (built inside the side-angels IIFE
+          // with their cool env map).
+          stateRef.current.materials.centerBodyMeshes = centerBodyMeshes;
+          stateRef.current.materials.metalSets = {
+            gold: { warm: goldWarm, bright: goldBright },
+          };
 
           // ===== Phase 03 (MATERIA) side angels =====
           // The center "gold" angel above is the one the user already sees in
@@ -819,6 +850,60 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
             silverBright.needsUpdate  = true;
             rhodiumWarm.needsUpdate   = true;
             rhodiumBright.needsUpdate = true;
+            // EDICIÓN finale material cycle needs its OWN silver/rhodium
+            // instances. The side-angel materials above are driven TRANSPARENT
+            // (their .opacity is set to sideOpacity every frame → 0 outside
+            // MATERIA), so reusing them rendered the finale angel as a ghost.
+            // Build dedicated, fully-opaque copies that share the exact same
+            // look + cool env map as the section-03 finishes.
+            const edSilverWarm    = buildSilverMaterial(THREE, 'warm');
+            const edSilverBright  = buildSilverMaterial(THREE, 'bright');
+            const edRhodiumWarm   = buildRhodiumMaterial(THREE, 'warm');
+            const edRhodiumBright = buildRhodiumMaterial(THREE, 'bright');
+            [edSilverWarm, edSilverBright, edRhodiumWarm, edRhodiumBright].forEach((m) => {
+              m.envMap = coolMetalEnv;
+              m.needsUpdate = true;
+            });
+            if (stateRef.current.materials.metalSets) {
+              stateRef.current.materials.metalSets.silver  = { warm: edSilverWarm,  bright: edSilverBright };
+              stateRef.current.materials.metalSets.rhodium = { warm: edRhodiumWarm, bright: edRhodiumBright };
+            }
+            // ── EDICIÓN finale: GRADUAL finish cross-fade ────────────────────
+            // Instead of hard-swapping the body material once per revolution
+            // (which "popped" instantly), the finale now blends gold → rhodium
+            // → silver continuously. Two dedicated "live" materials (warm +
+            // bright tone) are assigned to the center body only while in phase
+            // 05; every frame their color / roughness / metalness /
+            // envMapIntensity are lerped between the current and next finish.
+            // Env map can't be blended, so it swaps at the transition midpoint
+            // (blend≈0.5, where color is halfway and the reflection change is
+            // least noticeable): gold → scene.environment (warm), silver +
+            // rhodium → coolMetalEnv. Snapshots are taken at setup so ORIGEN's
+            // runtime envMapIntensity walk on the originals never leaks in.
+            const snapFinish = (m, cool) => ({
+              color: m.color.clone(),
+              roughness: m.roughness,
+              metalness: m.metalness,
+              env: m.envMapIntensity,
+              cool,
+            });
+            stateRef.current.materials.coolMetalEnv = coolMetalEnv;
+            stateRef.current.materials.editionLive = {
+              warm:   goldWarm.clone(),
+              bright: goldBright.clone(),
+            };
+            stateRef.current.materials.editionFinishes = {
+              warm: {
+                gold:    snapFinish(goldWarm, false),
+                rhodium: snapFinish(edRhodiumWarm, true),
+                silver:  snapFinish(edSilverWarm, true),
+              },
+              bright: {
+                gold:    snapFinish(goldBright, false),
+                rhodium: snapFinish(edRhodiumBright, true),
+                silver:  snapFinish(edSilverBright, true),
+              },
+            };
 
             const modelLeft = model.clone(true);
             applyMaterialsToClone(modelLeft, { warm: silverWarm, bright: silverBright });
@@ -975,9 +1060,36 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
               window.__elyxie_debug.materiaSideYOffset = sideYOffset;
             }
           }
+
+          // The angel is now built, materialed, scaled, centered and added to
+          // the live scene. Wait for TWO animation frames so the render loop
+          // has actually PAINTED at least one frame containing the model, then
+          // announce readiness. The splash overlay (index.html) listens for
+          // this and only fades out once the angel is genuinely on screen —
+          // never before — so the page is never revealed empty mid-load.
+          requestAnimationFrame(() => requestAnimationFrame(() => {
+            window.__angelReady = true;
+            window.dispatchEvent(new CustomEvent('angel-progress', { detail: 1 }));
+            window.dispatchEvent(new Event('angel-ready'));
+          }));
         },
-        undefined,
-        (err) => { console.error('Failed to load angel GLB:', err); },
+        // onProgress: GLTFLoader forwards the underlying fetch ProgressEvent.
+        // When the server sends Content-Length the event is lengthComputable
+        // and we can report a true 0..1 fraction; otherwise we report -1 so
+        // the splash falls back to its own time-based creep.
+        (evt) => {
+          const frac = (evt && evt.lengthComputable && evt.total > 0)
+            ? evt.loaded / evt.total
+            : -1;
+          window.dispatchEvent(new CustomEvent('angel-progress', { detail: frac }));
+        },
+        (err) => {
+          console.error('Failed to load angel GLB:', err);
+          // Release the splash even on failure so the page is never stuck
+          // permanently behind the loader.
+          window.__angelReady = true;
+          window.dispatchEvent(new Event('angel-ready'));
+        },
       );
 
       let raf = 0;
@@ -1035,6 +1147,19 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
         // threshold. Used to gate the orb day/night brightness multiplier
         // and the second fairy-dust visibility window introduced for ALMA.
         const phase04Proximity = Math.exp(-Math.pow((tRaw - 0.70) / 0.075, 2));
+        // Phase 05 (EDICIÓN) finale ramp — MONOTONIC, not a gaussian. The
+        // journey's last two snap points are 0.90 AND 1.00 (SNAP_POINTS in
+        // app.jsx), so the angel must be FULLY receded at BOTH rest positions,
+        // not just at 1.00. A gaussian centered on 1.00 would only reach ≈0.21
+        // at the 0.90 snap, leaving the angel large and centered there (text
+        // would collide with it). Instead ramp 0→1 across [0.82, 0.90] via
+        // smootherstep (quintic — zero 1st/2nd derivative at the ends) and HOLD
+        // at 1 through 1.00. smootherstep clamps its input, so tRaw≥0.90 → 1
+        // and tRaw≤0.82 → 0. ALMA (phase 04, center 0.70) stays byte-perfect:
+        // its own phase04Proximity is already ≈0.018 by tRaw=0.85, and this
+        // ramp is exactly 0 for tRaw≤0.82 — so the recede never disturbs ALMA's
+        // rest composition.
+        const phase05Proximity = smootherstep((tRaw - 0.82) / 0.08);
         // Smooth-lerp the actual night factor toward the target set by
         // app.jsx (boolean flipped every 5 s). τ ≈ 0.55 s feels in sync
         // with the 1.1 s CSS cross-fade on the temple backdrop.
@@ -1275,9 +1400,21 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
         const fovRadHalf = (camera.fov * Math.PI) / 180 / 2;
         const worldWidthAtZ0 = 2 * camZ * Math.tan(fovRadHalf) * aspect;
         const px03Shift = isMobile ? 0 : 0.20 * worldWidthAtZ0;
+        // Phase 05 (EDICIÓN) now uses a section-2/3-style layout: copy on the
+        // LEFT, angel shifted RIGHT into the empty column (with the rotating
+        // sacred-geometry behind it). Same fractional-of-world-width shift as
+        // MATERIA so it scales across viewports; gated by phase05Proximity so
+        // every other phase is byte-perfect. Skipped on narrow phones where
+        // the layout stacks.
+        // Only DESKTOP runs the estrella-fija right-column shift. Tablet and
+        // mobile stack into a single centred column (angel over the inscription),
+        // so they keep the angel on the optical centre line — otherwise it
+        // drifts right and breaks alignment with the centred Metatron + copy.
+        const px05Shift = (isMobile || isTablet) ? 0 : 0.22 * worldWidthAtZ0;
         const px = pxOrigin * (1 - phaseSoulProximity * 0.85)
-                 + Math.sin(clock.elapsed * 0.35) * 0.02
-                 + px03Shift * phase03Proximity;
+                 + Math.sin(clock.elapsed * 0.35) * 0.02 * (1 - phase05Proximity * 0.7)
+                 + px03Shift * phase03Proximity
+                 + px05Shift * phase05Proximity;
         // Phase 04 (ALMA) vertical lift. The copy block now sits at the
         // very TOP of the viewport (just under the navbar). Mobile and tablet
         // get a stronger lift so the angel rides up closer to the SOUL eyebrow
@@ -1288,9 +1425,37 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
         // unused space between the feet and the page base. Lowering the angel
         // moves the wings clear of the subtitle and fills that bottom band.
         const pyAlmaShift = (isMobile ? 0.34 : isTablet ? 0.18 : -0.06) * phase04Proximity;
+        // EDICIÓN finale lift: raise the (now smaller) angel into the upper
+        // third so the inscription below it never collides with the body or the
+        // orb. Pairs with editionTargetScale in the centerSpinner block. Gated
+        // by phase05Proximity (0 at ALMA → phase 04 untouched).
+        // Mobile needs a markedly larger lift: the portrait aspect pulls the
+        // camera far back (camZ ×≈1.05 + the phase-01 clamp), so each world
+        // unit maps to fewer screen pixels and a 0.78 lift barely clears the
+        // viewport centre. 1.05 raises the hem clear of the seal on the short
+        // portrait frame.
+        //
+        // "El registro" finale: the inscription plate grew taller (top rule +
+        // 100-mark register), so the lift is eased DOWN a touch (0.73→0.62
+        // desktop) to close the dead void between the angel and the plate —
+        // the angel and the inscription now read as one composition instead
+        // of two elements stranded apart.
+        //
+        // "Estrella fija" finale (text-left / angel-right): the angel no longer
+        // sits ABOVE a centred plate — it sits BESIDE the left copy, so the big
+        // upward lift is dropped to near-centre. Desktop keeps a small lift so
+        // the orb aligns with the headline's optical centre.
+        //
+        // Tablet & mobile DON'T have room for the side-by-side split, so they
+        // stack into an "altarpiece": the angel rides UP into the top half
+        // (framed by the Metatron) and the inscription is bottom-anchored below
+        // it (see the edition @media blocks in styles.css). The bigger upward
+        // lift here is what opens the clean gap between the figure and the copy.
+        const pyEditionShift = (isMobile ? 1.15 : isTablet ? 0.6 : 0.10) * phase05Proximity;
         const py = -0.05 + pyOffset + pyOriginShift + py01Mobile
                  + pyAlmaShift
-                 + Math.sin(clock.elapsed * 0.4) * 0.03
+                 + pyEditionShift
+                 + Math.sin(clock.elapsed * 0.4) * 0.03 * (1 - phase05Proximity * 0.7)
                  + Math.sin(tRaw * Math.PI) * 0.06;
         angel.position.set(px, py, pz01);
 
@@ -1324,18 +1489,19 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
         // its almaTargetScale (0.55 mobile / 0.65 desktop) overrides this
         // via the phase04Proximity lerp a few hundred lines below.
         const TRIO_SCALE = 0.805;
-        // Side angels appear ONLY in the last 5% of the gold angel's settle —
-        // user request: "que aparezcan justo cuando esté a punto de llegar
-        // la última parte del último 5%". phase03Proximity is the gaussian
-        // that drives every other phase-03 transition (camera Z, trio
-        // centering, center-scale lerp 1.0→0.7). When it hits 1.0 the gold
-        // angel is fully in its final pose. Remap the [0.95, 1.0] tail of
-        // that ramp into a [0, 1] alpha for the laterals via smootherstep
-        // (quintic — zero 1st and 2nd derivative at the endpoints so the
-        // fade has no perceptible "click" entering or leaving). Below 0.95
-        // they're literally invisible (group.visible = false), so neither
-        // clone costs draw calls during the long approach.
-        const SIDE_FADE_START = 0.95;
+        // Side angels fade in EARLIER and over a LONGER window so the pair
+        // doesn't "snap" into frame right as the gold angel settles. Earlier
+        // this was a tight [0.95, 1.0] tail (last 5% of the settle), which
+        // read as abrupt — the laterals appeared almost simultaneously with
+        // the central angel reaching its pose. The user asked for them to
+        // start a touch earlier and ease in more gradually, so we now remap
+        // the much wider [0.78, 1.0] tail of phase03Proximity into a [0, 1]
+        // alpha via smootherstep (quintic — zero 1st and 2nd derivative at the
+        // endpoints so the fade has no perceptible "click"). The ~4× wider
+        // span turns the entrance into a slow, soft dissolve. Below 0.78
+        // they're invisible (group.visible = false), so neither clone costs
+        // draw calls during the long approach.
+        const SIDE_FADE_START = 0.78;
         const sideOpacity = smootherstep((phase03Proximity - SIDE_FADE_START) / (1.0 - SIDE_FADE_START));
         const matSides = stateRef.current.materials && stateRef.current.materials.materiaSideGroups;
         const matSideMats = stateRef.current.materials && stateRef.current.materials.materiaSideMaterials;
@@ -1392,7 +1558,82 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
           matSides.right.rotation.y = visibleSpin;
           const cs = stateRef.current.materials.centerSpinner;
           if (cs) {
-            cs.rotation.y = visibleSpin;
+            // EDICIÓN finale: the angel spins slowly to the RIGHT (clockwise,
+            // positive Y) — a calm, meditative rotation (~0.28 rad/s ≈ one turn
+            // every ~22 s). Each COMPLETED revolution re-skins the body, cycling
+            // gold → rhodium → silver → gold → …, using the SAME silver/rhodium
+            // materials (cool env map) as the MATERIA section-03 side angels.
+            // Gated by phase05Proximity, reset on exit so re-entry starts gold.
+            const sp = stateRef.current;
+            if (phase05Proximity > 0.01) {
+              // 30% slower than before: 0.28 → 0.196 rad/s (~one turn / 32 s).
+              sp.edition05Spin = (sp.edition05Spin || 0) + dt * 0.196 * phase05Proximity;
+              const live = sp.materials.editionLive;
+              const finishes = sp.materials.editionFinishes;
+              const meshes = sp.materials.centerBodyMeshes;
+              // On entry, hand the center body to the live materials so the
+              // per-frame blend below drives them (ORIGEN keeps the originals).
+              if (!sp.edition05Active && live && meshes) {
+                sp.edition05Active = true;
+                for (let i = 0; i < meshes.length; i++) {
+                  meshes[i].mesh.material = (meshes[i].tone === 'bright') ? live.bright : live.warm;
+                }
+              }
+              if (live && finishes) {
+                const order = ['gold', 'rhodium', 'silver'];
+                const cycleT = Math.abs(sp.edition05Spin) / (Math.PI * 2);
+                const base = Math.floor(cycleT);
+                const frac = cycleT - base;
+                const fromName = order[base % 3];
+                const toName = order[(base + 1) % 3];
+                // ── True fade-out → fade-in between finishes ─────────────────
+                // These are metals (metalness 1), so their look is dominated by
+                // the ENV-MAP reflection (warm for gold, cool for silver/rhodium)
+                // — not the base color. Lerping color alone read as INSTANT
+                // because the env map hot-swapped in one frame ("gold…gold…POP
+                // silver"). Fix: the finish holds steady for most of the turn,
+                // then over the last `FADE` slice the reflection DIMS to a dark
+                // trough at the midpoint, the env map + color swap AT that trough
+                // (where it's too dark to see), and the reflection lifts back
+                // into the new finish — a genuine fade-out/fade-in well over the
+                // ½ s minimum (~3.8 s here). Anchors stay byte-exact: at tf=0 and
+                // tf=1 dimMul=1 and blend snaps to a pure finish, so each metal
+                // is shown cleanly (identical to MATERIA) between transitions.
+                const FADE = 0.12;                  // last ~12% of a ~32 s turn ≈ 3.8 s
+                const tf = frac <= (1 - FADE) ? 0 : (frac - (1 - FADE)) / FADE; // 0→1
+                const blend = smootherstep(tf);     // color / roughness morph
+                const dip = Math.sin(Math.PI * tf); // 0 at ends, 1 at midpoint
+                const DIP_AMT = 0.78;               // trough darkness of the fade
+                const dimMul = 1 - DIP_AMT * dip;   // 1 → 0.22 → 1
+                const coolEnv = sp.materials.coolMetalEnv || null;
+                ['warm', 'bright'].forEach((tone) => {
+                  const f = finishes[tone][fromName];
+                  const t = finishes[tone][toName];
+                  const m = live[tone];
+                  m.color.copy(f.color).lerp(t.color, blend);
+                  m.roughness       = f.roughness + (t.roughness - f.roughness) * blend;
+                  m.metalness       = f.metalness + (t.metalness - f.metalness) * blend;
+                  m.envMapIntensity = (f.env + (t.env - f.env) * blend) * dimMul;
+                  // Swap env at the trough (tf<0.5 → from, else → to), where the
+                  // reflection is darkest, so the discrete change is unseen.
+                  const wantEnv = ((tf < 0.5 ? f.cool : t.cool) ? coolEnv : null);
+                  if (m.envMap !== wantEnv) { m.envMap = wantEnv; m.needsUpdate = true; }
+                });
+              }
+            } else if (sp.edition05Active) {
+              // Leaving EDICIÓN: hand the body back to the canonical gold
+              // materials (the ones ORIGEN animates) and reset the cycle.
+              sp.edition05Active = false;
+              sp.edition05Spin = 0;
+              const sets = sp.materials.metalSets;
+              const meshes = sp.materials.centerBodyMeshes;
+              if (sets && meshes) {
+                for (let i = 0; i < meshes.length; i++) {
+                  meshes[i].mesh.material = (meshes[i].tone === 'bright') ? sets.gold.bright : sets.gold.warm;
+                }
+              }
+            }
+            cs.rotation.y = visibleSpin + (sp.edition05Spin || 0);
             // Center-angel scale composes MATERIA shrink (1.0 → 0.7) with
             // an ALMA shrink. The two proximities don't overlap (MATERIA
             // peaks 0.50, ALMA peaks 0.70 with σ≈0.075) so the lerps don't
@@ -1405,6 +1646,13 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
             let centerScale = lerp(1.0, TRIO_SCALE, phase03Proximity);
             const almaTargetScale = isMobile ? 0.55 : 0.65;
             centerScale = lerp(centerScale, almaTargetScale, phase04Proximity);
+            // EDICIÓN finale recede: shrink the angel further so it reads as a
+            // single distant light in the upper frame, clearing the lower half
+            // for the inscription (seal · title · message · CTA). Composed last;
+            // phase05Proximity is 0 at every ALMA/MATERIA anchor so this lerp is
+            // a no-op there (those phases keep their scale untouched).
+            const editionTargetScale = isMobile ? 0.44 : isTablet ? 0.58 : 0.72;
+            centerScale = lerp(centerScale, editionTargetScale, phase05Proximity);
             cs.scale.setScalar(centerScale);
           }
           // DEBUG: expose runtime values for verification
@@ -1590,14 +1838,26 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
         const orbWork     = stateRef.current.materials.orbColorWork;
         const dayMix      = phase04Proximity * (1 - almaNightF);
         orbWork.copy(brandOrbCol).lerp(dayOrbCol2, dayMix);
+        // EDICIÓN finale: orb brightness multiplier. History: it once LIFTED
+        // the orb (×1.40), then the client asked for half that (×0.70), and now
+        // +50% again → ×1.05 at phase-05 peak (0.70 × 1.5). One factor drives
+        // both the emissive AND the cast PointLight, so the sphere's own light
+        // and the light it emits rise together; ≈1 elsewhere so nothing else
+        // changes.
+        // "La última luz": in the void finale the orb IS the only light, so it
+        // blooms hard — ×1.45 at the phase-05 peak (was ×1.05 for the old cream
+        // finale where a bright bg meant the orb didn't need to carry the frame).
+        // Drives both the emissive sphere and its cast PointLight together; ≈1
+        // elsewhere so no other phase changes.
+        const phase05OrbBoost = lerp(1.0, 1.45, phase05Proximity);
         // Local-only orb glow: the PointLight is tight (1.5 range, 2.5 decay)
         // so this intensity only affects the orb and nearest feathers.
         sphereLight.color.copy(orbWork);
-        sphereLight.intensity = (0.45 + breathe * 0.30) * stateRef.current.glowIntensity * Math.min(phaseBoost, 2.0) * phaseOrbLight * phase01OrbLight * phase04OrbMult;
+        sphereLight.intensity = (0.45 + breathe * 0.30) * stateRef.current.glowIntensity * Math.min(phaseBoost, 2.0) * phaseOrbLight * phase01OrbLight * phase04OrbMult * phase05OrbBoost;
         stateRef.current.materials.sphereMeshes.forEach((m) => {
           if (m.material) {
             m.material.emissive.copy(orbWork);
-            m.material.emissiveIntensity = (0.85 + breathe * 0.35) * stateRef.current.glowIntensity * Math.min(phaseBoost, 1.8) * phaseOrbEmissive * phase01OrbEmissive * phase04OrbMult;
+            m.material.emissiveIntensity = (0.85 + breathe * 0.35) * stateRef.current.glowIntensity * Math.min(phaseBoost, 1.8) * phaseOrbEmissive * phase01OrbEmissive * phase04OrbMult * phase05OrbBoost;
           }
         });
 

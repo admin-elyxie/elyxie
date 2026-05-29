@@ -478,7 +478,7 @@ body[data-theme="dark"] {
   background-position: center center;
   background-repeat: no-repeat;
   pointer-events: none;
-  transition: opacity 1100ms cubic-bezier(0.4, 0, 0.2, 1);
+  transition: opacity 800ms cubic-bezier(0.4, 0, 0.2, 1);
   will-change: opacity;
 }
 .alma-bg--day   { background-image: url("assets/temple-day.jpg"); }
@@ -733,6 +733,356 @@ body[data-theme="dark"] {
     margin: 0;
   }
   .phase-content--alma .phase-sub { max-width: 38ch; }
+}
+
+/* ---------- Phase 05 (EDICIÓN) — the finale in the void ----------
+   The journey resolves in darkness, not cream (the theme arc in app.jsx
+   drains the cream background back to emerald-black across 0.85→0.90, so the
+   orb reads as the one light). The copy resolves as an inscription on a
+   plinth BELOW the receded angel — never over the orb — which fixes the old
+   headline-over-model collision. Doubled selector for (0,2,0) specificity so
+   it outranks the later @media `.phase-content` blocks (same trick ALMA uses
+   above), keeping the bottom-anchored layout on tablet/mobile too. */
+.phase-content.phase-content--edition {
+  align-self: stretch;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+  padding: 0 32px 11vh;
+  max-width: 100%;
+  text-align: center;
+  margin: 0;
+}
+/* Edge-only vignette: deepens the corners toward true black while staying
+   fully transparent across the central ~55% where the angel + orb live, so
+   the single green light is never dimmed by a CSS layer. It rides the
+   phase-content opacity transition (no JS), fading in as EDICIÓN becomes
+   active. Sits behind the inscription (z-index 0) which lifts to z-index 1. */
+.phase-content--edition::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(ellipse 72% 74% at 50% 44%,
+    rgba(2, 10, 8, 0) 55%,
+    rgba(2, 10, 8, 0.62) 100%);
+  z-index: 0;
+}
+.phase-content--edition .phase-content__inner--edition {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 640px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+/* Engraved authentication seal: the serial struck like a register mark, not
+   shown as a statistic. Champagne, mono, wide-tracked, flanked by two short
+   hairlines that stop clear of the number. */
+.edition-seal {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  margin-bottom: 24px;
+}
+.edition-seal__line {
+  width: 44px;
+  height: 1px;
+  background: var(--color-gold-bright);
+  opacity: 0.45;
+}
+.edition-seal__serial {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  letter-spacing: 0.42em;
+  text-indent: 0.42em; /* offset the trailing tracking so it reads centered */
+  text-transform: uppercase;
+  color: var(--color-gold-bright);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.phase-title--edition {
+  margin: 0 0 14px;
+  text-shadow: 0 2px 34px rgba(0, 0, 0, 0.5);
+}
+/* Micro-label under the title (EDITION / EDICIÓN) — part of the design
+   system's English caption line. */
+.phase-content--edition .phase-bilingual {
+  margin: 0 0 26px;
+  opacity: 0.55;
+}
+.phase-content--edition .phase-sub {
+  margin: 0 auto 32px;
+  max-width: 46ch;
+  opacity: 0.8;
+}
+/* The acquisition invitation. Ghost button on the void reads as an entry to
+   a closed circle rather than a storefront action. */
+.edition-cta {
+  align-self: center;
+}
+
+@media (min-width: 768px) and (max-width: 1024px) {
+  .phase-content.phase-content--edition { padding: 0 24px 12vh; }
+}
+@media (max-width: 767px) {
+  .phase-content.phase-content--edition { padding: 0 16px 10vh; }
+  .edition-seal { gap: 14px; margin-bottom: 20px; }
+  .edition-seal__line { width: 32px; }
+  .edition-seal__serial { font-size: 12px; letter-spacing: 0.34em; text-indent: 0.34em; }
+  .phase-content--edition .phase-sub { max-width: 34ch; }
+}
+
+/* === EDICIÓN — "estrella fija" (copy LEFT, angel + rotating geometry RIGHT) =
+   The finale now mirrors ORIGEN/MATERIA's editorial split: a left copy column
+   and the angel shifted into the right, with a slow-rotating Metatron's-cube
+   polygon behind it. Overrides the earlier centred/bottom-anchored edition
+   layout (this block is later in source, so it wins at equal specificity). == */
+.phase-content.phase-content--edition {
+  align-self: auto;
+  height: auto;
+  display: block;
+  justify-content: initial;
+  align-items: initial;
+  text-align: left;
+  padding: 0 96px 0 180px;
+  max-width: min(760px, 55%);
+}
+/* Drop the blackout vignette from the previous concept. */
+.phase-content--edition::before { content: none; }
+
+.phase-content--edition .phase-content__inner--edition {
+  position: static;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  text-align: left;
+  width: 100%;
+  max-width: none;
+}
+.edition-eyebrow { margin: 0 0 24px; }
+.phase-title--edition {
+  font-style: normal;
+  margin: 0 0 26px;
+  line-height: 1.0;
+  text-shadow: 0 2px 30px rgba(0, 0, 0, 0.4);
+}
+.phase-title--edition .accent {
+  font-style: italic;
+  color: var(--color-gold-bright);
+}
+.phase-content--edition .phase-sub { margin: 0 0 30px; max-width: 42ch; }
+
+/* Serial hallmark, left-aligned: the struck number then a trailing hairline. */
+.phase-content--edition .edition-seal { justify-content: flex-start; margin: 0 0 12px; }
+/* Scarcity line under the number — quiet, tracked caps. */
+.edition-scarcity {
+  margin: 0 0 30px;
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--theme-fg);
+  opacity: 0.62;
+}
+[data-theme="light"] .edition-scarcity { color: #7a5f33; opacity: 0.9; }
+.edition-cta {
+  align-self: flex-start;
+  border-radius: var(--radius-pill, 999px);
+}
+
+/* === EDICIÓN — "la última luz": the void backdrop ==========================
+   No paper, no relief shadow, no Metatron. The finale is the emerald-black void
+   with the orb as the single light. Three backdrop layers (all z-index 0, BEHIND
+   the transparent 3D canvas, so the angel + glowing orb composite on top): an
+   edge vignette that closes the frame toward true black, a layered phosphor
+   bloom centred on the orb, and a thin shaft of that light descending into the
+   struck hallmark. Desktop coordinates target the right-hand orb of the
+   estrella-fija layout; the responsive blocks below recentre them. ========== */
+
+/* Edge vignette — darkness closes in around the light. */
+.edition-void {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background: radial-gradient(ellipse 82% 88% at 50% 50%,
+    rgba(5, 22, 19, 0) 30%,
+    rgba(2, 9, 8, 0.5) 66%,
+    rgba(0, 3, 2, 0.94) 100%);
+}
+
+/* The single light: a layered bloom centred on the orb. The bright core sits
+   where the 3D orb renders, so the orb appears to emit it; the wide skirt
+   scatters phosphor green into the dark air. */
+.edition-glow {
+  position: absolute;
+  left: 72%;
+  top: 50%;
+  width: min(960px, 62vw);
+  height: min(960px, 62vw);
+  transform: translate(-50%, -50%);
+  z-index: 0;
+  pointer-events: none;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 50%,
+    rgba(125, 255, 178, 0.34) 0%,
+    rgba(86, 224, 150, 0.18) 17%,
+    rgba(45, 150, 120, 0.10) 37%,
+    rgba(20, 70, 70, 0.05) 56%,
+    rgba(5, 22, 19, 0) 74%);
+  filter: blur(6px);
+  animation: edition-glow-breathe 6.5s ease-in-out infinite;
+}
+@keyframes edition-glow-breathe {
+  0%, 100% { transform: translate(-50%, -50%) scale(0.97); opacity: 0.9; }
+  50%      { transform: translate(-50%, -50%) scale(1.04); opacity: 1; }
+}
+
+/* Hallmark: a thread of the orb's light descends into the struck serial —
+   "the piece receives its mark." Desktop only; tablet/mobile rely on the
+   corner badge for the serial. */
+.edition-hallmark {
+  position: absolute;
+  left: 72%;
+  top: 57%;
+  transform: translateX(-50%);
+  z-index: 0;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.edition-hallmark__shaft {
+  width: 1px;
+  height: 16vh;
+  background: linear-gradient(to bottom,
+    rgba(125, 255, 178, 0) 0%,
+    rgba(201, 166, 107, 0.5) 58%,
+    rgba(233, 215, 177, 0.85) 100%);
+}
+.edition-hallmark__serial {
+  margin-top: 18px;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: clamp(13px, 1vw, 16px);
+  letter-spacing: 0.4em;
+  text-indent: 0.4em;
+  color: var(--color-gold-bright);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  text-shadow: 0 0 18px rgba(125, 255, 178, 0.22);
+}
+@media (prefers-reduced-motion: reduce) {
+  .edition-glow { animation: none; }
+}
+
+/* EDICIÓN CTA — a gold-edged invitation, not a storefront button. Quiet
+   champagne in the void; on hover a soft phosphor-warm glow blooms (entry to a
+   closed circle). */
+.Button--ghost.edition-cta {
+  border-color: rgba(201, 166, 107, 0.45);
+  color: var(--color-gold-bright, #E9D7B1);
+  transition: border-color 300ms ease, background 300ms ease, color 300ms ease, box-shadow 300ms ease;
+}
+.Button--ghost.edition-cta:hover {
+  border-color: rgba(233, 215, 177, 0.85);
+  background: rgba(233, 215, 177, 0.08);
+  color: #fff;
+  box-shadow: 0 0 30px rgba(125, 255, 178, 0.12), 0 8px 34px rgba(0, 0, 0, 0.45);
+}
+@media (prefers-reduced-motion: reduce) {
+  .Button--ghost.edition-cta { transition: none; }
+}
+/* === EDICIÓN responsive — the desktop "estrella fija" 2-column split (copy
+   LEFT, angel RIGHT) has no room below ~1024px: the headline and body run into
+   the centred angel + Metatron. So tablet and mobile RESTACK into a single
+   column "altarpiece": the angel rides up into the top half (framed by the
+   Metatron, via the bigger pyEditionShift in pendant.jsx) and the inscription
+   is bottom-anchored beneath it. The doubled `.phase-content.phase-content--edition`
+   selector ((0,2,0)) outranks the generic @media `.phase-content` blocks, and
+   these rules sit AFTER the desktop block above so they win at the breakpoint.
+   The desktop-only relief pieces (cast shadow, ceremonial pedestal) are tuned
+   to the right column, so they're dropped here; the corner badge already
+   carries "EDICIÓN LIMITADA · N.º 01 / 100". === */
+@media (min-width: 768px) and (max-width: 1024px) {
+  .phase-content.phase-content--edition {
+    align-self: stretch;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    align-items: flex-start;
+    text-align: left;
+    padding: 0 64px 12vh;
+    max-width: 100%;
+  }
+  .phase-content--edition .phase-content__inner--edition {
+    width: 100%;
+    max-width: 600px;
+    align-items: flex-start;
+  }
+  .phase-title--edition { font-size: clamp(44px, 6.4vw, 60px); line-height: 1.03; margin: 0 0 22px; }
+  .phase-content--edition .phase-sub { max-width: 54ch; margin: 0 0 28px; }
+  /* Bloom recentred on the angel (upper area of the stacked altarpiece). */
+  .edition-glow { left: 50%; top: 34%; width: min(760px, 96vw); height: min(760px, 96vw); }
+  .edition-hallmark { display: none; }
+}
+@media (max-width: 767px) {
+  .phase-content.phase-content--edition {
+    align-self: stretch;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    align-items: flex-start;
+    text-align: left;
+    padding: 0 22px 8.5vh;
+    max-width: 100%;
+  }
+  .phase-content--edition .phase-content__inner--edition {
+    width: 100%;
+    max-width: 100%;
+    align-items: flex-start;
+  }
+  .edition-eyebrow { margin: 0 0 14px; }
+  .phase-title--edition { font-size: clamp(32px, 8.6vw, 43px); line-height: 1.05; margin: 0 0 16px; }
+  .phase-content--edition .phase-sub {
+    font-size: 14.5px; line-height: 1.6; max-width: 42ch; margin: 0 0 22px; opacity: 0.85;
+  }
+  .edition-cta { align-self: flex-start; }
+  /* Bloom recentred on the (small) angel up top; oversized so the phosphor
+     light fills the dark around the relic. */
+  .edition-glow { left: 50%; top: 30%; width: 140vw; height: 140vw; }
+  .edition-hallmark { display: none; }
+}
+
+/* Light-theme (ivory finale) contrast fixes for EDICIÓN. The base champagne /
+   white treatments vanish on cream, so recolor to deep gold + dark ink. */
+[data-theme="light"] .phase-title--edition .accent { color: #8a6a2e; }
+[data-theme="light"] .edition-eyebrow { color: #7a5f33; opacity: 0.9; }
+[data-theme="light"] .phase-content--edition .edition-seal__serial { color: #6f5630; }
+[data-theme="light"] .phase-content--edition .edition-seal__line { background: #6f5630; opacity: 0.4; }
+[data-theme="light"] .Button--ghost.edition-cta {
+  background: rgba(255, 255, 255, 0.42);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(122, 95, 51, 0.32);
+  color: #16221d;
+  box-shadow: 0 2px 20px rgba(20, 30, 25, 0.06);
+}
+[data-theme="light"] .Button--ghost.edition-cta:hover {
+  border-color: rgba(122, 95, 51, 0.6);
+  background: rgba(201, 166, 107, 0.2);
+  color: #16221d;
+}
+[data-theme="light"] .edition-geo__poly {
+  opacity: 0.72;
+  filter: drop-shadow(0 0 18px rgba(201, 166, 107, 0.25));
 }
 
 /* ---------- Stepper (floating labels on the LEFT edge of the viewport) ----------

@@ -31,7 +31,7 @@ const PHASES = [
       en: <>Sacred water from the <span className="accent">Black Lagoon</span>.</>,
     },
     sub: {
-      es: 'Recogida a 3.957 m sobre el nivel del mar, en los Andes peruanos. Mamayacu — la Madre del Agua — descansa dentro de cada esfera.',
+      es: 'Recogida a 3.957 m sobre el nivel del mar, en los Andes peruanos. Mamayacu — la Madre Agua — descansa dentro de cada esfera.',
       en: 'Gathered 3,957 m above sea level, in the Peruvian Andes. Mamayacu — Mother of Water — rests inside each sphere.',
     },
     range: [0.18, 0.40],
@@ -72,15 +72,15 @@ const PHASES = [
     num: '05',
     label: { es: 'EDICIÓN', en: 'EDITION' },
     title: {
-      es: <>Cien piezas. <span className="accent">N.º 01 / 100.</span></>,
-      en: <>One hundred pieces. <span className="accent">No. 01 / 100.</span></>,
+      es: <>Un santuario<br/><span className="accent">portátil</span></>,
+      en: <>A sanctuary<br/><span className="accent">you carry</span></>,
     },
     sub: {
-      es: 'No es para todos. Es para quien sabe que esa riqueza también se protege.',
-      en: 'Not for everyone. For those who know that such wealth must also be protected.',
+      es: 'Durante siglos, quienes subían a la Laguna Negra bajaban con un seguro: agua sagrada sellada en vidrio, un pacto de protección que se llevaba encima. Esto es ese mismo pacto, elevado a joya.',
+      en: 'For centuries, those who climbed to the Black Lagoon came down with a seguro: sacred water sealed in glass, a pact of protection worn close. This is that same pact, raised to fine jewelry.',
     },
     range: [0.80, 1.00],
-    position: 'center',
+    position: 'left',
     theme: 'light',
   },
 ];
@@ -320,26 +320,60 @@ function Hero({ lang, tweaks, pendantRef }) {
 
   // Apply theme to body via data attr + CSS vars (lerped).
   // Throttled: the theme curve only changes meaningfully across the
-  // 0.45 → 0.85 progress band, and the RGB outputs are rounded to integers.
+  // 0.45 → 0.90 progress band, and the RGB outputs are rounded to integers.
   // We bucket to 0.005 (0.5%) — anything finer is invisible against the
   // 1-pixel-of-color difference the lerp can produce — and skip the 5 CSS
   // var writes when the bucket hasn't moved. Cuts ~50× redundant style
   // invalidations per scroll second.
   const themeBucketRef = useRef(-1);
   useEffect(() => {
-    const t = progress < 0.45 ? 0 : progress > 0.85 ? 1 : (progress - 0.45) / 0.40;
-    const bucket = Math.round(t * 200); // 200 distinct buckets across the band
+    // Theme arc: dark void → cream across ORIGEN…ALMA → back to the void for
+    // the EDICIÓN finale. The journey resolves in darkness, not cream: the
+    // climax is "one light in the dark", so phase 05 drains the cream
+    // background back to emerald-black, leaving the orb as the single light.
+    // The 0.45→0.85 ramp is the ORIGINAL curve (ALMA's day mode is tuned to it
+    // and gates out by ≈0.847, so it stays byte-unchanged); only the 0.85→0.90
+    // drain and the ≥0.90 void are new.
+    const t =
+      progress < 0.45 ? 0 :
+      progress < 0.85 ? (progress - 0.45) / 0.40 :
+      progress < 0.90 ? 1 - (progress - 0.85) / 0.05 :
+      0;
+    // EDICIÓN finale resolves back into the VOID ("la última luz"): the journey
+    // ends in darkness with the orb as the single light, NOT in an ivory field.
+    // So the body background stays emerald-black the whole hero — the FG lerp
+    // (driven by `t`) still rides up for ORIGEN/ALMA's bright photo backdrops
+    // and drains back to champagne as the finale darkens. No ivory override.
+    // As the EDICIÓN void takes over (past the ALMA↔EDICIÓN midpoint) pull the
+    // chrome back to champagne-on-black, regardless of `t` (which is still high
+    // from ALMA's bright temple and only drains at 0.85). Without this, the
+    // inscription would render as dark ink on the void during 0.80→0.87.
+    // Ramp [0.80, 0.87]; exactly 0 at/below 0.80 so ALMA stays byte-unchanged.
+    const voidMix = Math.max(0, Math.min(1, (progress - 0.80) / 0.07));
+    const bucket = Math.round(t * 200) + Math.round(voidMix * 200) * 1009;
     if (bucket === themeBucketRef.current) return;
     themeBucketRef.current = bucket;
-    const tQ = bucket / 200;
-    const bg = rgbLerpArr(C_DARK_BG, C_LIGHT_BG, tQ);
-    const fg = rgbLerpArr(C_DARK_FG, C_LIGHT_FG, tQ);
+    const tQ = (bucket % 1009) / 200;
+    const ss = (x) => { const u = Math.max(0, Math.min(1, x)); return u * u * u * (u * (u * 6 - 15) + 10); };
+    const vm = ss(voidMix);
+    // Background: dark emerald through the whole hero AND the void finale.
+    // FG: champagne in the dark phases, lerps to dark ink for the bright
+    // ORIGEN/ALMA backdrops (tQ), then forced back to champagne for the void.
+    const bg = C_DARK_BG;
+    let fg = rgbLerpArr(C_DARK_FG, C_LIGHT_FG, tQ);
+    fg = rgbLerpArr(fg, C_DARK_FG, vm);
     document.body.style.setProperty('--theme-bg', `rgb(${bg.join(',')})`);
     document.body.style.setProperty('--theme-fg', `rgb(${fg.join(',')})`);
     document.body.style.setProperty('--theme-fg-muted', rgba(fg, 0.55));
     document.body.style.setProperty('--theme-fg-faint', rgba(fg, 0.20));
     document.body.style.setProperty('--theme-fg-hairline', rgba(fg, 0.15));
-    const themeName = tQ > 0.5 ? 'light' : 'dark';
+    // Also mirror the background var onto <html>: the `html, body { background:
+    // var(--theme-bg, --emerald-950) }` rule otherwise paints the DARK fallback
+    // on the root element (custom props don't inherit upward from body), which
+    // could flash through on overscroll / before body paints. Keeping html in
+    // sync guarantees the ivory finale is solid top-to-bottom.
+    document.documentElement.style.setProperty('--theme-bg', `rgb(${bg.join(',')})`);
+    const themeName = (tQ > 0.5 && vm < 0.5) ? 'light' : 'dark';
     if (document.body.dataset.theme !== themeName) document.body.dataset.theme = themeName;
   }, [progress]);
 
@@ -369,8 +403,36 @@ function Hero({ lang, tweaks, pendantRef }) {
   // looking at ALMA, so we don't keep a timer alive across the rest of the
   // page.
   const [almaNight, setAlmaNight] = React.useState(false);
-  const almaGate = Math.exp(-Math.pow((progress - 0.70) / 0.085, 2));
+  // ALMA temple backdrop bloom. The temple now LEADS the angel instead of
+  // trailing it. Previously this was a symmetric gaussian (peak 0.70, σ=0.105)
+  // whose opacity only reached full AT 0.70 — the same point the angel snaps
+  // to its resting ALMA pose. Because the angel CENTRES earlier (its X-centre
+  // peaks at ~0.63 and its scale is ~93% by 0.68), the backdrop visibly
+  // "arrived late": the angel looked settled while the frame was still dark,
+  // and the temple only filled in over the slow 3 s snap to 0.70. The user
+  // asked for the opposite — the backdrop should already be applied by the
+  // time the angel is positioned.
+  //
+  // So the LEADING edge (progress < 0.70) now ramps in across [0.54, 0.62]
+  // via smootherstep, reaching FULL opacity at 0.62 — so the temple is fully
+  // placed BEFORE the angel even centres (~0.63) and well before the 0.70
+  // rest snap. The TRAILING edge (progress ≥ 0.70) keeps the original gaussian
+  // (σ=0.105) so the ALMA→EDICIÓN handoff and the day/night behaviour above
+  // 0.70 are byte-unchanged. The two branches both equal 1 at 0.70, so the
+  // curve is continuous. It is exactly 0 at/below 0.54, so nothing bleeds into
+  // the MATERIA peak (0.50).
+  const smootherstep = (x) => {
+    const t = Math.max(0, Math.min(1, x));
+    return t * t * t * (t * (t * 6 - 15) + 10);
+  };
+  const almaGate = progress >= 0.70
+    ? Math.exp(-Math.pow((progress - 0.70) / 0.105, 2))
+    : smootherstep((progress - 0.54) / (0.62 - 0.54));
   const almaIsVisible = almaGate > 0.05;
+  // EDICIÓN sacred-geometry backdrop visibility — a Metatron's-cube polygon
+  // that rotates slowly BEHIND the angel (right column) during the finale.
+  // Ramps in across [0.80, 0.90] so it's fully present at the EDICIÓN rest.
+  const editionGeoVis = smootherstep((progress - 0.80) / 0.10);
   useEffect(() => {
     if (!almaIsVisible) return;
     const id = setInterval(() => setAlmaNight(n => !n), 10000);
@@ -503,6 +565,23 @@ function Hero({ lang, tweaks, pendantRef }) {
           );
         })()}
 
+        {/* EDICIÓN — "la última luz": the journey resolves in the void. A deep
+            edge-vignette pushes the frame toward true black; a layered phosphor
+            bloom turns the orb into the single source of light filling the dark;
+            and a thin shaft of that light descends into the struck hallmark.
+            All sit at the backdrop layer (z-index 0) so the transparent 3D
+            canvas composites the angel + glowing orb over them. */}
+        {editionGeoVis > 0.01 ? (
+          <React.Fragment>
+            <div className="edition-void" aria-hidden style={{ opacity: editionGeoVis }}></div>
+            <div className="edition-glow" aria-hidden style={{ opacity: editionGeoVis }}></div>
+            <div className="edition-hallmark" aria-hidden style={{ opacity: editionGeoVis }}>
+              <span className="edition-hallmark__shaft"></span>
+              <span className="edition-hallmark__serial">N.º 01 / 100</span>
+            </div>
+          </React.Fragment>
+        ) : null}
+
         {/* The 3D canvas */}
         <Pendant ref={pendantRef} glowColor={tweaks.glowColor} glowIntensity={tweaks.glowIntensity} />
 
@@ -590,12 +669,35 @@ function Hero({ lang, tweaks, pendantRef }) {
                 // canvas showing the orb in the middle band. Other phases
                 // keep the original single-inner stack untouched.
                 const isAlma = p.num === '04';
+                const isEdition = p.num === '05';
                 return (
                   <div key={p.num}
-                       className={`phase-content${isAlma ? ' phase-content--alma' : ''}`}
+                       className={`phase-content${isAlma ? ' phase-content--alma' : ''}${isEdition ? ' phase-content--edition' : ''}`}
                        data-active={isActive}
                        data-position={p.position}>
-                    {isAlma ? (
+                    {isEdition ? (
+                      /* EDICIÓN — "estrella fija" layout: copy LEFT, angel RIGHT
+                         (like ORIGEN/MATERIA), with a slow-rotating Metatron
+                         sacred-geometry polygon behind the angel. Left-aligned
+                         inscription: eyebrow, headline (roman + italic accent),
+                         the message, a struck serial hallmark and the custody
+                         invitation. */
+                      <div className="phase-content__inner phase-content__inner--edition" style={innerStyle}>
+                        <span className="phase-bilingual edition-eyebrow">
+                          {lang === 'es' ? 'UN PACTO ANCESTRAL' : 'AN ANCIENT PROMISE'}
+                        </span>
+                        <h2 className="phase-title phase-title--edition">
+                          {lang === 'es'
+                            ? <>Un santuario<br/><span className="accent">portátil</span></>
+                            : <>A sanctuary<br/><span className="accent">you carry</span></>}
+                        </h2>
+                        <p className="phase-sub">{p.sub[lang]}</p>
+                        <a className="Button Button--ghost edition-cta" href="#contact">
+                          {lang === 'es' ? 'Recibir en custodia' : 'Receive in custody'}
+                          <span className="Button__arrow">→</span>
+                        </a>
+                      </div>
+                    ) : isAlma ? (
                       /* ALMA layout: orb (rendered by the WebGL canvas) sits
                          in the upper third of the viewport thanks to the
                          pyAlmaShift + 0.65× scale in pendant.jsx. ALL the
