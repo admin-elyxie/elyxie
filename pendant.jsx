@@ -1170,17 +1170,18 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
           stateRef.current.almaNightActual += (target - stateRef.current.almaNightActual) * k;
         }
         const almaNightF = stateRef.current.almaNightActual;
-        // Phase 02 (ORIGEN, scroll range 0.18–0.40) proximity. Peaks at the
-        // middle of the range and falls off symmetrically so all phase-02
-        // overrides (rotation, framing, lighting) ramp in/out together while
-        // phases 01 and 03 stay untouched.
-        const phaseOriginProximity = Math.exp(-Math.pow((tRaw - 0.29) / 0.075, 2));
-        // Phase 01 (BIENVENIDA) proximity gaussian — peaks at tRaw=0 and
-        // decays to negligible (<1%) by tRaw≈0.18, well before phase 02's
-        // peak at 0.29. Used to gate phase-01-only nudges: angel pushed
-        // right so the headline owns the left half, and a teal vignette
-        // backdrop. Outside phase 01 this is essentially 0 → no effect.
-        const phase01Proximity = Math.exp(-Math.pow(tRaw / 0.08, 2));
+        // ORIGEN is now the OPENER (slot 01). Its proximity peaks at tRaw=0 so
+        // all ORIGEN overrides (Laguna Negra backdrop, sun rig, -30° rotation,
+        // far framing camZ→6.9, centred angel) bloom at the very start, and
+        // decay to ≈0 by tRaw≈0.18 — well before BIENVENIDA's peak at 0.29 and
+        // MATERIA at 0.50, so neither leaks.
+        const phaseOriginProximity = Math.exp(-Math.pow(tRaw / 0.075, 2));
+        // BIENVENIDA moved to slot 02, peaking at tRaw=0.29. Gates its
+        // phase-specific nudges (angel pushed right so the headline owns the
+        // left half, teal vignette + smoke, overhead spot). ≈0 at the ORIGEN
+        // opener (tRaw=0 → exp(-13)≈2e-6) and at MATERIA (0.50), so it stays
+        // contained to its new mid-position.
+        const phase01Proximity = Math.exp(-Math.pow((tRaw - 0.29) / 0.08, 2));
 
         // Phase 03 (MATERIA, scroll range 0.40–0.60) proximity. Peaks at the
         // middle of the range (tRaw=0.50) with the same σ as phase 02 so the

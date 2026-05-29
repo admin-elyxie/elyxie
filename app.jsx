@@ -9,22 +9,8 @@ var { useState, useEffect, useRef, useLayoutEffect } = React;
 // ---------- Copy: 5 phases bilingual ES / EN ----------
 const PHASES = [
   {
+    // Slot 01 — now ORIGEN (the Laguna Negra opener). Swapped with BIENVENIDA.
     num: '01',
-    label: { es: 'BIENVENIDA',  en: 'WELCOME' },
-    title: {
-      es: <>Un santuario <span className="accent">se acerca</span>.</>,
-      en: <>A sanctuary <span className="accent">approaches</span>.</>,
-    },
-    sub: {
-      es: 'No para ser visto. Para ser sentido.',
-      en: 'Not to be seen. To be felt.',
-    },
-    range: [0.00, 0.18],
-    position: 'left',
-    theme: 'dark',
-  },
-  {
-    num: '02',
     label: { es: 'ORIGEN', en: 'ORIGIN' },
     title: {
       es: <>Agua sagrada de la <span className="accent">Laguna Negra</span>.</>,
@@ -33,6 +19,22 @@ const PHASES = [
     sub: {
       es: 'Recogida a 3.957 m sobre el nivel del mar, en los Andes peruanos. Mamayacu — la Madre Agua — descansa dentro de cada esfera.',
       en: 'Gathered 3,957 m above sea level, in the Peruvian Andes. Mamayacu — Mother of Water — rests inside each sphere.',
+    },
+    range: [0.00, 0.18],
+    position: 'left',
+    theme: 'dark',
+  },
+  {
+    // Slot 02 — now BIENVENIDA (the welcome, moved to second). Swapped with ORIGEN.
+    num: '02',
+    label: { es: 'BIENVENIDA',  en: 'WELCOME' },
+    title: {
+      es: <>Un santuario <span className="accent">se acerca</span>.</>,
+      en: <>A sanctuary <span className="accent">approaches</span>.</>,
+    },
+    sub: {
+      es: 'No para ser visto. Para ser sentido.',
+      en: 'Not to be seen. To be felt.',
     },
     range: [0.18, 0.40],
     position: 'left',
@@ -488,13 +490,13 @@ function Hero({ lang, tweaks, pendantRef }) {
              style={{ height: `${pinVH * 100}vh` }}
              data-screen-label="01 Hero (scroll-pin)">
       <div className="pin-stage">
-        {/* Phase 01 (BIENVENIDA) vignette — deep dark with a subtle teal cast
-            and an off-center radial fade that focuses attention on the angel.
-            Sits behind the transparent 3D canvas (z-index 0, same layer as
-            .laguna-bg). Opacity gaussian peaks at progress=0 and decays to
-            ~0 by progress≈0.18 so it doesn't bleed into phase 02. */}
+        {/* BIENVENIDA vignette — deep dark with a subtle teal cast and an
+            off-center radial fade that focuses attention on the angel. Sits
+            behind the transparent 3D canvas (z-index 0). BIENVENIDA moved to
+            slot 02, so this peaks at progress=0.29 now (was 0) and decays to ~0
+            by the ORIGEN opener and by MATERIA, so it doesn't bleed. */}
         {(() => {
-          const o01 = Math.exp(-Math.pow(progress / 0.08, 2));
+          const o01 = Math.exp(-Math.pow((progress - 0.29) / 0.08, 2));
           return (
             <React.Fragment>
               <div className="hero-vignette-01" aria-hidden style={{ opacity: o01 }} />
@@ -548,11 +550,12 @@ function Hero({ lang, tweaks, pendantRef }) {
             the middle of phase 02's scroll range so the photo only appears
             when the angel is in the "ORIGEN" beat. */}
         {(() => {
-          // Phase 02 (ORIGEN) backdrop: opacity gaussian peaks at progress 0.29.
-          // The same gaussian also drives a slight brightness/contrast filter so
-          // the photograph compresses into the dark, slightly-underexposed mood
-          // of the reference composite when it's fully visible.
-          const o = Math.exp(-Math.pow((progress - 0.29) / 0.085, 2));
+          // ORIGEN backdrop: now the OPENER (slot 01), so the Laguna Negra photo
+          // peaks at progress 0 (was 0.29) and decays to ~0 by ≈0.18. The same
+          // gaussian drives a slight brightness/contrast filter so the photo
+          // compresses into the dark, slightly-underexposed mood when fully
+          // visible.
+          const o = Math.exp(-Math.pow(progress / 0.085, 2));
           return (
             <div
               className="laguna-bg"
