@@ -567,7 +567,25 @@ function Hero({ lang, tweaks, pendantRef }) {
                 opacity: o,
                 filter: `brightness(${1 - 0.18 * o}) contrast(${1 + 0.10 * o}) saturate(${1 + 0.08 * o})`,
               }}
-            />
+            >
+              {/* Video background for the ORIGEN opener — looped, muted,
+                  inline-playable so iOS Safari respects autoplay. The poster
+                  is the previous still photo so the very first frame paints
+                  immediately (no flash of empty wrapper while the video
+                  decodes). filter + opacity stay on the wrapper div so the
+                  GPU composites them once instead of re-running per frame. */}
+              <video
+                className="laguna-bg__video"
+                autoPlay
+                muted
+                loop
+                playsInline
+                preload="auto"
+                poster="assets/photography/laguna-negra-bg.webp"
+              >
+                <source src="assets/video/origen-bg.mp4" type="video/mp4" />
+              </video>
+            </div>
           );
         })()}
 
