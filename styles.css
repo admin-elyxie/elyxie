@@ -442,25 +442,29 @@ body[data-theme="dark"] {
   position: absolute;
   inset: 0;
   z-index: 0;
-  /* image-set lets the browser pick WebP when supported (95%+ of users)
-     and fall back to the original JPG otherwise. Saves ~1.6 MB on this
-     single backdrop. */
-  background-image: image-set(
-    url("assets/photography/laguna-negra-bg.webp") type("image/webp"),
-    url("assets/photography/laguna-negra-bg.jpg") type("image/jpeg")
-  );
-  background-image: -webkit-image-set(
-    url("assets/photography/laguna-negra-bg.webp") type("image/webp"),
-    url("assets/photography/laguna-negra-bg.jpg") type("image/jpeg")
-  );
-  background-size: cover;
-  background-position: center center;
-  background-repeat: no-repeat;
+  /* Wrapper for the ORIGEN video. The video itself lives inside as a
+     <video> tag; this wrapper carries the opacity + filter inline styles
+     so the GPU compositor handles the cross-fade in one layer (filtering
+     a video tag directly forces per-frame re-encoding). overflow:hidden
+     clips the video to the wrapper bounds (no cover-overflow leakage). */
+  overflow: hidden;
   pointer-events: none;
   /* Drive in/out via inline opacity from app.jsx (gaussian on scroll progress).
      A short transition smooths any micro-jitter at the curve's edges. */
   transition: opacity 180ms linear;
   will-change: opacity;
+}
+.laguna-bg__video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center center;
+  display: block;
+  /* The video element shouldn't intercept clicks/scrolls — pointer-events
+     already off on the wrapper but redeclared here as a guarantee. */
+  pointer-events: none;
 }
 
 /* ---------- Phase 04 (ALMA) temple backdrop ----------
