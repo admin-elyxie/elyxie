@@ -550,17 +550,19 @@ function Hero({ lang, tweaks, pendantRef }) {
           </React.Fragment>
         ) : null}
 
-        {/* Phase 02 (ORIGEN) backdrop — Laguna Negra photograph. Sits behind the
-            transparent 3D canvas; opacity is driven by a gaussian centered on
-            the middle of phase 02's scroll range so the photo only appears
-            when the angel is in the "ORIGEN" beat. */}
+        {/* Phase 01→02 backdrop crossfade (Laguna video ⇄ Tribu video).
+            The two videos cross-fade as COMPLEMENTARY opacities so their sum
+            is always ~1 across the section-1→2 transition — the dark teal page
+            bg (#051613) never shows through the gap (the "green flash" the user
+            saw). `s1s2` ramps 0→1 across [0.10, 0.20] (around the 0.18 boundary)
+            via smoothstep; laguna = 1−s1s2, tribu = s1s2 (with its own fade-out
+            before MATERIA). */}
         {(() => {
-          // ORIGEN backdrop: now the OPENER (slot 01), so the Laguna Negra photo
-          // peaks at progress 0 (was 0.29) and decays to ~0 by ≈0.18. The same
-          // gaussian drives a slight brightness/contrast filter so the photo
-          // compresses into the dark, slightly-underexposed mood when fully
-          // visible.
-          const o = Math.exp(-Math.pow(progress / 0.085, 2));
+          const clamp01 = (x) => Math.max(0, Math.min(1, x));
+          const ss = (x) => { x = clamp01(x); return x * x * (3 - 2 * x); };
+          const s1s2 = ss((progress - 0.10) / 0.10);
+          const o = 1 - s1s2; // Laguna covers section 1, hands off to Tribu by 0.20
+          if (o <= 0.005) return null;
           return (
             <div
               className="laguna-bg"
@@ -601,7 +603,15 @@ function Hero({ lang, tweaks, pendantRef }) {
             everything else the 1440² one. The `key` on <video> forces React
             to remount when the breakpoint flips so the new source is fetched. */}
         {(() => {
-          const o = Math.exp(-Math.pow((progress - 0.29) / 0.075, 2));
+          // Complementary to the Laguna fade above: tribu = s1s2 (rises as
+          // laguna falls, so coverage stays ~1 → no green gap), then fades out
+          // via `tribuOut` across [0.36, 0.44] before MATERIA's 0.50 beat so it
+          // never bleeds into the trio.
+          const clamp01 = (x) => Math.max(0, Math.min(1, x));
+          const ss = (x) => { x = clamp01(x); return x * x * (3 - 2 * x); };
+          const s1s2 = ss((progress - 0.10) / 0.10);
+          const tribuOut = ss((progress - 0.36) / 0.08);
+          const o = s1s2 * (1 - tribuOut);
           if (o <= 0.005) return null;
           const src = isNarrow ? 'assets/video/tribu-bg-720.mp4' : 'assets/video/tribu-bg.mp4';
           return (

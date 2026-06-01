@@ -435,6 +435,18 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
       const phase04DayBounce = new THREE.DirectionalLight(0xfff0d0, 0);
       phase04DayBounce.position.set(0, -2.0, 3.0);
       scene.add(phase04DayBounce);
+      // phase02NightBeam: cool moonlit shaft for HISTORIA (section 2). The
+      // Tribu backdrop is a night ceremony with a cold god-ray descending
+      // from the top-centre onto the candle altar; the angel now hovers in
+      // that same column (sections 1+2 share the transform), so it should be
+      // raked by a matching COOL light from high + slightly front so the
+      // beam reads as falling onto the figure. Soft blue-white (0xbcd2ff)
+      // rather than saturated blue so the gold doesn't go muddy/green.
+      // Intensity is driven by phase01Proximity in the animate loop → 0 at
+      // every other phase, byte-perfect.
+      const phase02NightBeam = new THREE.DirectionalLight(0xbcd2ff, 0);
+      phase02NightBeam.position.set(0.2, 6.5, 2.2);
+      scene.add(phase02NightBeam);
 
       const angel = new THREE.Group();
       scene.add(angel);
@@ -1183,6 +1195,22 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
         // contained to its new mid-position.
         const phase01Proximity = Math.exp(-Math.pow((tRaw - 0.29) / 0.08, 2));
 
+        // ===== Sections 1 + 2 shared-transform PLATEAU =====
+        // ORIGEN (peak 0, range 0–0.18) and HISTORIA (peak 0.29, range
+        // 0.18–0.40) now SHARE the angel's transform so scrolling between the
+        // two is seamless: the figure keeps its full size, its slow self-spin
+        // and its right-column framing across BOTH beats — only the backdrop
+        // video + copy change underneath. `introHold` is a plateau = 1 across
+        // [0, 0.34] (covering both ranges), then eases to 0 by 0.46 — before
+        // MATERIA's 0.50 peak — so MATERIA/ALMA/EDICIÓN keep their own framing
+        // byte-perfect. It REPLACES phaseOriginProximity for the TRANSFORM
+        // (rotation, X/Y position, camera Z) only; the warm ORIGEN lighting
+        // still fades with phaseOriginProximity after section 1, and section
+        // 2 gets its own cool night light gated by phase01Proximity.
+        const introHold = tRaw <= 0.34
+          ? 1
+          : (tRaw >= 0.46 ? 0 : 1 - smootherstep((tRaw - 0.34) / 0.12));
+
         // Phase 03 (MATERIA, scroll range 0.40–0.60) proximity. Peaks at the
         // middle of the range (tRaw=0.50) with the same σ as phase 02 so the
         // ramp shape feels consistent. Gates: (a) the visibility of the
@@ -1210,7 +1238,11 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
         const CU_HOLD_END   = 0.155;
         const closeupRise = smootherstep(tRaw / CU_HOLD_START);
         const closeupFall = 1 - smootherstep((tRaw - CU_HOLD_END) / (0.29 - CU_HOLD_END));
-        const faceCloseup = Math.min(closeupRise, closeupFall);
+        // Gated by (1 - introHold): the close-up camera dive lived entirely
+        // inside the sections 1+2 plateau, and the user wants NO scroll-driven
+        // camera movement there — so it's fully suppressed (camZ dip + lookAt
+        // tracking below both go to 0). The angel stays at the fixed wide framing.
+        const faceCloseup = Math.min(closeupRise, closeupFall) * (1 - introHold);
 
         // Rotation EASE-IN RELEASE: quartic curve (1 - x⁴) holds the angel
         // near -30° during the early scroll and accelerates sharply near
@@ -1244,20 +1276,40 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
         //   • toward BIENVENIDA (slot 02): both rotHold and phaseOriginProximity
         //     collapse to 0 well before its 0.29 peak, so the angel resolves to
         //     forward and BIENVENIDA / MATERIA / ALMA / EDICIÓN stay byte-perfect.
+        // CONTINUOUS self-spin across sections 1 + 2. The user wants the angel
+        // to keep rotating on its Y axis through BOTH ORIGEN and HISTORIA, and
+        // for that rotation to carry on UNINTERRUPTED across the section change
+        // (no stop, no reset at the 0.18 boundary or the 0.29 rest). The angle
+        // accumulates over TIME (not scroll) while introHold is active, so it
+        // is purely time-based and scroll-independent inside the plateau — the
+        // figure turns even when the user isn't scrolling, and at the same rate
+        // at every scroll position across both sections. Only as we leave
+        // toward MATERIA does (× introHold) unwind it back to forward.
+        // NOTE: the -30°→0° intro turn (rotHold) is intentionally dropped — it
+        // was a SCROLL-driven rotation, which the user removed; only the
+        // time-based continuous spin remains.
+        // Start orientation: the angel starts rotated −70° — its front turned
+        // toward screen-LEFT (per this scene's convention that +rotation.y
+        // sends +Z/front toward +X, so negative sends it toward −X/screen-left).
+        // The −70° offset is the base pose the continuous spin departs from;
+        // it's added to the accumulated angle so section 1 opens at −70° and
+        // the rotation carries on smoothly (and stays continuous across the
+        // section-2 boundary).
+        const SPIN_BASE = -70 * Math.PI / 180;
         const ORIGIN_SPIN_OFF = 0.001;
-        if (phaseOriginProximity < ORIGIN_SPIN_OFF) {
+        if (introHold < ORIGIN_SPIN_OFF) {
           stateRef.current.originSpinAngle = 0;
         } else {
           stateRef.current.originSpinAngle =
-            (stateRef.current.originSpinAngle || 0) + dt * 0.25 * phaseOriginProximity;
+            (stateRef.current.originSpinAngle || 0) + dt * 0.25 * introHold;
         }
         let originSpin = 0;
         {
           const TWO_PI = Math.PI * 2;
-          let wrapped = (stateRef.current.originSpinAngle || 0) % TWO_PI;
+          let wrapped = (SPIN_BASE + (stateRef.current.originSpinAngle || 0)) % TWO_PI;
           if (wrapped > Math.PI) wrapped -= TWO_PI;
           else if (wrapped < -Math.PI) wrapped += TWO_PI;
-          originSpin = wrapped * phaseOriginProximity;
+          originSpin = wrapped * introHold;
         }
 
         if (window.__debugFreezeY !== undefined) {
@@ -1265,13 +1317,9 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
           angel.rotation.x = 0;
           angel.rotation.z = 0;
         } else {
-          // BIENVENIDA (slot 02) keeps the original -30°→0° hold-and-release via
-          // rotHold (anchored at tRaw=0, resolved by 0.13). ORIGEN (slot 01)
-          // ADDS the continuous self-spin on top of the same -30° base. Both
-          // terms are ≈1 at tRaw=0 and ≈0 by BIENVENIDA's peak, so they don't
-          // fight: at the opener the spin dominates; by BIENVENIDA both collapse
-          // to 0 (forward).
-          angel.rotation.y = -(Math.PI / 6) * rotHold + originSpin;
+          // Continuous spin only — no scroll-driven entry turn, no extra gate.
+          // originSpin already carries the (× introHold) unwind for MATERIA.
+          angel.rotation.y = originSpin;
           angel.rotation.x = 0;
           angel.rotation.z = 0;
         }
@@ -1343,7 +1391,7 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
         // (orb on the central axis, wings spreading symmetrically). At
         // tRaw≥0.20 pxCentered is already 0, so this lerp is a no-op there;
         // at tRaw=0 it preserves phase 01 byte-perfect (centerProgress=0).
-        const pxOrigin = lerp(pxCentered, 0, phaseOriginProximity);
+        const pxOrigin = lerp(pxCentered, 0, introHold);
         // And lift the model so the orb lands at ~47–49% of viewport Y and the
         // feet meet the photo's water line at ~65–70 % Y.
         // ORIGEN vertical framing, per-device:
@@ -1356,12 +1404,17 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
         //     LOWER than the previous +0.30 lift, so it sits more grounded over
         //     the lake (≈0.40 world units ≈ 10% of the ORIGEN frame height).
         // Gated by phaseOriginProximity → byte-perfect at every other phase.
-        const pyOriginShift = (isMobile ? 0.30 : isTablet ? -0.05 : -0.10) * phaseOriginProximity;
+        const pyOriginShift = (isMobile ? 0.30 : isTablet ? -0.05 : -0.10) * introHold;
         // Phase 01 (BIENVENIDA) depth push: sit the angel slightly further
         // from camera so the smoke that drifts in front feels more wrapping.
         // Decays to 0 outside phase 01. Computed early so the mobile-phase-01
         // centering math (below) can use it together with camZ.
-        const pz01 = -0.6 * phase01Proximity;
+        // pz01 retired (was -0.6 × phase01Proximity to push the angel back into
+        // the old section-2 smoke). With the smoke gone and sections 1+2 now
+        // sharing one seamless transform, any depth recede at 0.29 would shrink
+        // the angel's apparent size and break the seamless match — so keep it
+        // at the same depth as section 1.
+        const pz01 = 0;
 
         // === camera Z (computed BEFORE py so screen-space centering can use it) ===
         let camZ;
@@ -1375,7 +1428,7 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
         // Phase 02 (ORIGEN) framing: pull camera back so the angel reads at
         // ~60% of viewport height (wings visible at top, feet meeting the
         // photo's water line), per the reference composite.
-        camZ = lerp(camZ, 6.9, phaseOriginProximity);
+        camZ = lerp(camZ, 6.9, introHold);
         // Phase 03 (MATERIA) framing: pull the camera back further so the
         // three-angel triangle (silver | gold | rhodium, laterals at
         // x=±0.7/z=0 and dropped 50% of the way to the central orb)
@@ -1421,19 +1474,10 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
         // phases 02-5 remain byte-perfect. Much simpler than vertex-
         // extremes centering (which mis-fired because back-facing wing
         // vertices contribute to the bbox but are occluded visually).
-        // py01Mobile retired: it centred the FULL-SIZE angel within the old
-        // mobile WELCOME copy window. HISTORIA now shows a much smaller angel
-        // descending onto the candle blanket, positioned by pyHistoriaShift
-        // below (all viewports), so this legacy mobile-only centring is gone.
+        // py01Mobile + pyHistoriaShift retired: sections 1+2 now share one
+        // seamless transform (introHold), so HISTORIA inherits ORIGEN's
+        // vertical framing (pyOriginShift) — no separate section-2 drop.
         const py01Mobile = 0;
-        // HISTORIA (phase 02, 0.29 beat): drop the shrunken angel DOWN into the
-        // lower-centre of the frame so it hovers just above the manta of
-        // candles in the Tribu video (the offering sits ~70% down; the god-ray
-        // beam descends onto it). Negative = downward. Mobile needs a larger
-        // magnitude because the portrait camera pulls back (camZ grows), so a
-        // world unit maps to fewer screen pixels. Gated by phase01Proximity →
-        // byte-perfect at every other phase anchor.
-        const pyHistoriaShift = (isMobile ? -1.05 : isTablet ? -0.85 : -0.80) * phase01Proximity;
 
         // Phase 03 (MATERIA) horizontal shift: at world X=0 the trio lands
         // under the "Tres acabados. Una sola alma." copy because the text
@@ -1478,8 +1522,13 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
         // screen midpoint to a world-X via the visible world width at z=0.
         // Tablet/mobile stack the copy on top (centred angel below) → shift 0.
         // Gated by phaseOriginProximity → byte-perfect at every other phase.
+        // Rides introHold (sections 1+2) so the angel stays in the right
+        // column across BOTH ORIGEN and HISTORIA — both put their copy in the
+        // LEFT column, and the measurement uses the ACTIVE title, so it
+        // self-corrects to whichever headline is on screen. Seamless: no X
+        // jump when scrolling from section 1 to section 2.
         let pxOriginRightCenter = 0;
-        if (!isMobile && !isTablet && phaseOriginProximity > 0.001) {
+        if (!isMobile && !isTablet && introHold > 0.001) {
           const titleEl = document.querySelector('.phase-content[data-active="true"] .phase-title')
                        || document.querySelector('.phase-content .phase-title');
           const railEl = document.querySelector('.rail');
@@ -1489,12 +1538,12 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
             if (tr.width > 0 && rr.width > 0 && rr.left > tr.right) {
               const midX = (tr.right + rr.left) / 2;
               const worldShift = (midX - vw / 2) * worldWidthAtZ0 / vw;
-              pxOriginRightCenter = worldShift * phaseOriginProximity;
+              pxOriginRightCenter = worldShift * introHold;
             }
           }
         }
         const px = pxOrigin * (1 - phaseSoulProximity * 0.85)
-                 + Math.sin(clock.elapsed * 0.35) * 0.02 * (1 - phase05Proximity * 0.7)
+                 + Math.sin(clock.elapsed * 0.35) * 0.02 * (1 - phase05Proximity * 0.7) * (1 - introHold)
                  + px03Shift * phase03Proximity
                  + px05Shift * phase05Proximity
                  + pxOriginRightCenter;
@@ -1561,12 +1610,15 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
         // inscription, leaving a clean gap instead of colliding with the eyebrow.
         // Only the SCALE is comp'd below.
         const pyEditionShift = (isMobile ? 1.52 : isTablet ? 0.6 : 0.10) * phase05Proximity;
+        // The idle vertical bob and the scroll-driven sin(tRaw·π) lift are both
+        // gated by (1 - introHold) so the angel holds a DEAD-STILL vertical
+        // position across sections 1+2 (user: nothing moves there). They return
+        // to normal once the plateau eases out toward MATERIA.
         const py = -0.05 + pyOffset + pyOriginShift + py01Mobile
                  + pyAlmaShift
-                 + pyHistoriaShift
                  + pyEditionShift
-                 + Math.sin(clock.elapsed * 0.4) * 0.03 * (1 - phase05Proximity * 0.7)
-                 + Math.sin(tRaw * Math.PI) * 0.06;
+                 + Math.sin(clock.elapsed * 0.4) * 0.03 * (1 - phase05Proximity * 0.7) * (1 - introHold)
+                 + Math.sin(tRaw * Math.PI) * 0.06 * (1 - introHold);
         angel.position.set(px, py, pz01);
 
         // Phase 03 (MATERIA) side angels: appear via pure ALPHA fade-in at
@@ -1753,15 +1805,11 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
             // title/sub stack below. Mobile gets an extra shrink (0.50)
             // because the portrait camera otherwise keeps the body too
             // large in screen-space and the title overlaps the legs.
+            // Scale stays 1.0 across ORIGEN + HISTORIA (sections 1+2 share the
+            // transform via introHold; no per-phase shrink here) so the angel
+            // is the SAME size in both — seamless on scroll. The first shrink
+            // only begins at MATERIA (phase03Proximity, peak 0.50).
             let centerScale = lerp(1.0, TRIO_SCALE, phase03Proximity);
-            // HISTORIA (phase 02, 0.29 beat): the angel recedes deep into the
-            // Tribu ceremony — much smaller, reading as a luminous figure
-            // descending in the god-ray beam onto the candle-lit blanket
-            // (manta) at the lower-centre of the video. phase01Proximity peaks
-            // 0.29 (σ 0.08) and is ≈0 at every other anchor, so this lerp is a
-            // no-op outside HISTORIA (MATERIA/ALMA/EDICIÓN scales untouched).
-            const historiaTargetScale = isMobile ? 0.26 : isTablet ? 0.30 : 0.32;
-            centerScale = lerp(centerScale, historiaTargetScale, phase01Proximity);
             const almaTargetScale = isMobile ? 0.55 : 0.65;
             centerScale = lerp(centerScale, almaTargetScale, phase04Proximity);
             // EDICIÓN finale recede: shrink the angel further so it reads as a
@@ -1908,6 +1956,12 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
         // fire during ALMA DAY (and ramp to 0 in night and other phases).
         phase04DaySun.intensity    = 3.2 * phase04DayF;
         phase04DayBounce.intensity = 0.6 * phase04DayF;
+        // HISTORIA (section 2) night beam: cool shaft from high+front, ramps
+        // in with phase01Proximity so the angel picks up the Tribu scene's
+        // cold moonlit god-ray instead of reading warm. Pairs with the
+        // existing phase01 rig (warm key/fill already dimmed to ~10-15%, white
+        // top boosted ×4.2) to push the figure toward a night tone.
+        phase02NightBeam.intensity = 1.5 * phase01Proximity;
 
         const breathe = 0.5 + 0.5 * Math.sin(clock.elapsed * (Math.PI * 2) / 4.0);
         const phaseBoost = 1.0 + 1.6 * Math.exp(-Math.pow((tRaw - 0.6) / 0.18, 2));
@@ -2003,14 +2057,15 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
         // 0.13→0.42 (through phase 02), fade out 0.42→0.52 (as phase 03
         // takes over). Skip the per-particle loop when the gate is closed.
         if (stateRef.current.materials.fairyDust) {
-          // ORIGEN (slot 01, opener) fairy-dust window. This was a fixed tRaw
-          // window [0.10, 0.52] that, after the 01↔02 swap, ended up blooming
-          // over BIENVENIDA (slot 02) instead of ORIGEN. Re-gate it to
-          // phaseOriginProximity so the comet trails orbit the orb during the
-          // ORIGEN opener — and rotate WITH it, since the dust is parented to
-          // the spinning angel's centerSpinner. ≈0 by tRaw≈0.15, so BIENVENIDA
-          // and every later phase are byte-perfect (clear of the trails).
-          const dustOpacity02 = phaseOriginProximity * 0.7;
+          // Sections 1 (ORIGEN) + 2 (HISTORIA) fairy-dust window. The user
+          // wants the SAME comet-trail swarm in section 2 as in section 1, so
+          // it rides `introHold` (the shared 1+2 plateau) instead of the
+          // ORIGEN-only gaussian: full 0.7 opacity across BOTH beats, holding
+          // continuously through the section change, then easing out toward
+          // MATERIA (introHold→0 by 0.46). The dust is parented to the angel's
+          // centerSpinner so it orbits the orb and rotates WITH the figure in
+          // both sections. MATERIA/ALMA/EDICIÓN stay byte-perfect (introHold 0).
+          const dustOpacity02 = introHold * 0.7;
           // Phase 04 (ALMA) second visibility window. The user asked for the
           // orb to "glow exactly like in section 2 — with the glow plus
           // those particles around it" inside ALMA, but ONLY at night —
