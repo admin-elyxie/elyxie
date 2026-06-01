@@ -157,95 +157,6 @@ body[data-theme="dark"] {
    reads as a dark cinematic stage with a slight blue-green tint — that's
    what this layer reproduces. Opacity is driven by an inline gaussian in
    app.jsx so the layer only paints during phase 01. */
-/* Phase 01 (BIENVENIDA) drifting smoke layer. Sits behind the 3D canvas at
-   the same layer as .hero-vignette-01 (z-index 0). Animated by translating
-   a large SVG fractal-noise texture downward — looks like soft smoke/mist
-   drifting down through the volumetric beam. A radial mask focuses the
-   smoke to the column where the beam falls, so the corners stay clean.
-   Inline opacity from app.jsx drives the phase 01 fade in/out. */
-.hero-smoke {
-  position: absolute;
-  inset: -10% -10% -10% -10%; /* oversize so translate doesn't reveal edges */
-  z-index: 0;
-  pointer-events: none;
-  /* `stitchTiles='stitch'` is the critical bit — without it the fractalNoise
-     output has no seam matching at the edges, so any background-repeat shows
-     visible vertical/horizontal grid lines where tiles meet. With stitch,
-     the wavelength is adjusted so the noise tiles cleanly within the filter
-     region and the repeat is invisible. */
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 1200'><filter id='s' x='0' y='0' width='100%25' height='100%25'><feTurbulence type='fractalNoise' baseFrequency='0.008 0.014' numOctaves='3' seed='3' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.82  0 0 0 0 0.90  0 0 0 0 0.93  0 0 0 0.30 0'/></filter><rect width='100%25' height='100%25' filter='url(%23s)'/></svg>");
-  background-size: 800px 1200px;
-  background-repeat: repeat;
-  background-position: 0 0;
-  mix-blend-mode: screen;
-  /* Animation translates the background by exactly one tile height (1200px)
-     over one cycle, so the loop is seamless — at the end of the cycle the
-     pattern visually matches the start position (because the tile repeats
-     and 1200 is the tile period). Any non-multiple delta creates a visible
-     jump every cycle. */
-  animation: hero-smoke-drift 22s linear infinite;
-  /* Mask: concentrate smoke in the column under the beam. Anchored via
-     --angel-x (published from pendant.jsx) so the column follows the
-     model's projected screen X across every viewport — desktop, tablet,
-     mobile — instead of being pinned to a single percent. */
-  -webkit-mask-image: radial-gradient(ellipse 55% 100% at var(--angel-x, 72%) 40%,
-    rgba(0,0,0,1) 0%, rgba(0,0,0,0.85) 28%, rgba(0,0,0,0.5) 55%,
-    rgba(0,0,0,0.15) 78%, transparent 95%);
-  mask-image: radial-gradient(ellipse 55% 100% at var(--angel-x, 72%) 40%,
-    rgba(0,0,0,1) 0%, rgba(0,0,0,0.85) 28%, rgba(0,0,0,0.5) 55%,
-    rgba(0,0,0,0.15) 78%, transparent 95%);
-  transition: opacity 180ms linear;
-  will-change: background-position, opacity;
-}
-
-@keyframes hero-smoke-drift {
-  /* Move by exactly one tile height (1200px) so the cycle wraps invisibly:
-     at 100% the visible pattern is identical to 0%, because the texture
-     repeats every 1200px. Any other delta produces a visible jump. */
-  0%   { background-position: 0px    0px; }
-  100% { background-position: 0px 1200px; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .hero-smoke { animation: none; }
-}
-
-/* Phase 01 (BIENVENIDA) FRONT-pass smoke layer. Same shape as .hero-smoke
-   but painted ABOVE the 3D canvas (z-index 2, vs scene-host z-index 1) so
-   the smoke wisps drift IN FRONT of the angel as well — wraps the figure
-   instead of only sitting behind it. Much fainter than the back layer so
-   the angel still reads cleanly. Different seed + slower drift so the two
-   layers visibly don't sync. */
-.hero-smoke-front {
-  position: absolute;
-  inset: -10% -10% -10% -10%;
-  z-index: 2;
-  pointer-events: none;
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 1200'><filter id='sf' x='0' y='0' width='100%25' height='100%25'><feTurbulence type='fractalNoise' baseFrequency='0.006 0.011' numOctaves='3' seed='9' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.92  0 0 0 0 0.95  0 0 0 0 0.97  0 0 0 0.42 0'/></filter><rect width='100%25' height='100%25' filter='url(%23sf)'/></svg>");
-  background-size: 800px 1200px;
-  background-repeat: repeat;
-  background-position: 0 0;
-  mix-blend-mode: screen;
-  animation: hero-smoke-front-drift 28s linear infinite;
-  -webkit-mask-image: radial-gradient(ellipse 55% 100% at var(--angel-x, 72%) 40%,
-    rgba(0,0,0,1) 0%, rgba(0,0,0,0.75) 30%, rgba(0,0,0,0.4) 55%,
-    rgba(0,0,0,0.1) 78%, transparent 95%);
-  mask-image: radial-gradient(ellipse 55% 100% at var(--angel-x, 72%) 40%,
-    rgba(0,0,0,1) 0%, rgba(0,0,0,0.75) 30%, rgba(0,0,0,0.4) 55%,
-    rgba(0,0,0,0.1) 78%, transparent 95%);
-  transition: opacity 180ms linear;
-  will-change: background-position, opacity;
-}
-
-@keyframes hero-smoke-front-drift {
-  0%   { background-position: 0px    0px; }
-  100% { background-position: 0px 1200px; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .hero-smoke-front { animation: none; }
-}
-
 .hero-vignette-01 {
   position: absolute;
   inset: 0;
@@ -464,6 +375,30 @@ body[data-theme="dark"] {
   display: block;
   /* The video element shouldn't intercept clicks/scrolls — pointer-events
      already off on the wrapper but redeclared here as a guarantee. */
+  pointer-events: none;
+}
+
+/* Phase 02 (HISTORIA) "Tribu" video backdrop. Same wrapper/video split as
+   .laguna-bg so the GPU composites opacity+filter once. The square source
+   (2160²) is cropped to the viewport by object-fit:cover — center-anchored
+   so the subject stays framed on portrait phones and landscape desktop. */
+.tribu-bg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  transition: opacity 180ms linear;
+  will-change: opacity;
+}
+.tribu-bg__video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center center;
+  display: block;
   pointer-events: none;
 }
 

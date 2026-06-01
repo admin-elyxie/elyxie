@@ -1421,21 +1421,19 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
         // phases 02-5 remain byte-perfect. Much simpler than vertex-
         // extremes centering (which mis-fired because back-facing wing
         // vertices contribute to the bbox but are occluded visually).
-        const py01Mobile = (() => {
-          if (!isMobile) return 0;
-          const orbY = stateRef.current.orbLocalY;
-          if (orbY === undefined) return 0;
-          const baselinePy = -0.05 + pyOffset;
-          // Drop the orb slightly BELOW world-Y=0 so the angel sits at the
-          // visual center of the WELCOME-to-DESLIZA window (which lives below
-          // viewport center on portrait mobile because of the top headline).
-          const targetPy = -orbY - 0.31;
-          const shift = (targetPy - baselinePy) * phase01Proximity;
-          if (typeof window !== 'undefined') {
-            window.__elyxie_render_debug = { orbY, targetPy, baselinePy, shift, phase01Proximity };
-          }
-          return shift;
-        })();
+        // py01Mobile retired: it centred the FULL-SIZE angel within the old
+        // mobile WELCOME copy window. HISTORIA now shows a much smaller angel
+        // descending onto the candle blanket, positioned by pyHistoriaShift
+        // below (all viewports), so this legacy mobile-only centring is gone.
+        const py01Mobile = 0;
+        // HISTORIA (phase 02, 0.29 beat): drop the shrunken angel DOWN into the
+        // lower-centre of the frame so it hovers just above the manta of
+        // candles in the Tribu video (the offering sits ~70% down; the god-ray
+        // beam descends onto it). Negative = downward. Mobile needs a larger
+        // magnitude because the portrait camera pulls back (camZ grows), so a
+        // world unit maps to fewer screen pixels. Gated by phase01Proximity →
+        // byte-perfect at every other phase anchor.
+        const pyHistoriaShift = (isMobile ? -1.05 : isTablet ? -0.85 : -0.80) * phase01Proximity;
 
         // Phase 03 (MATERIA) horizontal shift: at world X=0 the trio lands
         // under the "Tres acabados. Una sola alma." copy because the text
@@ -1565,6 +1563,7 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
         const pyEditionShift = (isMobile ? 1.52 : isTablet ? 0.6 : 0.10) * phase05Proximity;
         const py = -0.05 + pyOffset + pyOriginShift + py01Mobile
                  + pyAlmaShift
+                 + pyHistoriaShift
                  + pyEditionShift
                  + Math.sin(clock.elapsed * 0.4) * 0.03 * (1 - phase05Proximity * 0.7)
                  + Math.sin(tRaw * Math.PI) * 0.06;
@@ -1755,6 +1754,14 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
             // because the portrait camera otherwise keeps the body too
             // large in screen-space and the title overlaps the legs.
             let centerScale = lerp(1.0, TRIO_SCALE, phase03Proximity);
+            // HISTORIA (phase 02, 0.29 beat): the angel recedes deep into the
+            // Tribu ceremony — much smaller, reading as a luminous figure
+            // descending in the god-ray beam onto the candle-lit blanket
+            // (manta) at the lower-centre of the video. phase01Proximity peaks
+            // 0.29 (σ 0.08) and is ≈0 at every other anchor, so this lerp is a
+            // no-op outside HISTORIA (MATERIA/ALMA/EDICIÓN scales untouched).
+            const historiaTargetScale = isMobile ? 0.26 : isTablet ? 0.30 : 0.32;
+            centerScale = lerp(centerScale, historiaTargetScale, phase01Proximity);
             const almaTargetScale = isMobile ? 0.55 : 0.65;
             centerScale = lerp(centerScale, almaTargetScale, phase04Proximity);
             // EDICIÓN finale recede: shrink the angel further so it reads as a

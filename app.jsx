@@ -152,6 +152,21 @@ function Hero({ lang, tweaks, pendantRef }) {
   const [progress, setProgress] = useState(0);
   const progressRef = useRef(0);
   const rafRef = useRef(0);
+  // Narrow-viewport flag for responsive video sources. Phones get the
+  // lighter 720² rendition (≈520 KB) instead of the 1440² one (≈2 MB).
+  // matchMedia is cheaper than a resize+innerWidth listener and fires only
+  // when the breakpoint is actually crossed. Initialised from the current
+  // match so the first paint already picks the right file (client-only app,
+  // no SSR — window is always present here).
+  const [isNarrow, setIsNarrow] = useState(
+    typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches
+  );
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 767px)');
+    const onChange = (e) => setIsNarrow(e.matches);
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
   // Exposed by the snap useEffect so the left-rail buttons can route their
   // scroll through the SAME tween (with `snapping=true` flag), bypassing
   // the idle-snap detector that would otherwise grab the in-flight smooth
@@ -501,20 +516,7 @@ function Hero({ lang, tweaks, pendantRef }) {
         {(() => {
           const o01 = Math.exp(-Math.pow((progress - 0.29) / 0.08, 2));
           return (
-            <React.Fragment>
-              <div className="hero-vignette-01" aria-hidden style={{ opacity: o01 }} />
-              {/* Drifting smoke layer — animated SVG noise translating down.
-                  Visible only during phase 01. The Three.js shadow-catcher
-                  plane behind the angel paints the silhouette OVER this
-                  smoke layer (canvas pixels go dark inside the shadow),
-                  giving the "angel's shadow on smoke" effect. */}
-              <div className="hero-smoke" aria-hidden style={{ opacity: o01 * 0.7 }} />
-              {/* Front-pass smoke. z-index 2 → paints OVER the 3D canvas so
-                  wisps cross in front of the angel; much fainter so legibility
-                  holds. Paired with .hero-smoke (behind) the figure feels
-                  enveloped in mist instead of just backed by it. */}
-              <div className="hero-smoke-front" aria-hidden style={{ opacity: o01 * 0.95 }} />
-            </React.Fragment>
+            <div className="hero-vignette-01" aria-hidden style={{ opacity: o01 }} />
           );
         })()}
 
@@ -584,6 +586,43 @@ function Hero({ lang, tweaks, pendantRef }) {
                 poster="assets/photography/laguna-negra-bg.webp"
               >
                 <source src="assets/video/origen-bg.mp4" type="video/mp4" />
+              </video>
+            </div>
+          );
+        })()}
+
+        {/* Phase 02 (HISTORIA) backdrop — "Tribu" video loop. Same wrapper
+            pattern as the ORIGEN video: opacity + filter on the wrapper (one
+            GPU composite), the <video> inside fills via object-fit:cover.
+            Gaussian peaks at progress=0.29 (HISTORIA's beat) and decays to
+            ~0 by the ORIGEN opener and by MATERIA, so it never bleeds into
+            adjacent phases. Mounted only above 0.5% so phases 01/03/04/05
+            pay nothing. Responsive source: phones load the 720² rendition,
+            everything else the 1440² one. The `key` on <video> forces React
+            to remount when the breakpoint flips so the new source is fetched. */}
+        {(() => {
+          const o = Math.exp(-Math.pow((progress - 0.29) / 0.075, 2));
+          if (o <= 0.005) return null;
+          const src = isNarrow ? 'assets/video/tribu-bg-720.mp4' : 'assets/video/tribu-bg.mp4';
+          return (
+            <div
+              className="tribu-bg"
+              aria-hidden
+              style={{
+                opacity: o,
+                filter: `brightness(${1 - 0.20 * o}) contrast(${1 + 0.08 * o}) saturate(${1 + 0.06 * o})`,
+              }}
+            >
+              <video
+                key={src}
+                className="tribu-bg__video"
+                autoPlay
+                muted
+                loop
+                playsInline
+                preload="auto"
+              >
+                <source src={src} type="video/mp4" />
               </video>
             </div>
           );
