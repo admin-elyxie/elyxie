@@ -1436,7 +1436,21 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
         // (see TRIO_SCALE below), so the cluster sits tighter and a bit
         // smaller than the solo central angel of phases 01-02. At the
         // peak (tRaw=0.50, phase03Proximity=1.0) camZ resolves to 9.0.
-        camZ = lerp(camZ, 9.0, phase03Proximity);
+        //
+        // On the RISING edge (HISTORIA → MATERIA) the dolly-back uses the
+        // COMPLEMENT of introHold rather than the raw gaussian. With the raw
+        // gaussian, as introHold released the camera first fell back toward its
+        // base (~4.8) — a zoom-IN punch — before the still-small gaussian pulled
+        // it out to 9.0: a dip-then-recover. That camZ dip shrank the visible
+        // world-width mid-transition, which projected the angel's world-X
+        // FURTHER right for a moment, producing a residual left→right→left screen
+        // wobble even after the X-handoff fix. Tracking (1−introHold) makes the
+        // camera dolly STRAIGHT back from 6.9 to 9.0 as the HISTORIA framing
+        // releases, so world-width grows monotonically and the angel slides
+        // straight across. Falling edge (MATERIA → ALMA) keeps the gaussian so
+        // the camera eases back symmetrically. Continuous at tRaw=0.50 (both =1).
+        const materiaCamW = tRaw <= 0.50 ? (1 - introHold) : phase03Proximity;
+        camZ = lerp(camZ, 9.0, materiaCamW);
         // Narrow portrait viewports: vertical FOV is the bottleneck so the
         // model can look oversized. Push the camera back proportionally so
         // the angel sits comfortably inside the frame on phones.
@@ -1542,9 +1556,24 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
             }
           }
         }
+        // MATERIA horizontal-shift weight. The RISING edge (HISTORIA → MATERIA,
+        // tRaw 0.34→0.50) tracks the COMPLEMENT of introHold instead of the raw
+        // gaussian so it fills in at EXACTLY the rate the ORIGEN/HISTORIA
+        // right-column shift (pxOriginRightCenter ∝ introHold) releases. The two
+        // then sum to R2·introHold + R3·(1−introHold) = lerp(R2, R3, 1−introHold),
+        // a strictly MONOTONIC slide from the HISTORIA right-column position to
+        // the MATERIA position — no dip toward centre and back (the left-then-
+        // right zigzag the user reported, caused by the gaussian ramping up too
+        // slowly to cover the introHold release). The FALLING edge (MATERIA →
+        // ALMA, tRaw>0.50) reverts to the gaussian so the trio shift decays
+        // symmetrically toward centre. Continuous at tRaw=0.50 (both = 1). Only
+        // the X handoff uses this; camZ, trio scale and the lateral fade-in keep
+        // riding phase03Proximity, so the angel slides straight in while the
+        // camera/zoom settle on the gaussian as before.
+        const materiaXW = tRaw <= 0.50 ? (1 - introHold) : phase03Proximity;
         const px = pxOrigin * (1 - phaseSoulProximity * 0.85)
                  + Math.sin(clock.elapsed * 0.35) * 0.02 * (1 - phase05Proximity * 0.7) * (1 - introHold)
-                 + px03Shift * phase03Proximity
+                 + px03Shift * materiaXW
                  + px05Shift * phase05Proximity
                  + pxOriginRightCenter;
         // Phase 04 (ALMA) vertical lift. The copy block now sits at the
