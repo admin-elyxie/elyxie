@@ -1336,6 +1336,20 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
         const isMobile = vw <= 767;
         const isTablet = vw > 767 && vw <= 1024;
 
+        // HISTORIA (section 2) "descend into the ceremony" gate. Rides
+        // phase01Proximity (peak 0.29) and is DESKTOP-ONLY, so it ramps the
+        // angel from its ORIGEN pose (full size, right column) down to a small
+        // figure CENTRED over and standing on the candle manta as you scroll
+        // ORIGEN → HISTORIA, then releases back toward the MATERIA trio. ≈0 at
+        // the ORIGEN (0.0) and MATERIA (0.50) anchors → those stay byte-perfect.
+        // Tablet/mobile keep histDesk=0 (their section-2 framing is unchanged).
+        // This deliberately supersedes the 1↔2 frozen-seamless on desktop: the
+        // user asked to foreground the ceremony, so the angel now visibly
+        // descends + shrinks into it. Drives X→0, Y→manta line, scale→0.2.
+        const histDesk = (!isMobile && !isTablet) ? phase01Proximity : 0;
+        const HISTORIA_DROP_Y = -0.08; // world-Y: small angel hovers above the floreros, presiding over the manta
+        const HISTORIA_SCALE = 0.2;    // ~20% of full size: a small figure presiding over the cloth
+
         let pxBase, pyOffset, camZBase;
         if (isMobile) {
           pxBase = 0;                 // center horizontally
@@ -1648,7 +1662,13 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
                  + pyEditionShift
                  + Math.sin(clock.elapsed * 0.4) * 0.03 * (1 - phase05Proximity * 0.7) * (1 - introHold)
                  + Math.sin(tRaw * Math.PI) * 0.06 * (1 - introHold);
-        angel.position.set(px, py, pz01);
+        // HISTORIA desktop pose: centre the small angel over the manta (X→0)
+        // and drop it down to the offering-cloth line (Y→HISTORIA_DROP_Y). Both
+        // lerp by histDesk (phase01Proximity on desktop, 0 elsewhere), so ORIGEN
+        // and MATERIA anchors and tablet/mobile are unchanged.
+        const pxFinal = lerp(px, 0, histDesk);
+        const pyFinal = lerp(py, HISTORIA_DROP_Y, histDesk);
+        angel.position.set(pxFinal, pyFinal, pz01);
 
         // Phase 03 (MATERIA) side angels: appear via pure ALPHA fade-in at
         // their final position. Previously they scaled from 0 → 0.7 along
@@ -1839,6 +1859,13 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
             // is the SAME size in both — seamless on scroll. The first shrink
             // only begins at MATERIA (phase03Proximity, peak 0.50).
             let centerScale = lerp(1.0, TRIO_SCALE, phase03Proximity);
+            // HISTORIA desktop: shrink the central angel to a small figure
+            // (~0.2) standing in perspective on the candle manta. histDesk is
+            // phase01Proximity on desktop, 0 on tablet/mobile and ≈0 at the
+            // ORIGEN/MATERIA anchors, so this lerp is a no-op everywhere except
+            // the desktop HISTORIA dwell. Composed before the ALMA/EDICIÓN
+            // shrinks (their proximities are 0 here, so order is irrelevant).
+            centerScale = lerp(centerScale, HISTORIA_SCALE, histDesk);
             const almaTargetScale = isMobile ? 0.55 : 0.65;
             centerScale = lerp(centerScale, almaTargetScale, phase04Proximity);
             // EDICIÓN finale recede: shrink the angel further so it reads as a

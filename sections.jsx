@@ -29,34 +29,62 @@ function Container({ children, className = '' }) {
 //  Section 2 — Video full-width + Play (opens lightbox)
 // ===========================================================
 function SectionVideoHero({ lang }) {
-  const [open, setOpen] = useS(false);
+  const videoRef = useR(null);
+  const [soundOn, setSoundOn] = useS(false);
 
-  // Esc closes lightbox
+  // Detecta móvil localmente (este componente vive fuera del Hero, que es
+  // quien tiene su propio isNarrow). matchMedia sólo dispara al cruzar 767px.
+  const [isNarrow, setIsNarrow] = useS(
+    typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches
+  );
   useE(() => {
-    if (!open) return;
-    const onKey = (e) => { if (e.key === 'Escape') setOpen(false); };
-    document.addEventListener('keydown', onKey);
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.removeEventListener('keydown', onKey);
-      document.body.style.overflow = '';
-    };
-  }, [open]);
+    const mq = window.matchMedia('(max-width: 767px)');
+    const onChange = (e) => setIsNarrow(e.matches);
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
+
+  // Máxima calidad en desktop/tablet (1080p), liviano en móvil (720p).
+  const src = isNarrow ? 'assets/video/main-film-720.mp4' : 'assets/video/main-film.mp4';
+
+  // Autoplay sólo mientras el filme está a la vista; pausa al salir para no
+  // decodificar un 1080p fuera de pantalla. Muted es obligatorio para que el
+  // navegador permita el autoplay.
+  useE(() => {
+    const v = videoRef.current;
+    if (!v) return;
+    v.muted = !soundOn;
+    const io = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting && entry.intersectionRatio >= 0.35) {
+          v.play().catch(() => {});
+        } else {
+          v.pause();
+        }
+      },
+      { threshold: [0, 0.35, 0.6] }
+    );
+    io.observe(v);
+    return () => io.disconnect();
+  }, [src]);
+
+  const toggleSound = () => {
+    const v = videoRef.current;
+    if (!v) return;
+    const next = !soundOn;
+    v.muted = !next;
+    if (next && v.paused) v.play().catch(() => {});
+    setSoundOn(next);
+  };
 
   const t = lang === 'es' ? {
-    play: 'REPRODUCIR',
     eyebrow: 'CINEMATOGRAFÍA · LAGUNA NEGRA',
     caption: 'El filme. Tres minutos en la cordillera, antes de bajar el agua.',
-    lbTitle: 'EL DESCENSO DEL AGUA',
-    lbSub: 'Cordillera Huancabamba · 3.957 m s.n.m. · 2026',
-    soon: 'Vídeo próximamente · Reservado para custodios',
+    sound: soundOn ? 'SILENCIAR' : 'ACTIVAR SONIDO',
   } : {
-    play: 'PLAY',
     eyebrow: 'CINEMATOGRAPHY · BLACK LAGOON',
     caption: 'The film. Three minutes in the cordillera, before the water descends.',
-    lbTitle: 'THE WATER\'S DESCENT',
-    lbSub: 'Huancabamba Cordillera · 3,957 m a.s.l. · 2026',
-    soon: 'Film coming soon · Reserved for custodians',
+    sound: soundOn ? 'MUTE' : 'SOUND ON',
   };
 
   return (
@@ -68,21 +96,36 @@ function SectionVideoHero({ lang }) {
         </div>
 
         <figure className="MediaPlayer">
-          {/* Poster-only; no MP4 source. Behaves as still until the user opens
-              the lightbox. Modern browsers (97%+) accept WebP as a poster, so
-              swap to that for a ~30× weight reduction (4.2 MB → 130 KB). */}
           <video
+            key={src}
+            ref={videoRef}
             className="MediaPlayer__video"
             playsInline muted loop
             preload="metadata"
-            poster="assets/photography/video-poster-1440.webp"
-          ></video>
+            poster="assets/photography/main-film-poster-1440.jpg"
+          >
+            <source src={src} type="video/mp4"/>
+          </video>
 
-          <button className="PlayButton" onClick={() => setOpen(true)} aria-label={t.play}>
-            <svg width="14" height="16" viewBox="0 0 14 16" fill="none" aria-hidden>
-              <path d="M0 0L14 8L0 16V0Z" fill="currentColor"/>
-            </svg>
-            <span className="PlayButton__label">{t.play}</span>
+          <button
+            className="PlayButton"
+            onClick={toggleSound}
+            aria-label={t.sound}
+            aria-pressed={soundOn}
+          >
+            {soundOn ? (
+              <svg width="16" height="14" viewBox="0 0 18 16" fill="none" aria-hidden>
+                <path d="M1 5.5H4L8 2V14L4 10.5H1V5.5Z" fill="currentColor"/>
+                <path d="M11 5C12.2 6.2 12.2 9.8 11 11" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+                <path d="M13.5 3C15.8 5.2 15.8 10.8 13.5 13" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+              </svg>
+            ) : (
+              <svg width="16" height="14" viewBox="0 0 18 16" fill="none" aria-hidden>
+                <path d="M1 5.5H4L8 2V14L4 10.5H1V5.5Z" fill="currentColor"/>
+                <path d="M11.5 5.5L16 10.5M16 5.5L11.5 10.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+              </svg>
+            )}
+            <span className="PlayButton__label">{t.sound}</span>
           </button>
 
           <CornerCrosses />
@@ -90,23 +133,6 @@ function SectionVideoHero({ lang }) {
 
         <figcaption className="MediaPlayer__caption">{t.caption}</figcaption>
       </Container>
-
-      {open && (
-        <div className="Lightbox" onClick={(e) => { if (e.target === e.currentTarget) setOpen(false); }}>
-          <button className="Lightbox__close" onClick={() => setOpen(false)} aria-label="Close">×</button>
-          <div className="Lightbox__inner">
-            <picture>
-              <source type="image/webp" srcSet="assets/photography/video-poster.webp"/>
-              <img src="assets/photography/video-poster.jpg" alt="" decoding="async"/>
-            </picture>
-            <div className="Lightbox__overlay">
-              <div className="Lightbox__title">{t.lbTitle}</div>
-              <div className="Lightbox__sub">{t.lbSub}</div>
-              <div className="Lightbox__soon">{t.soon}</div>
-            </div>
-          </div>
-        </div>
-      )}
     </section>
   );
 }
