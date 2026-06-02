@@ -539,16 +539,38 @@ function Hero({ lang, tweaks, pendantRef }) {
             ~1.1 s ease; the wrapping `almaGate` gaussian (peak tRaw=0.70) keeps
             both layers hidden outside ALMA. Skipped from the tree entirely
             below 0.5% gate so phases 01/02/03/05 don't pay any cost. */}
-        {almaGate > 0.005 ? (
-          <React.Fragment>
-            <div className="alma-bg alma-bg--day"
-                 aria-hidden
-                 style={{ opacity: almaGate * (almaNight ? 0 : 1) }} />
-            <div className="alma-bg alma-bg--night"
-                 aria-hidden
-                 style={{ opacity: almaGate * (almaNight ? 1 : 0) }} />
-          </React.Fragment>
-        ) : null}
+        {almaGate > 0.005 ? (() => {
+          // Temple day/night now play as looping videos (replacing the stills).
+          // Same responsive pattern as the Tribu/Laguna backdrops: phones load
+          // the 720² rendition, everything else the 1440² one; the `key` forces
+          // a remount when the breakpoint flips so the new source is fetched.
+          // The poster still (background-image on the wrapper) paints the first
+          // frame while the loop decodes. Both layers stay mounted and playing
+          // while ALMA is on screen; the day/night beat just cross-fades their
+          // wrapper opacity (almaNight).
+          const daySrc   = isNarrow ? 'assets/video/templo-dia-bg-720.mp4'   : 'assets/video/templo-dia-bg.mp4';
+          const nightSrc = isNarrow ? 'assets/video/templo-noche-bg-720.mp4' : 'assets/video/templo-noche-bg.mp4';
+          return (
+            <React.Fragment>
+              <div className="alma-bg alma-bg--day"
+                   aria-hidden
+                   style={{ opacity: almaGate * (almaNight ? 0 : 1) }}>
+                <video key={daySrc} className="alma-bg__video"
+                       autoPlay muted loop playsInline preload="auto">
+                  <source src={daySrc} type="video/mp4" />
+                </video>
+              </div>
+              <div className="alma-bg alma-bg--night"
+                   aria-hidden
+                   style={{ opacity: almaGate * (almaNight ? 1 : 0) }}>
+                <video key={nightSrc} className="alma-bg__video"
+                       autoPlay muted loop playsInline preload="auto">
+                  <source src={nightSrc} type="video/mp4" />
+                </video>
+              </div>
+            </React.Fragment>
+          );
+        })() : null}
 
         {/* Phase 01→02 backdrop crossfade (Laguna video ⇄ Tribu video).
             The two videos cross-fade as COMPLEMENTARY opacities so their sum
@@ -563,6 +585,13 @@ function Hero({ lang, tweaks, pendantRef }) {
           const s1s2 = ss((progress - 0.10) / 0.10);
           const o = 1 - s1s2; // Laguna covers section 1, hands off to Tribu by 0.20
           if (o <= 0.005) return null;
+          // Responsive source: phones load the 720-wide rendition, everything
+          // else the 1440-wide one (same pattern as the Tribu/temple backdrops).
+          // The `?2` is a CONTENT version (bumped only when the video file itself
+          // changes) — origen-bg.mp4 was deployed in a prior session, so the
+          // filename alone would serve the stale cached clip to returning
+          // visitors and CDNs. Bump this suffix whenever the laguna video changes.
+          const src = isNarrow ? 'assets/video/origen-bg-720.mp4?2' : 'assets/video/origen-bg.mp4?2';
           return (
             <div
               className="laguna-bg"
@@ -579,6 +608,7 @@ function Hero({ lang, tweaks, pendantRef }) {
                   decodes). filter + opacity stay on the wrapper div so the
                   GPU composites them once instead of re-running per frame. */}
               <video
+                key={src}
                 className="laguna-bg__video"
                 autoPlay
                 muted
@@ -587,7 +617,7 @@ function Hero({ lang, tweaks, pendantRef }) {
                 preload="auto"
                 poster="assets/photography/laguna-negra-bg.webp"
               >
-                <source src="assets/video/origen-bg.mp4" type="video/mp4" />
+                <source src={src} type="video/mp4" />
               </video>
             </div>
           );
@@ -757,7 +787,7 @@ function Hero({ lang, tweaks, pendantRef }) {
                          invitation. */
                       <div className="phase-content__inner phase-content__inner--edition" style={innerStyle}>
                         <span className="phase-bilingual edition-eyebrow">
-                          {lang === 'es' ? 'UN PACTO ANCESTRAL' : 'AN ANCIENT PROMISE'}
+                          {lang === 'es' ? 'La protección tiene forma' : 'Protection has a form'}
                         </span>
                         <h2 className="phase-title phase-title--edition">
                           {lang === 'es'

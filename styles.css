@@ -401,6 +401,21 @@ body[data-theme="dark"] {
   display: block;
   pointer-events: none;
 }
+/* Desktop (≥1025px): RAISE the Tribu framing so the candle manta (the ceremony)
+   reads larger and lower-centre, the focal point of HISTORIA. The 1440×1440
+   source at object-fit:cover fills the wide desktop width exactly, leaving
+   vertical overflow cropped equally top/bottom at the default center. Pushing
+   object-position-Y to 82% pans the visible window DOWN (shows more of the
+   lower frame = the full offering cloth with candles, flowers and bowls),
+   cropping the upper sky — a ~20% upward raise of the framing. No horizontal
+   shift: the manta stays centred so the small descended angel can sit directly
+   above it. Desktop-only: tablet/mobile stack the copy on top and keep the
+   video centred for now. */
+@media (min-width: 1025px) {
+  .tribu-bg__video {
+    object-position: center 82%;
+  }
+}
 
 /* ---------- Phase 04 (ALMA) temple backdrop ----------
    Two stacked layers (day + night). Both sit at the same z-index 0 as
@@ -413,6 +428,7 @@ body[data-theme="dark"] {
   position: absolute;
   inset: 0;
   z-index: 0;
+  overflow: hidden;
   background-size: cover;
   background-position: center center;
   background-repeat: no-repeat;
@@ -420,8 +436,23 @@ body[data-theme="dark"] {
   transition: opacity 800ms cubic-bezier(0.4, 0, 0.2, 1);
   will-change: opacity;
 }
+/* Poster stills stay as the background-image so the very first frame paints
+   while the temple loop decodes (and as a fallback if video fails). */
 .alma-bg--day   { background-image: url("assets/temple-day.jpg"); }
 .alma-bg--night { background-image: url("assets/temple-night.jpg"); }
+/* Temple day/night video loops fill each layer (same wrapper pattern as the
+   Laguna/Tribu backdrops): the wrapper div carries the cross-fade opacity, the
+   <video> inside covers via object-fit. */
+.alma-bg__video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center center;
+  display: block;
+  pointer-events: none;
+}
 
 /* Ensure the 3D canvas host sits above the backdrop so the angel composites on
    top of the photograph. Editorial chrome (.frame, .phase-layer, stepper…)
