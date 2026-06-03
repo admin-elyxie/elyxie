@@ -238,7 +238,7 @@ function SectionCertificate({ lang }) {
           <div className="Cert__bg" aria-hidden></div>
           <div className="Cert__head">
             <div className="Cert__brand"><span className="elyxie-logo" role="img" aria-label="elyxie"></span></div>
-            <div className="Cert__tag">Sacred Waters</div>
+            <div className="Cert__tag">Sacred Waters<br/>Ancestral Jewelry</div>
           </div>
           <div className="Cert__name">Ángel de la Laguna Negra</div>
           <div className="Cert__nameEn">Angel of the Black Lagoon</div>
