@@ -2304,16 +2304,17 @@ section[data-section="outro"] {
 
 /* ===========================================================
    Section 3.5 — Vitrina (piece configurator)
-   Dark "altar" section between Provenance and Certificate. The cream
-   catalog photo lives inside a spotlit display panel; selecting a finish
-   or chain cross-fades the piece. Two-column on desktop (viewer / index),
-   stacks viewer-first on tablet & mobile ("el visor manda").
+   Dark "altar" between Provenance and Certificate. One guardian in three
+   metals: discs pick the metal, a spotlight block names it, two tiles pick
+   the chain, and the active price reads as a struck serif number. The cream
+   catalog photo lives in a spotlit panel and cross-fades on any change.
+   Two-column on desktop, viewer-first stack on tablet & mobile.
    =========================================================== */
 .Vitrina { padding: 128px 0; overflow: hidden; }
 .Vitrina__inner {
   display: grid;
-  grid-template-columns: minmax(0, 1.04fr) minmax(0, 0.96fr);
-  gap: clamp(40px, 5vw, 88px);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.04fr);
+  gap: clamp(40px, 5vw, 80px);
   align-items: center;
 }
 
@@ -2362,8 +2363,25 @@ section[data-section="outro"] {
   border-radius: 8px;
   box-shadow: inset 0 0 64px 10px rgba(5, 22, 19, 0.30);
 }
-/* Emerald corner crosses struck on the bright panel (the section's white
-   CornerCrosses would disappear against the cream photo). */
+/* Edition chip — the museum label struck on the lit vitrine. Glass over the
+   bright photo (dark veil + light text); the one deliberate glass surface. */
+.Vitrina__chip {
+  position: absolute; z-index: 3;
+  top: 16px; left: 16px;
+  padding: 7px 14px;
+  border-radius: 999px;
+  background: rgba(7, 20, 16, 0.58);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  font-family: var(--font-body);
+  font-size: 9.5px; font-weight: 500;
+  letter-spacing: 0.24em; text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.92);
+  font-variant-numeric: tabular-nums;
+}
+/* Emerald corner crosses struck on the bright panel (TR/BL/BR; the chip
+   takes the top-left). */
 .Vitrina__cc {
   position: absolute; z-index: 3;
   width: 9px; height: 9px;
@@ -2373,19 +2391,9 @@ section[data-section="outro"] {
 .Vitrina__cc::before, .Vitrina__cc::after { content: ""; position: absolute; background: currentColor; }
 .Vitrina__cc::before { top: 50%; left: 0; right: 0; height: 1px; transform: translateY(-50%); }
 .Vitrina__cc::after  { left: 50%; top: 0; bottom: 0; width: 1px; transform: translateX(-50%); }
-.Vitrina__cc--tl { top: 16px;    left: 16px; }
 .Vitrina__cc--tr { top: 16px;    right: 16px; }
 .Vitrina__cc--bl { bottom: 16px; left: 16px; }
 .Vitrina__cc--br { bottom: 16px; right: 16px; }
-.Vitrina__panelSerial {
-  position: absolute; z-index: 3;
-  left: 18px; bottom: 13px;
-  font-family: var(--font-body);
-  font-size: 10px; font-weight: 500;
-  letter-spacing: 0.3em; text-transform: uppercase;
-  color: rgba(10, 38, 32, 0.78);
-  font-variant-numeric: tabular-nums;
-}
 
 /* ---- Inscription column ---- */
 .Vitrina__eyebrow { margin: 0 0 22px; }
@@ -2403,204 +2411,174 @@ section[data-section="outro"] {
 .Vitrina__head em { font-style: italic; color: var(--gold-300); }
 .Vitrina__intro {
   font-family: var(--font-body);
-  font-size: 15px; line-height: 1.6;
-  color: rgba(255, 255, 255, 0.62);
-  max-width: 40ch;
-  margin: 0 0 40px;
+  font-size: 15px; line-height: 1.65;
+  color: rgba(255, 255, 255, 0.72);
+  max-width: 46ch;
+  margin: 0 0 38px;
 }
 
-/* Finish index — three noble materials */
-.Vitrina__finishes {
-  display: flex; flex-direction: column;
-  border-top: 1px solid var(--white-08);
-  margin-bottom: 26px;
-}
-.Vitrina__finish {
-  display: flex; align-items: center; gap: 20px;
-  width: 100%;
-  padding: 19px 4px;
-  background: none; border: 0;
+/* Metal selector — three noble discs */
+.Vitrina__metals {
+  display: flex; gap: 18px;
+  padding-bottom: 30px; margin-bottom: 30px;
   border-bottom: 1px solid var(--white-08);
-  text-align: left; cursor: pointer;
-  transition: padding-left 300ms var(--ease-out);
 }
-.Vitrina__finish:hover { padding-left: 12px; }
-.Vitrina__finish:focus-visible { outline: none; box-shadow: var(--ring-focus); border-radius: 2px; }
+.Vitrina__metal {
+  padding: 4px; line-height: 0;
+  background: none; border: 0; cursor: pointer;
+  border-radius: 50%;
+}
+.Vitrina__metal:focus-visible { outline: none; box-shadow: var(--ring-focus); }
 .Vitrina__disc {
-  flex: none;
-  width: 30px; height: 30px;
+  display: block;
+  width: 56px; height: 56px;
   border-radius: 50%;
   box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.55), 0 2px 7px rgba(0, 0, 0, 0.45);
-  outline: 1px solid rgba(255, 255, 255, 0.12);
+  outline: 1px solid rgba(255, 255, 255, 0.14);
   transition: box-shadow 320ms var(--ease-out), transform 320ms var(--ease-out);
 }
-.Vitrina__finish[data-on="true"] .Vitrina__disc {
+.Vitrina__metal:hover .Vitrina__disc { transform: scale(1.04); }
+.Vitrina__metal[data-on="true"] .Vitrina__disc {
   outline-color: transparent;
   box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.55),
               0 0 0 2px var(--color-bg-deep),
               0 0 0 3px var(--gold-300),
-              0 0 18px rgba(233, 215, 177, 0.4);
+              0 0 20px rgba(233, 215, 177, 0.42);
   transform: scale(1.06);
 }
-.Vitrina__finishName {
-  flex: 1;
-  font-family: var(--font-display);
-  font-style: italic; font-weight: 400;
-  font-size: 26px;
-  color: rgba(255, 255, 255, 0.60);
-  transition: color 300ms var(--ease-out);
-}
-.Vitrina__finish:hover .Vitrina__finishName { color: var(--white-90); }
-.Vitrina__finish[data-on="true"] .Vitrina__finishName { color: #fff; }
-.Vitrina__finishPrice {
-  font-family: var(--font-body);
-  font-size: 13px; font-weight: 500;
-  letter-spacing: 0.03em;
-  color: rgba(255, 255, 255, 0.58);
-  font-variant-numeric: tabular-nums;
-  transition: color 300ms var(--ease-out);
-}
-.Vitrina__finish[data-on="true"] .Vitrina__finishPrice { color: var(--gold-300); }
 
-/* Dynamic detail — material + one poetic line; min-height avoids shift */
-.Vitrina__detail {
-  margin: 0 0 38px;
-  min-height: 80px;
-  max-width: 40ch;
-  font-family: var(--font-body);
-  font-size: 14px; line-height: 1.6;
-  color: rgba(255, 255, 255, 0.58);
-}
+/* Active metal spotlight — material · name · one line */
+.Vitrina__spotlight { margin-bottom: 34px; }
 .Vitrina__material {
-  display: block;
-  margin-bottom: 9px;
+  margin: 0 0 11px;
+  font-family: var(--font-body);
   font-size: 10px; font-weight: 500;
   letter-spacing: 0.28em; text-transform: uppercase;
-  color: var(--gold-300); opacity: 0.85;
+  color: var(--gold-300);
+}
+.Vitrina__name {
+  font-family: var(--font-display);
+  font-weight: 300; font-size: clamp(28px, 3.2vw, 42px);
+  line-height: 1.05; letter-spacing: -0.01em;
+  color: #fff; margin: 0 0 14px;
+}
+.Vitrina__name em { font-style: italic; color: var(--gold-300); }
+.Vitrina__line {
+  margin: 0;
+  max-width: 40ch;
+  font-family: var(--font-body);
+  font-size: 15px; line-height: 1.6;
+  color: rgba(255, 255, 255, 0.78);
 }
 
-/* Chain selector — segmented control + chain-detail chip */
-.Vitrina__chain { margin-bottom: 44px; }
+/* Chain tiles — two options, each with its length + link spec */
 .Vitrina__chainLabel {
-  display: block; margin-bottom: 14px;
+  display: block; margin: 0 0 13px;
   font-family: var(--font-body);
   font-size: 10px; font-weight: 500;
-  letter-spacing: 0.3em; text-transform: uppercase;
+  letter-spacing: 0.28em; text-transform: uppercase;
   color: rgba(255, 255, 255, 0.56);
 }
-.Vitrina__chainRow { display: flex; align-items: center; gap: 22px; }
-.Vitrina__toggle {
-  position: relative;
-  display: grid; grid-template-columns: 1fr 1fr;
-  padding: 4px;
+.Vitrina__chains {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+  margin-bottom: 12px;
+}
+.Vitrina__chainOpt {
+  display: flex; align-items: center; gap: 13px;
+  padding: 15px 16px;
+  text-align: left; cursor: pointer;
   background: var(--white-04);
   border: 1px solid var(--white-08);
   /* sharp corners — brand rule for interactive surfaces */
+  transition: border-color 280ms var(--ease-out), background 280ms var(--ease-out), box-shadow 280ms var(--ease-out);
 }
-.Vitrina__toggle::before {
-  content: "";
-  position: absolute; z-index: 0;
-  top: 4px; bottom: 4px; left: 4px;
-  width: calc(50% - 4px);
-  background: linear-gradient(180deg, var(--gold-300), var(--gold-500));
-  box-shadow: 0 0 18px rgba(233, 215, 177, 0.22);
-  transition: transform 420ms var(--ease-out);
+.Vitrina__chainOpt:hover { background: var(--white-06); border-color: var(--white-12); }
+.Vitrina__chainOpt:focus-visible { outline: none; box-shadow: var(--ring-focus); }
+.Vitrina__chainOpt[data-on="true"] {
+  border-color: var(--gold-300);
+  background: color-mix(in srgb, var(--gold-300) 8%, transparent);
+  box-shadow: 0 0 22px rgba(233, 215, 177, 0.10);
 }
-.Vitrina__toggle[data-active="el"]::before { transform: translateX(100%); }
-.Vitrina__toggleBtn {
-  position: relative; z-index: 1;
-  padding: 11px 20px;
-  background: none; border: 0; cursor: pointer;
+.Vitrina__chainGlyph {
+  flex: none; display: flex;
+  color: rgba(255, 255, 255, 0.5);
+  transition: color 280ms var(--ease-out);
+}
+.Vitrina__chainOpt[data-on="true"] .Vitrina__chainGlyph { color: var(--gold-300); }
+.Vitrina__chainText { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.Vitrina__chainName {
   font-family: var(--font-body);
-  font-size: 11px; font-weight: 500;
-  letter-spacing: 0.18em; text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.55);
-  white-space: nowrap;
-  transition: color 320ms var(--ease-out);
+  font-size: 14px; font-weight: 500;
+  letter-spacing: 0.01em;
+  color: rgba(255, 255, 255, 0.72);
+  transition: color 280ms var(--ease-out);
 }
-.Vitrina__toggleBtn[data-on="true"] { color: var(--emerald-900); }
-.Vitrina__toggleBtn:focus-visible { outline: none; box-shadow: var(--ring-focus); }
-.Vitrina__chainPreview {
-  position: relative;
-  flex: none;
-  width: 116px; aspect-ratio: 4 / 5;
-  margin: 0;
-  border-radius: 5px; overflow: hidden;
-  background: #0B1F1A;
-  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.4);
-}
-.Vitrina__chainPreview::after {
-  content: ""; position: absolute; inset: 0; pointer-events: none;
-  border: 1px solid rgba(10, 38, 32, 0.18);
-  border-radius: 5px;
-  box-shadow: inset 0 0 26px 4px rgba(5, 22, 19, 0.22);
-}
-.Vitrina__chainPreview picture {
-  position: absolute; inset: 0;
-  opacity: 0; transition: opacity 500ms var(--ease-out);
-}
-.Vitrina__chainPreview picture[data-on="true"] { opacity: 1; }
-.Vitrina__chainPreview img { width: 100%; height: 100%; object-fit: cover; object-position: center; }
-.Vitrina__chainNote {
-  display: block; margin-top: 14px;
+.Vitrina__chainOpt[data-on="true"] .Vitrina__chainName { color: #fff; }
+.Vitrina__chainSpec {
   font-family: var(--font-body);
   font-size: 11px; letter-spacing: 0.02em;
-  color: rgba(255, 255, 255, 0.58);
+  color: rgba(255, 255, 255, 0.55);
+  font-variant-numeric: tabular-nums;
+}
+.Vitrina__note {
+  margin: 0 0 36px;
+  font-family: var(--font-body);
+  font-size: 11px; letter-spacing: 0.02em;
+  color: rgba(255, 255, 255, 0.5);
 }
 
-/* Foot — custody CTA + edition serial */
-.Vitrina__foot {
-  display: flex; align-items: center; justify-content: space-between;
-  gap: 24px; flex-wrap: wrap;
-}
-.Vitrina__edition { display: flex; flex-direction: column; gap: 5px; text-align: right; }
-.Vitrina__editionLabel {
-  font-family: var(--font-body);
-  font-size: 9px; font-weight: 500;
-  letter-spacing: 0.32em; text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.56);
-}
-.Vitrina__editionSerial {
-  font-family: var(--font-body);
-  font-size: 13px; font-weight: 500;
-  letter-spacing: 0.18em;
+/* Price for the active metal + edition meta */
+.Vitrina__price { margin: 0 0 28px; }
+.Vitrina__priceNum {
+  display: block;
+  font-family: var(--font-display);
+  font-weight: 400; font-size: clamp(34px, 4vw, 50px);
+  line-height: 1; letter-spacing: -0.01em;
   color: var(--gold-300);
   font-variant-numeric: tabular-nums;
 }
+.Vitrina__meta {
+  display: block; margin-top: 12px; max-width: 38ch;
+  font-family: var(--font-body);
+  font-size: 9.5px; font-weight: 500; line-height: 1.5;
+  letter-spacing: 0.2em; text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.56);
+}
+
+/* Foot — custody CTA */
+.Vitrina__foot { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+
+/* Spotlight + price settle when the metal changes */
+@keyframes vitrinaRise { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: none; } }
+@keyframes vitrinaFade { from { opacity: 0; } to { opacity: 1; } }
+.Vitrina__spotlight { animation: vitrinaRise 460ms var(--ease-out); }
+.Vitrina__priceNum { animation: vitrinaFade 520ms var(--ease-out); }
 
 /* ---- Vitrina · tablet ---- */
 @media (max-width: 1024px) {
   .Vitrina { padding: 96px 0; }
   .Vitrina__inner { grid-template-columns: 1fr; gap: 52px; }
-  .Vitrina__viewer { width: 100%; max-width: 520px; margin: 0 auto; }
+  .Vitrina__viewer { width: 100%; max-width: 480px; margin: 0 auto; }
   .Vitrina__head { font-size: clamp(32px, 6vw, 50px); max-width: 18ch; }
-  .Vitrina__intro { max-width: 52ch; }
+  .Vitrina__intro { max-width: 56ch; }
 }
 /* ---- Vitrina · mobile ---- */
 @media (max-width: 767px) {
   .Vitrina { padding: 76px 0; }
-  .Vitrina__finish { padding: 17px 2px; gap: 16px; }
-  .Vitrina__finishName { font-size: 22px; }
-  .Vitrina__detail { min-height: 0; margin-bottom: 32px; }
-  /* The chain-detail chip is a desktop/tablet enhancement; on phones the
-     chain difference still reads in the main viewer, so drop the chip and
-     let the segmented control go full-width ("accesible sin saturar"). */
-  .Vitrina__chainRow { gap: 0; }
-  .Vitrina__toggle { width: 100%; }
-  .Vitrina__chainPreview { display: none; }
-  .Vitrina__foot { flex-direction: column; align-items: stretch; gap: 20px; }
-  .Vitrina__cta { justify-content: center; }
-  .Vitrina__edition { flex-direction: row; align-items: baseline; justify-content: space-between; text-align: left; }
+  .Vitrina__metals { gap: 14px; }
+  .Vitrina__disc { width: 50px; height: 50px; }
+  .Vitrina__chains { grid-template-columns: 1fr; }
+  .Vitrina__cta { width: 100%; justify-content: center; }
 }
 /* ---- Vitrina · reduced motion ---- */
 @media (prefers-reduced-motion: reduce) {
   .Vitrina__shot,
-  .Vitrina__chainPreview picture,
-  .Vitrina__toggle::before,
   .Vitrina__disc,
-  .Vitrina__finish,
-  .Vitrina__finishName,
-  .Vitrina__finishPrice { transition: none; }
+  .Vitrina__chainOpt,
+  .Vitrina__chainGlyph,
+  .Vitrina__chainName { transition: none; }
+  .Vitrina__spotlight,
+  .Vitrina__priceNum { animation: none; }
 }
 
 /* ===========================================================

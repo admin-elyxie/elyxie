@@ -216,67 +216,91 @@ function SectionProvenance({ lang }) {
 //  Eliges la piel") is paid off here, so the copy deliberately echoes it.
 // ===========================================================
 
-// The three finishes of the single piece. `swatch` is a CSS gradient that
+// The three metals of the single piece. `swatch` is a CSS gradient that
 // stands in for the metal on the selector discs (a "noble material", not a
-// shop swatch). `price` is shown per row; the chain choice never alters it.
+// shop swatch). `material` is the struck uppercase label; `line` the one
+// poetic line. `price` reads as the big serif number; the chain never alters it.
 const VITRINA_FINISHES = [
   {
     id: 'plata',
-    price: '$ 290 USD',
+    price: 'USD 290',
     swatch: 'linear-gradient(145deg, #F4F5F7 0%, #C9CDD2 46%, #94999F 100%)',
-    es: { name: 'Plata', material: 'Plata 950', line: 'El metal desnudo, frío y honesto. La forma más antigua de la pieza.' },
-    en: { name: 'Silver', material: '950 silver', line: 'The bare metal, cold and honest. The oldest form of the piece.' },
+    es: { name: 'Plata', material: 'PLATA FINA 950', line: 'El recipiente original. Brillante, lunar, honesto.' },
+    en: { name: 'Silver', material: '950 FINE SILVER', line: 'The original vessel. Bright, lunar, honest.' },
   },
   {
     id: 'rodio',
-    price: '$ 490 USD',
+    price: 'USD 490',
     swatch: 'linear-gradient(145deg, #FFFFFF 0%, #E4E8EC 46%, #B2BAC2 100%)',
-    es: { name: 'Rodio', material: 'Plata bañada en rodio', line: 'Un blanco que no se empaña. La luz, conservada sobre el agua.' },
-    en: { name: 'Rhodium', material: 'Rhodium-plated silver', line: 'A white that never tarnishes. Light, kept over the water.' },
+    es: { name: 'Rodio', material: 'PLATA 950 SELLADA EN RODIO', line: 'Plata sellada bajo rodio: más blanca, más dura, sin pátina.' },
+    en: { name: 'Rhodium', material: 'RHODIUM-SEALED 950 SILVER', line: 'Silver sealed under rhodium: whiter, harder, untarnishing.' },
   },
   {
     id: 'oro',
-    price: '$ 990 USD',
+    price: 'USD 990',
     swatch: 'linear-gradient(145deg, #F6E4B8 0%, #D9B36B 46%, #A37C3A 100%)',
-    es: { name: 'Oro', material: 'Plata micrada en oro 24k', line: 'El calor del oro de 24k sobre la madre del agua.' },
-    en: { name: 'Gold', material: '24k gold-plated silver', line: 'The warmth of 24k gold over the mother of the water.' },
+    es: { name: 'Oro', material: 'ORO 24K SOBRE PLATA 950', line: 'La luz más cálida. Oro trazado sobre plata fina.' },
+    en: { name: 'Gold', material: '24K GOLD OVER 950 SILVER', line: 'The warmest light. Gold drawn over fine silver.' },
   },
 ];
 
 // The chain variant. Independent of finish; does not change the price.
+// `icon` picks the glyph (fine cable vs curb link); `spec` is the length + link.
 const VITRINA_CHAINS = [
-  { id: 'ella', es: 'Para ella', en: 'For her' },
-  { id: 'el',   es: 'Para él',   en: 'For him' },
+  { id: 'ella', icon: 'cable', name: { es: 'Para ella', en: 'For her' }, spec: { es: '45 cm · cable fino',     en: '45 cm · Fine cable' } },
+  { id: 'el',   icon: 'curb',  name: { es: 'Para él',   en: 'For him' }, spec: { es: '60 cm · eslabón cubano', en: '60 cm · Curb link' } },
 ];
 
+// Tiny chain glyph for the two chain tiles: round links for the fine cable,
+// flattened links for the curb. Stroke inherits currentColor (gold when active).
+function ChainGlyph({ kind }) {
+  return kind === 'cable' ? (
+    <svg width="46" height="14" viewBox="0 0 46 14" fill="none" aria-hidden focusable="false">
+      <circle cx="7"  cy="7" r="5" stroke="currentColor" strokeWidth="1.4" />
+      <circle cx="18" cy="7" r="5" stroke="currentColor" strokeWidth="1.4" />
+      <circle cx="29" cy="7" r="5" stroke="currentColor" strokeWidth="1.4" />
+      <circle cx="40" cy="7" r="4" stroke="currentColor" strokeWidth="1.4" />
+    </svg>
+  ) : (
+    <svg width="46" height="14" viewBox="0 0 46 14" fill="none" aria-hidden focusable="false">
+      <rect x="2"  y="3" width="15" height="8" rx="4" stroke="currentColor" strokeWidth="1.4" />
+      <rect x="15" y="3" width="15" height="8" rx="4" stroke="currentColor" strokeWidth="1.4" />
+      <rect x="28" y="3" width="15" height="8" rx="4" stroke="currentColor" strokeWidth="1.4" />
+    </svg>
+  );
+}
+
 function SectionVitrina({ lang }) {
-  // Two independent selections drive the whole section. `finish` swaps the
-  // metal (viewer + name + material + price); `chain` swaps ella/él (viewer
-  // chain length + the small chain-detail preview). Both feed the SAME stack
-  // of 6 Dije photos in the viewer, so either change cross-fades the piece.
+  // Two independent selections drive the section. `finish` swaps the metal
+  // (discs + spotlight + price); `chain` swaps ella/él. Both feed the SAME
+  // stack of 6 photos in the viewer, so either change cross-fades the piece.
+  // The spotlight + price are keyed on `finish`, so the copy settles with a
+  // short rise when you change metal (reduced-motion safe).
   const [finish, setFinish] = useS('plata');
   const [chain, setChain]   = useS('ella');
   const active = VITRINA_FINISHES.find((f) => f.id === finish);
 
   const t = lang === 'es' ? {
-    eyebrow: 'LA PIEZA · TRES ACABADOS',
-    head: <>Tres acabados. <em>Una sola alma.</em></>,
-    intro: 'Eliges la piel. El agua viva dentro permanece intacta.',
-    finishLabel: 'El acabado',
-    chainLabel: 'La cadena',
+    eyebrow: 'LA PIEZA · METAL Y CADENA',
+    head: <>Un solo guardián. <em>Tres metales.</em></>,
+    intro: 'El agua es la misma en los tres: recogida de la Laguna Negra, sellada para siempre. Lo que cambia es la casa que la guarda, y la cadena que la viste.',
+    metalLabel: 'El metal',
+    chainLabel: 'CADENA · PARA QUIÉN ES',
     chainNote: 'La cadena no altera el precio.',
-    edition: 'Edición',
-    cta: 'Recibir en custodia',
+    meta: 'EDICIÓN LIMITADA · N.º 01 / 100 · HECHA A MANO POR ENCARGO',
+    cta: 'Reserva tu pieza',
+    chip: 'EDICIÓN LIMITADA · N.º 01 / 100',
     pieceAlt: (name, ch) => `Ángel de la Laguna Negra en ${name.toLowerCase()}, cadena ${ch === 'ella' ? 'para ella' : 'para él'}`,
   } : {
-    eyebrow: 'THE PIECE · THREE FINISHES',
-    head: <>Three finishes. <em>One soul.</em></>,
-    intro: 'You choose the skin. The living water within stays untouched.',
-    finishLabel: 'The finish',
-    chainLabel: 'The chain',
+    eyebrow: 'THE PIECE · METAL & CHAIN',
+    head: <>One guardian. <em>Three metals.</em></>,
+    intro: 'The water is the same in all three: gathered from the Black Lagoon, sealed forever. What changes is the house that holds it, and the chain that wears it.',
+    metalLabel: 'The metal',
+    chainLabel: "CHAIN · WHO IT'S FOR",
     chainNote: 'The chain does not change the price.',
-    edition: 'Edition',
-    cta: 'Receive in custody',
+    meta: 'LIMITED FIRST EDITION · N.º 01 / 100 · HAND-FINISHED TO ORDER',
+    cta: 'Reserve your piece',
+    chip: 'LIMITED FIRST EDITION · N.º 01 / 100',
     pieceAlt: (name, ch) => `Angel of the Black Lagoon in ${name.toLowerCase()}, ${ch === 'ella' ? 'chain for her' : 'chain for him'}`,
   };
 
@@ -312,13 +336,12 @@ function SectionVitrina({ lang }) {
                 </picture>
               );
             }))}
-            {/* Emerald corner crosses + struck serial sit ON the bright panel
-                (the section-level white CornerCrosses would vanish here). */}
-            <span className="Vitrina__cc Vitrina__cc--tl" aria-hidden></span>
+            {/* Edition chip (top-left) + emerald corner crosses struck on the
+                bright panel (the section-level white CornerCrosses vanish here). */}
+            <span className="Vitrina__chip">{t.chip}</span>
             <span className="Vitrina__cc Vitrina__cc--tr" aria-hidden></span>
             <span className="Vitrina__cc Vitrina__cc--bl" aria-hidden></span>
             <span className="Vitrina__cc Vitrina__cc--br" aria-hidden></span>
-            <span className="Vitrina__panelSerial">N.º 01 / 100</span>
           </div>
         </div>
 
@@ -328,8 +351,8 @@ function SectionVitrina({ lang }) {
           <h2 className="Vitrina__head">{t.head}</h2>
           <p className="Vitrina__intro">{t.intro}</p>
 
-          {/* Finish selector — three noble materials, not shop swatches. */}
-          <div className="Vitrina__finishes" role="radiogroup" aria-label={t.finishLabel}>
+          {/* Metal selector — three noble discs, not shop swatches. */}
+          <div className="Vitrina__metals" role="radiogroup" aria-label={t.metalLabel}>
             {VITRINA_FINISHES.map((f) => {
               const on = f.id === finish;
               return (
@@ -338,71 +361,61 @@ function SectionVitrina({ lang }) {
                   type="button"
                   role="radio"
                   aria-checked={on}
-                  className="Vitrina__finish"
+                  className="Vitrina__metal"
                   data-on={on}
                   onClick={() => setFinish(f.id)}
+                  aria-label={`El Ángel · ${f[lang].name} · ${f.price}`}
                 >
                   <span className="Vitrina__disc" style={{ backgroundImage: f.swatch }} aria-hidden></span>
-                  <span className="Vitrina__finishName">{f[lang].name}</span>
-                  <span className="Vitrina__finishPrice">{f.price}</span>
                 </button>
               );
             })}
           </div>
 
-          {/* Dynamic detail for the active finish (material + one line). The
-              min-height in CSS reserves space so swapping copy doesn't shift. */}
-          <p className="Vitrina__detail">
-            <span className="Vitrina__material">{active[lang].material}</span>
-            {active[lang].line}
-          </p>
-
-          {/* Chain selector — segmented control + a small chain-detail chip. */}
-          <div className="Vitrina__chain">
-            <span className="Vitrina__chainLabel">{t.chainLabel}</span>
-            <div className="Vitrina__chainRow">
-              <div className="Vitrina__toggle" role="radiogroup" aria-label={t.chainLabel} data-active={chain}>
-                {VITRINA_CHAINS.map((c) => (
-                  <button
-                    key={c.id}
-                    type="button"
-                    role="radio"
-                    aria-checked={chain === c.id}
-                    className="Vitrina__toggleBtn"
-                    data-on={chain === c.id}
-                    onClick={() => setChain(c.id)}
-                  >
-                    {c[lang]}
-                  </button>
-                ))}
-              </div>
-              <figure className="Vitrina__chainPreview">
-                {VITRINA_FINISHES.map((f) => VITRINA_CHAINS.map((c) => {
-                  const on = f.id === finish && c.id === chain;
-                  const base = `assets/ecommerce/cadena-${f.id}-${c.id}`;
-                  return (
-                    <picture key={f.id + c.id} data-on={on} aria-hidden={!on}>
-                      <source type="image/webp" srcSet={`${base}-360.webp 360w, ${base}-640.webp 640w`} sizes="160px" />
-                      <img src={`${base}.jpg`} alt="" loading="lazy" decoding="async" draggable="false" />
-                    </picture>
-                  );
-                }))}
-              </figure>
-            </div>
-            <span className="Vitrina__chainNote">{t.chainNote}</span>
+          {/* Active metal — material · name · one line. Keyed on finish so the
+              copy rises gently each time the metal changes. */}
+          <div className="Vitrina__spotlight" key={finish}>
+            <p className="Vitrina__material">{active[lang].material}</p>
+            <h3 className="Vitrina__name">El Ángel · <em>{active[lang].name}</em></h3>
+            <p className="Vitrina__line">{active[lang].line}</p>
           </div>
 
-          {/* Custody CTA + edition serial. Ghost button matches the hero's
-              "Solicitar la custodia" — sanctuary language, never "buy". */}
+          {/* Chain selector — two tiles, each with its length + link spec. */}
+          <p className="Vitrina__chainLabel">{t.chainLabel}</p>
+          <div className="Vitrina__chains" role="radiogroup" aria-label={t.chainLabel}>
+            {VITRINA_CHAINS.map((c) => {
+              const on = c.id === chain;
+              return (
+                <button
+                  key={c.id}
+                  type="button"
+                  role="radio"
+                  aria-checked={on}
+                  className="Vitrina__chainOpt"
+                  data-on={on}
+                  onClick={() => setChain(c.id)}
+                >
+                  <span className="Vitrina__chainGlyph" aria-hidden><ChainGlyph kind={c.icon} /></span>
+                  <span className="Vitrina__chainText">
+                    <span className="Vitrina__chainName">{c.name[lang]}</span>
+                    <span className="Vitrina__chainSpec">{c.spec[lang]}</span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+          <p className="Vitrina__note">{t.chainNote}</p>
+
+          {/* Price for the active metal + edition meta, then the custody CTA. */}
+          <p className="Vitrina__price">
+            <span className="Vitrina__priceNum" key={finish}>{active.price}</span>
+            <span className="Vitrina__meta">{t.meta}</span>
+          </p>
           <div className="Vitrina__foot">
-            <a className="Button Button--ghost Vitrina__cta" href="#contact">
+            <a className="Button Button--primary Vitrina__cta" href="#contact">
               {t.cta}
               <span className="Button__arrow">→</span>
             </a>
-            <div className="Vitrina__edition">
-              <span className="Vitrina__editionLabel">{t.edition}</span>
-              <span className="Vitrina__editionSerial">N.º 01 / 100</span>
-            </div>
           </div>
         </div>
 
