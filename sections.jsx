@@ -430,7 +430,7 @@ function Footer({ lang }) {
         <div className="FootLower">
           <div className="FootBrand">
             <div className="FootBrand__name"><span className="elyxie-logo" role="img" aria-label="elyxie"></span></div>
-            <div className="FootBrand__tag">SACRED WATER  ·  ANCESTRAL JEWELRY</div>
+            <div className="FootBrand__tag">SACRED WATERS</div>
             <div className="FootBrand__body">{t.brandBody}</div>
             <div className="FootSocials">
               <a className="FootSocial" href="https://www.instagram.com/elyxie.es/" target="_blank" rel="noopener" aria-label="Instagram"><FootIgIcon/></a>
