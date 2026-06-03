@@ -1085,7 +1085,7 @@ function Nav({ lang, setLang }) {
   return (
     <>
       <nav className="nav" data-drawer-open={drawerOpen}>
-        <a className="nav__brand" href="#" aria-label="elyxie">elyxie</a>
+        <a className="nav__brand" href="#" aria-label="elyxie"><span className="elyxie-logo" aria-hidden></span></a>
 
         {/* Desktop inline links + language switcher (hidden on mobile via CSS) */}
         <div className="nav__links">
@@ -1221,10 +1221,9 @@ function App() {
 
       {/* Post-hero sections (structure parallels lightweight.info homepage) */}
       <SectionVideoHero lang={lang} />
+      <SectionProvenance lang={lang} />
+      <SectionCertificate lang={lang} />
       <SectionInstagramGrid lang={lang} />
-      <SectionBrandStatement lang={lang} />
-      <SectionNewsletter lang={lang} />
-      <SectionOutroWordmark />
       <Footer lang={lang} />
 
       {/* Film grain — fixed overlay */}
