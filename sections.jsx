@@ -245,10 +245,11 @@ const VITRINA_FINISHES = [
 ];
 
 // The chain variant. Independent of finish; does not change the price.
-// `icon` picks the glyph (fine cable vs curb link); `spec` is the length + link.
+// `icon` picks the Panzer glyph: 'fine' (smaller, denser links) for her, 'curb'
+// (fewer, larger links) for him. `spec` is the length + link.
 const VITRINA_CHAINS = [
-  { id: 'ella', icon: 'cable', name: { es: 'Para ella', en: 'For her' }, spec: { es: '50 cm · Panzer 050 · Ley 925', en: '50 cm · Panzer 050 · 925 Sterling' } },
-  { id: 'el',   icon: 'curb',  name: { es: 'Para él',   en: 'For him' }, spec: { es: '65 cm · Panzer 080 · Ley 925', en: '65 cm · Panzer 080 · 925 Sterling' } },
+  { id: 'ella', icon: 'fine', name: { es: 'Para ella', en: 'For her' }, spec: { es: '50 cm · Panzer 050 · Ley 925', en: '50 cm · Panzer 050 · 925 Sterling' } },
+  { id: 'el',   icon: 'curb', name: { es: 'Para él',   en: 'For him' }, spec: { es: '65 cm · Panzer 080 · Ley 925', en: '65 cm · Panzer 080 · 925 Sterling' } },
 ];
 
 // The two shots we hold for every finish×chain: the piece worn on the bust
@@ -261,15 +262,16 @@ const VITRINA_VIEWS = [
   { id: 'cadena', prefix: 'cadena', sizes: [360, 640],       objPos: 'center 50%', label: { es: 'La cadena', en: 'The chain' } },
 ];
 
-// Tiny chain glyph for the two chain tiles: round links for the fine cable,
-// flattened links for the curb. Stroke inherits currentColor (gold when active).
+// Tiny chain glyph for the two chain tiles: both are flat Panzer links. 'fine'
+// (for her) reads as smaller, denser links with one extra; 'curb' (for him) as
+// fewer, larger links. Stroke inherits currentColor (gold when active).
 function ChainGlyph({ kind }) {
-  return kind === 'cable' ? (
+  return kind === 'fine' ? (
     <svg width="46" height="14" viewBox="0 0 46 14" fill="none" aria-hidden focusable="false">
-      <circle cx="7"  cy="7" r="5" stroke="currentColor" strokeWidth="1.4" />
-      <circle cx="18" cy="7" r="5" stroke="currentColor" strokeWidth="1.4" />
-      <circle cx="29" cy="7" r="5" stroke="currentColor" strokeWidth="1.4" />
-      <circle cx="40" cy="7" r="4" stroke="currentColor" strokeWidth="1.4" />
+      <rect x="4"  y="4" width="12" height="6" rx="3" stroke="currentColor" strokeWidth="1.3" />
+      <rect x="13" y="4" width="12" height="6" rx="3" stroke="currentColor" strokeWidth="1.3" />
+      <rect x="22" y="4" width="12" height="6" rx="3" stroke="currentColor" strokeWidth="1.3" />
+      <rect x="31" y="4" width="12" height="6" rx="3" stroke="currentColor" strokeWidth="1.3" />
     </svg>
   ) : (
     <svg width="46" height="14" viewBox="0 0 46 14" fill="none" aria-hidden focusable="false">
