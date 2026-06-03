@@ -1252,6 +1252,7 @@ function App() {
         {/* Post-hero sections (structure parallels lightweight.info homepage) */}
         <SectionVideoHero lang={lang} />
         <SectionProvenance lang={lang} />
+        <SectionVitrina lang={lang} />
         <SectionCertificate lang={lang} />
         <SectionInstagramGrid lang={lang} />
       </main>

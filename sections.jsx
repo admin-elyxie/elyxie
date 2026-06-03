@@ -207,6 +207,212 @@ function SectionProvenance({ lang }) {
 }
 
 // ===========================================================
+//  Section 3.5 — Vitrina (piece configurator / "configurador-vitrina")
+//  Sits between Provenance and Certificate. ONE product (the angel) in
+//  three finishes, each with a chain variant. NOT an e-commerce carousel:
+//  a dark "altar" where the cream catalog photo lives inside a spotlit
+//  display panel (cf. the boxed angel under a downlight), cross-fading on
+//  select. The hero's MATERIA phase ("Tres acabados. Una sola alma. …
+//  Eliges la piel") is paid off here, so the copy deliberately echoes it.
+// ===========================================================
+
+// The three finishes of the single piece. `swatch` is a CSS gradient that
+// stands in for the metal on the selector discs (a "noble material", not a
+// shop swatch). `price` is shown per row; the chain choice never alters it.
+const VITRINA_FINISHES = [
+  {
+    id: 'plata',
+    price: '$ 290 USD',
+    swatch: 'linear-gradient(145deg, #F4F5F7 0%, #C9CDD2 46%, #94999F 100%)',
+    es: { name: 'Plata', material: 'Plata 950', line: 'El metal desnudo, frío y honesto. La forma más antigua de la pieza.' },
+    en: { name: 'Silver', material: '950 silver', line: 'The bare metal, cold and honest. The oldest form of the piece.' },
+  },
+  {
+    id: 'rodio',
+    price: '$ 490 USD',
+    swatch: 'linear-gradient(145deg, #FFFFFF 0%, #E4E8EC 46%, #B2BAC2 100%)',
+    es: { name: 'Rodio', material: 'Plata bañada en rodio', line: 'Un blanco que no se empaña. La luz, conservada sobre el agua.' },
+    en: { name: 'Rhodium', material: 'Rhodium-plated silver', line: 'A white that never tarnishes. Light, kept over the water.' },
+  },
+  {
+    id: 'oro',
+    price: '$ 990 USD',
+    swatch: 'linear-gradient(145deg, #F6E4B8 0%, #D9B36B 46%, #A37C3A 100%)',
+    es: { name: 'Oro', material: 'Plata micrada en oro 24k', line: 'El calor del oro de 24k sobre la madre del agua.' },
+    en: { name: 'Gold', material: '24k gold-plated silver', line: 'The warmth of 24k gold over the mother of the water.' },
+  },
+];
+
+// The chain variant. Independent of finish; does not change the price.
+const VITRINA_CHAINS = [
+  { id: 'ella', es: 'Para ella', en: 'For her' },
+  { id: 'el',   es: 'Para él',   en: 'For him' },
+];
+
+function SectionVitrina({ lang }) {
+  // Two independent selections drive the whole section. `finish` swaps the
+  // metal (viewer + name + material + price); `chain` swaps ella/él (viewer
+  // chain length + the small chain-detail preview). Both feed the SAME stack
+  // of 6 Dije photos in the viewer, so either change cross-fades the piece.
+  const [finish, setFinish] = useS('plata');
+  const [chain, setChain]   = useS('ella');
+  const active = VITRINA_FINISHES.find((f) => f.id === finish);
+
+  const t = lang === 'es' ? {
+    eyebrow: 'LA PIEZA · TRES ACABADOS',
+    head: <>Tres acabados. <em>Una sola alma.</em></>,
+    intro: 'Eliges la piel. El agua viva dentro permanece intacta.',
+    finishLabel: 'El acabado',
+    chainLabel: 'La cadena',
+    chainNote: 'La cadena no altera el precio.',
+    edition: 'Edición',
+    cta: 'Recibir en custodia',
+    pieceAlt: (name, ch) => `Ángel de la Laguna Negra en ${name.toLowerCase()}, cadena ${ch === 'ella' ? 'para ella' : 'para él'}`,
+  } : {
+    eyebrow: 'THE PIECE · THREE FINISHES',
+    head: <>Three finishes. <em>One soul.</em></>,
+    intro: 'You choose the skin. The living water within stays untouched.',
+    finishLabel: 'The finish',
+    chainLabel: 'The chain',
+    chainNote: 'The chain does not change the price.',
+    edition: 'Edition',
+    cta: 'Receive in custody',
+    pieceAlt: (name, ch) => `Angel of the Black Lagoon in ${name.toLowerCase()}, ${ch === 'ella' ? 'chain for her' : 'chain for him'}`,
+  };
+
+  return (
+    <section className="Section theme-dark Vitrina" data-theme="dark" data-section="vitrina" data-screen-label="Vitrina (configurador)">
+      <Container className="Vitrina__inner">
+
+        {/* ── Viewer: spotlit display panel ───────────────────────────── */}
+        <div className="Vitrina__viewer">
+          <div className="Vitrina__downlight" aria-hidden></div>
+          <div className="Vitrina__panel">
+            {/* All 6 finish×chain shots stacked; only the active one is opaque,
+                so changing either selection cross-fades the piece (GPU opacity,
+                no load flash since the layers are already in the DOM). */}
+            {VITRINA_FINISHES.map((f) => VITRINA_CHAINS.map((c) => {
+              const on = f.id === finish && c.id === chain;
+              const base = `assets/ecommerce/dije-${f.id}-${c.id}`;
+              const isDefault = f.id === 'plata' && c.id === 'ella';
+              return (
+                <picture key={f.id + c.id} className="Vitrina__shot" data-on={on} aria-hidden={!on}>
+                  <source
+                    type="image/webp"
+                    srcSet={`${base}-480.webp 480w, ${base}-800.webp 800w, ${base}-1200.webp 1200w`}
+                    sizes="(max-width: 767px) 90vw, (max-width: 1024px) 78vw, 600px"
+                  />
+                  <img
+                    src={`${base}.jpg`}
+                    alt={on ? t.pieceAlt(active[lang].name, chain) : ''}
+                    loading={isDefault ? 'eager' : 'lazy'}
+                    decoding="async"
+                    draggable="false"
+                  />
+                </picture>
+              );
+            }))}
+            {/* Emerald corner crosses + struck serial sit ON the bright panel
+                (the section-level white CornerCrosses would vanish here). */}
+            <span className="Vitrina__cc Vitrina__cc--tl" aria-hidden></span>
+            <span className="Vitrina__cc Vitrina__cc--tr" aria-hidden></span>
+            <span className="Vitrina__cc Vitrina__cc--bl" aria-hidden></span>
+            <span className="Vitrina__cc Vitrina__cc--br" aria-hidden></span>
+            <span className="Vitrina__panelSerial">N.º 01 / 100</span>
+          </div>
+        </div>
+
+        {/* ── Inscription column ──────────────────────────────────────── */}
+        <div className="Vitrina__info">
+          <p className="eyebrow-label Vitrina__eyebrow">{t.eyebrow}</p>
+          <h2 className="Vitrina__head">{t.head}</h2>
+          <p className="Vitrina__intro">{t.intro}</p>
+
+          {/* Finish selector — three noble materials, not shop swatches. */}
+          <div className="Vitrina__finishes" role="radiogroup" aria-label={t.finishLabel}>
+            {VITRINA_FINISHES.map((f) => {
+              const on = f.id === finish;
+              return (
+                <button
+                  key={f.id}
+                  type="button"
+                  role="radio"
+                  aria-checked={on}
+                  className="Vitrina__finish"
+                  data-on={on}
+                  onClick={() => setFinish(f.id)}
+                >
+                  <span className="Vitrina__disc" style={{ backgroundImage: f.swatch }} aria-hidden></span>
+                  <span className="Vitrina__finishName">{f[lang].name}</span>
+                  <span className="Vitrina__finishPrice">{f.price}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Dynamic detail for the active finish (material + one line). The
+              min-height in CSS reserves space so swapping copy doesn't shift. */}
+          <p className="Vitrina__detail">
+            <span className="Vitrina__material">{active[lang].material}</span>
+            {active[lang].line}
+          </p>
+
+          {/* Chain selector — segmented control + a small chain-detail chip. */}
+          <div className="Vitrina__chain">
+            <span className="Vitrina__chainLabel">{t.chainLabel}</span>
+            <div className="Vitrina__chainRow">
+              <div className="Vitrina__toggle" role="radiogroup" aria-label={t.chainLabel} data-active={chain}>
+                {VITRINA_CHAINS.map((c) => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    role="radio"
+                    aria-checked={chain === c.id}
+                    className="Vitrina__toggleBtn"
+                    data-on={chain === c.id}
+                    onClick={() => setChain(c.id)}
+                  >
+                    {c[lang]}
+                  </button>
+                ))}
+              </div>
+              <figure className="Vitrina__chainPreview">
+                {VITRINA_FINISHES.map((f) => VITRINA_CHAINS.map((c) => {
+                  const on = f.id === finish && c.id === chain;
+                  const base = `assets/ecommerce/cadena-${f.id}-${c.id}`;
+                  return (
+                    <picture key={f.id + c.id} data-on={on} aria-hidden={!on}>
+                      <source type="image/webp" srcSet={`${base}-360.webp 360w, ${base}-640.webp 640w`} sizes="160px" />
+                      <img src={`${base}.jpg`} alt="" loading="lazy" decoding="async" draggable="false" />
+                    </picture>
+                  );
+                }))}
+              </figure>
+            </div>
+            <span className="Vitrina__chainNote">{t.chainNote}</span>
+          </div>
+
+          {/* Custody CTA + edition serial. Ghost button matches the hero's
+              "Solicitar la custodia" — sanctuary language, never "buy". */}
+          <div className="Vitrina__foot">
+            <a className="Button Button--ghost Vitrina__cta" href="#contact">
+              {t.cta}
+              <span className="Button__arrow">→</span>
+            </a>
+            <div className="Vitrina__edition">
+              <span className="Vitrina__editionLabel">{t.edition}</span>
+              <span className="Vitrina__editionSerial">N.º 01 / 100</span>
+            </div>
+          </div>
+        </div>
+
+      </Container>
+      <CornerCrosses/>
+    </section>
+  );
+}
+
+// ===========================================================
 //  Section 4 — Certificate ("first edition")
 //  Byte-perfect port of the example's EditionCertificate.jsx
 //  (same structure, copy, values, assets & design tokens).
@@ -474,6 +680,6 @@ function Footer({ lang }) {
 // ── Export to window so app.jsx can consume ────────────────────
 Object.assign(window, {
   CornerCrosses, Container,
-  SectionVideoHero, SectionProvenance, SectionCertificate,
+  SectionVideoHero, SectionProvenance, SectionVitrina, SectionCertificate,
   SectionInstagramGrid, Footer,
 });
