@@ -1185,33 +1185,48 @@ function App() {
     document.documentElement.style.setProperty('--grain-opacity', String(tweaks.grainAmount));
   }, [tweaks.grainAmount]);
 
-  // Post-hero theme controller: an IntersectionObserver picks whichever
-  // section is most visible AFTER the hero pin and sets body theme.
-  // The hero's own scroll-progress listener already controls theme while it
-  // is on screen — so we only override once the hero is out of view.
+  // Post-hero theme controller. The navbar is FIXED at the top, so its colour
+  // must contrast with whatever section sits *directly behind it* — not the
+  // "most visible" one. The previous IntersectionObserver picked the max
+  // intersection ratio, which lagged at boundaries: scrolling from a light
+  // section into a dark one, the navbar stayed light-themed (dark chrome) while
+  // already sitting over the dark section, until that section crossed ~50%
+  // visibility — i.e. dark chrome on a dark background. Instead we probe the
+  // [data-theme] element spanning the navbar's vertical midline on each
+  // scroll/resize and apply its theme, so the flip happens exactly as a section
+  // boundary passes under the bar. The hero pin-wrap drives its own
+  // progress-based theme curve, so we defer to it whenever it is under the bar.
   useEffect(() => {
-    const sections = Array.from(document.querySelectorAll('[data-theme]'));
-    if (!sections.length) return;
-
-    const io = new IntersectionObserver((entries) => {
-      // Find the entry with greatest intersectionRatio among those currently
-      // intersecting; that's the section the user is looking at.
-      let best = null;
-      entries.forEach((e) => {
-        if (!e.isIntersecting) return;
-        if (!best || e.intersectionRatio > best.intersectionRatio) best = e;
-      });
-      if (!best) return;
-      const target = best.target;
-      // Skip the pin-wrap — it has its own progress-driven theme curve
-      if (target.classList.contains('pin-wrap')) return;
-      const theme = target.dataset.theme;
-      if (!theme) return;
-      applyTheme(theme);
-    }, { threshold: [0.25, 0.5, 0.75] });
-
-    sections.forEach((s) => io.observe(s));
-    return () => io.disconnect();
+    // Exclude <body>: applyTheme() writes data-theme onto body itself, so a bare
+    // [data-theme] selector also matches the full-page body element — which spans
+    // the whole document and would win the probe at every scroll position,
+    // freezing the theme. Only the real sections + hero pin-wrap should count.
+    const themed = Array.from(document.querySelectorAll('[data-theme]'))
+      .filter((el) => el !== document.body && el !== document.documentElement);
+    if (!themed.length) return;
+    let raf = 0;
+    const apply = () => {
+      raf = 0;
+      const nav = document.querySelector('.nav');
+      const probeY = (nav ? nav.offsetHeight : 72) * 0.5;
+      let under = null;
+      for (const s of themed) {
+        const r = s.getBoundingClientRect();
+        if (r.top <= probeY && r.bottom > probeY) { under = s; break; }
+      }
+      // pin-wrap (hero) owns its theme; nothing under the bar → keep last theme.
+      if (!under || under.classList.contains('pin-wrap')) return;
+      if (under.dataset.theme) applyTheme(under.dataset.theme);
+    };
+    const onScroll = () => { if (!raf) raf = requestAnimationFrame(apply); };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', onScroll, { passive: true });
+    apply();
+    return () => {
+      window.removeEventListener('scroll', onScroll);
+      window.removeEventListener('resize', onScroll);
+      if (raf) cancelAnimationFrame(raf);
+    };
   }, []);
 
   return (
