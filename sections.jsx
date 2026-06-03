@@ -247,8 +247,18 @@ const VITRINA_FINISHES = [
 // The chain variant. Independent of finish; does not change the price.
 // `icon` picks the glyph (fine cable vs curb link); `spec` is the length + link.
 const VITRINA_CHAINS = [
-  { id: 'ella', icon: 'cable', name: { es: 'Para ella', en: 'For her' }, spec: { es: '45 cm · cable fino',     en: '45 cm · Fine cable' } },
-  { id: 'el',   icon: 'curb',  name: { es: 'Para él',   en: 'For him' }, spec: { es: '60 cm · eslabón cubano', en: '60 cm · Curb link' } },
+  { id: 'ella', icon: 'cable', name: { es: 'Para ella', en: 'For her' }, spec: { es: '50 cm · Panzer 050', en: '50 cm · Panzer 050' } },
+  { id: 'el',   icon: 'curb',  name: { es: 'Para él',   en: 'For him' }, spec: { es: '65 cm · Panzer 080', en: '65 cm · Panzer 080' } },
+];
+
+// The two shots we hold for every finish×chain: the piece worn on the bust
+// (`dije-*`, the hero) and the chain laid out in detail (`cadena-*`). They feed
+// both the big viewer and the thumbnail strip below it. `objPos` frames each in
+// a square (lift the pendant on the bust shot; centre the chain). `sizes` lists
+// the responsive widths that actually exist on disk for that prefix.
+const VITRINA_VIEWS = [
+  { id: 'dije',   prefix: 'dije',   sizes: [480, 800, 1200], objPos: 'center 32%', label: { es: 'La pieza',  en: 'The piece' } },
+  { id: 'cadena', prefix: 'cadena', sizes: [360, 640],       objPos: 'center 50%', label: { es: 'La cadena', en: 'The chain' } },
 ];
 
 // Tiny chain glyph for the two chain tiles: round links for the fine cable,
@@ -271,13 +281,15 @@ function ChainGlyph({ kind }) {
 }
 
 function SectionVitrina({ lang }) {
-  // Two independent selections drive the section. `finish` swaps the metal
-  // (discs + spotlight + price); `chain` swaps ella/él. Both feed the SAME
-  // stack of 6 photos in the viewer, so either change cross-fades the piece.
+  // Three independent selections drive the section. `finish` swaps the metal
+  // (discs + spotlight + price); `chain` swaps ella/él; `view` swaps the shot
+  // (piece on the bust vs chain detail) via the thumbnail strip. All three feed
+  // the SAME stack of photos in the viewer, so any change cross-fades the piece.
   // The spotlight + price are keyed on `finish`, so the copy settles with a
   // short rise when you change metal (reduced-motion safe).
   const [finish, setFinish] = useS('plata');
   const [chain, setChain]   = useS('ella');
+  const [view, setView]     = useS('dije');
   const active = VITRINA_FINISHES.find((f) => f.id === finish);
 
   const t = lang === 'es' ? {
@@ -290,7 +302,9 @@ function SectionVitrina({ lang }) {
     meta: 'EDICIÓN LIMITADA · N.º 01 / 100 · HECHA A MANO POR ENCARGO',
     cta: 'Reserva tu pieza',
     chip: 'EDICIÓN LIMITADA · N.º 01 / 100',
+    viewsLabel: 'Vistas de la pieza',
     pieceAlt: (name, ch) => `Ángel de la Laguna Negra en ${name.toLowerCase()}, cadena ${ch === 'ella' ? 'para ella' : 'para él'}`,
+    chainAlt: (name, ch) => `Detalle de la cadena ${ch === 'ella' ? 'para ella' : 'para él'}, El Ángel en ${name.toLowerCase()}`,
   } : {
     eyebrow: 'THE PIECE · METAL & CHAIN',
     head: <>One guardian. <em>Three metals.</em></>,
@@ -301,7 +315,9 @@ function SectionVitrina({ lang }) {
     meta: 'LIMITED FIRST EDITION · N.º 01 / 100 · HAND-FINISHED TO ORDER',
     cta: 'Reserve your piece',
     chip: 'LIMITED FIRST EDITION · N.º 01 / 100',
+    viewsLabel: 'Piece views',
     pieceAlt: (name, ch) => `Angel of the Black Lagoon in ${name.toLowerCase()}, ${ch === 'ella' ? 'chain for her' : 'chain for him'}`,
+    chainAlt: (name, ch) => `Chain detail, ${ch === 'ella' ? 'for her' : 'for him'}, the Angel in ${name.toLowerCase()}`,
   };
 
   return (
@@ -312,36 +328,72 @@ function SectionVitrina({ lang }) {
         <div className="Vitrina__viewer">
           <div className="Vitrina__downlight" aria-hidden></div>
           <div className="Vitrina__panel">
-            {/* All 6 finish×chain shots stacked; only the active one is opaque,
-                so changing either selection cross-fades the piece (GPU opacity,
-                no load flash since the layers are already in the DOM). */}
-            {VITRINA_FINISHES.map((f) => VITRINA_CHAINS.map((c) => {
-              const on = f.id === finish && c.id === chain;
-              const base = `assets/ecommerce/dije-${f.id}-${c.id}`;
-              const isDefault = f.id === 'plata' && c.id === 'ella';
+            {/* Every view×finish×chain shot stacked; only the active one is
+                opaque, so changing the metal, the chain, or the thumbnail
+                cross-fades the piece (GPU opacity, no load flash since the
+                layers are already in the DOM). */}
+            {VITRINA_VIEWS.map((v) => VITRINA_FINISHES.map((f) => VITRINA_CHAINS.map((c) => {
+              const on = v.id === view && f.id === finish && c.id === chain;
+              const base = `assets/ecommerce/${v.prefix}-${f.id}-${c.id}`;
+              const isDefault = v.id === 'dije' && f.id === 'plata' && c.id === 'ella';
+              const alt = on
+                ? (v.id === 'cadena' ? t.chainAlt(active[lang].name, chain) : t.pieceAlt(active[lang].name, chain))
+                : '';
               return (
-                <picture key={f.id + c.id} className="Vitrina__shot" data-on={on} aria-hidden={!on}>
+                <picture key={v.id + f.id + c.id} className="Vitrina__shot" data-on={on} aria-hidden={!on}>
                   <source
                     type="image/webp"
-                    srcSet={`${base}-480.webp 480w, ${base}-800.webp 800w, ${base}-1200.webp 1200w`}
+                    srcSet={v.sizes.map((s) => `${base}-${s}.webp ${s}w`).join(', ')}
                     sizes="(max-width: 767px) 90vw, (max-width: 1024px) 78vw, 600px"
                   />
                   <img
                     src={`${base}.jpg`}
-                    alt={on ? t.pieceAlt(active[lang].name, chain) : ''}
+                    alt={alt}
                     loading={isDefault ? 'eager' : 'lazy'}
                     decoding="async"
                     draggable="false"
+                    style={{ objectPosition: v.objPos }}
                   />
                 </picture>
               );
-            }))}
+            })))}
             {/* Edition chip (top-left) + emerald corner crosses struck on the
                 bright panel (the section-level white CornerCrosses vanish here). */}
             <span className="Vitrina__chip">{t.chip}</span>
             <span className="Vitrina__cc Vitrina__cc--tr" aria-hidden></span>
             <span className="Vitrina__cc Vitrina__cc--bl" aria-hidden></span>
             <span className="Vitrina__cc Vitrina__cc--br" aria-hidden></span>
+          </div>
+
+          {/* Thumbnail strip — the piece's other shots, below the panel. Picking
+              one cross-fades the main view (radio semantics, like the metal &
+              chain selectors). Each thumb tracks the current finish + chain. */}
+          <div className="Vitrina__thumbs" role="radiogroup" aria-label={t.viewsLabel}>
+            {VITRINA_VIEWS.map((v) => {
+              const on = v.id === view;
+              const tbase = `assets/ecommerce/${v.prefix}-${finish}-${chain}`;
+              return (
+                <button
+                  key={v.id}
+                  type="button"
+                  role="radio"
+                  aria-checked={on}
+                  className="Vitrina__thumb"
+                  data-on={on}
+                  onClick={() => setView(v.id)}
+                  aria-label={v.label[lang]}
+                >
+                  <img
+                    src={`${tbase}-${v.sizes[0]}.webp`}
+                    alt=""
+                    loading="lazy"
+                    decoding="async"
+                    draggable="false"
+                    style={{ objectPosition: v.objPos }}
+                  />
+                </button>
+              );
+            })}
           </div>
         </div>
 

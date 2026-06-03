@@ -2395,6 +2395,40 @@ section[data-section="outro"] {
 .Vitrina__cc--bl { bottom: 16px; left: 16px; }
 .Vitrina__cc--br { bottom: 16px; right: 16px; }
 
+/* ---- Thumbnail strip: the piece's other shots, below the panel ---- */
+.Vitrina__thumbs {
+  display: flex;
+  gap: 12px;
+  margin-top: 14px;
+}
+.Vitrina__thumb {
+  flex: 0 0 auto;
+  width: 84px;
+  aspect-ratio: 1 / 1;
+  padding: 0;
+  background: #0B1F1A;   /* seats the frame before the thumb decodes */
+  border: 1px solid var(--white-08);
+  border-radius: 7px;
+  overflow: hidden;
+  cursor: pointer;
+  opacity: 0.6;
+  transition: opacity 320ms var(--ease-out),
+              border-color 320ms var(--ease-out),
+              transform 320ms var(--ease-out);
+}
+.Vitrina__thumb img {
+  display: block;
+  width: 100%; height: 100%;
+  object-fit: cover;
+}
+.Vitrina__thumb:hover { opacity: 0.9; transform: translateY(-2px); }
+.Vitrina__thumb:focus-visible { outline: none; box-shadow: var(--ring-focus); }
+.Vitrina__thumb[data-on="true"] {
+  opacity: 1;
+  border-color: var(--gold-300);
+  box-shadow: 0 0 0 1px var(--gold-300), 0 8px 20px rgba(0, 0, 0, 0.4);
+}
+
 /* ---- Inscription column ---- */
 .Vitrina__eyebrow { margin: 0 0 22px; }
 .Vitrina__head {
@@ -2545,8 +2579,13 @@ section[data-section="outro"] {
   color: rgba(255, 255, 255, 0.56);
 }
 
-/* Foot — custody CTA */
+/* Foot — custody CTA. Pill format (per reference): a roomy gold capsule with a soft champagne halo. */
 .Vitrina__foot { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.Vitrina__cta {
+  border-radius: 999px;
+  padding: 18px 40px;
+  box-shadow: 0 0 48px rgba(233, 215, 177, 0.32);
+}
 
 /* Spotlight + price settle when the metal changes */
 @keyframes vitrinaRise { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: none; } }
@@ -2568,12 +2607,14 @@ section[data-section="outro"] {
   .Vitrina__metals { gap: 14px; }
   .Vitrina__disc { width: 50px; height: 50px; }
   .Vitrina__chains { grid-template-columns: 1fr; }
+  .Vitrina__thumb { width: 72px; }
   .Vitrina__cta { width: 100%; justify-content: center; }
 }
 /* ---- Vitrina · reduced motion ---- */
 @media (prefers-reduced-motion: reduce) {
   .Vitrina__shot,
   .Vitrina__disc,
+  .Vitrina__thumb,
   .Vitrina__chainOpt,
   .Vitrina__chainGlyph,
   .Vitrina__chainName { transition: none; }
