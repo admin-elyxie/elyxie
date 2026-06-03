@@ -247,8 +247,8 @@ const VITRINA_FINISHES = [
 // The chain variant. Independent of finish; does not change the price.
 // `icon` picks the glyph (fine cable vs curb link); `spec` is the length + link.
 const VITRINA_CHAINS = [
-  { id: 'ella', icon: 'cable', name: { es: 'Para ella', en: 'For her' }, spec: { es: '50 cm · Panzer 050', en: '50 cm · Panzer 050' } },
-  { id: 'el',   icon: 'curb',  name: { es: 'Para él',   en: 'For him' }, spec: { es: '65 cm · Panzer 080', en: '65 cm · Panzer 080' } },
+  { id: 'ella', icon: 'cable', name: { es: 'Para ella', en: 'For her' }, spec: { es: '50 cm · Panzer 050 · Ley 925', en: '50 cm · Panzer 050 · 925 Sterling' } },
+  { id: 'el',   icon: 'curb',  name: { es: 'Para él',   en: 'For him' }, spec: { es: '65 cm · Panzer 080 · Ley 925', en: '65 cm · Panzer 080 · 925 Sterling' } },
 ];
 
 // The two shots we hold for every finish×chain: the piece worn on the bust
