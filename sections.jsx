@@ -160,18 +160,18 @@ function IconMetaphysical() {
 const PROVENANCE = [
   {
     Icon: IconGeological,
-    es: { label: 'GEOLÓGICO', title: 'Una esponja sagrada', body: 'El ecosistema de páramo de Las Huaringas actúa como una colosal esponja ecológica. La Laguna Negra reposa a 3.957 m, su superficie oscura un portal de luz y mineral volcánico.' },
-    en: { label: 'GEOLOGICAL', title: 'A sacred sponge', body: 'The páramo ecosystem of Las Huaringas acts as a colossal ecological sponge. Black Lagoon sits at 3,957 m, its dark surface a portal of light and volcanic mineral.' },
+    es: { label: 'GEOLÓGICO', title: 'Nace a 3.957 metros', body: 'En lo más alto de los Andes, donde el aire escasea y el mundo se queda en silencio, la Laguna Negra guarda un agua que la montaña tardó siglos en reunir. No es un lago. Es un reservorio de tiempo.' },
+    en: { label: 'GEOLOGICAL', title: 'Born at 3,957 meters', body: 'High in the Andes, where the air thins and the world falls silent, the Black Lagoon holds water the mountain took centuries to gather. It is not a lake. It is a reservoir of time.' },
   },
   {
     Icon: IconAncestral,
-    es: { label: 'ANCESTRAL', title: '3.000 años de linaje', body: 'La evidencia arqueológica une este paisaje a las culturas Cupisnique y Chavín. Una red de caminos prehispánicos existió sólo para transportar esta agua.' },
-    en: { label: 'ANCESTRAL', title: '3,000 years of lineage', body: 'Archaeological evidence ties this landscape to the Cupisnique and Chavín cultures. A pre-Hispanic network of paths existed only to carry this water.' },
+    es: { label: 'ANCESTRAL', title: '3.000 años de linaje', body: 'La evidencia arqueológica une este paisaje a las culturas Cupisnique y Chavín. Una red de caminos sagrados existió con un solo propósito: transportar esta agua.' },
+    en: { label: 'ANCESTRAL', title: '3,000 years of lineage', body: 'Archaeological evidence ties this landscape to the Cupisnique and Chavín cultures. A network of sacred paths existed for a single purpose: to carry this water.' },
   },
   {
     Icon: IconMetaphysical,
-    es: { label: 'METAFÍSICO', title: 'Mamayacu — madre del agua', body: 'En la cosmovisión andina, la laguna no es un recurso. Es Mamayacu: un espíritu vivo, un portal al Uku Pacha, capaz de absorber y transmutar la carga externa.' },
-    en: { label: 'METAPHYSICAL', title: 'Mamayacu — water mother', body: 'In the Andean cosmovision, the lagoon is not a resource. It is Mamayacu: a living spirit, a portal to Uku Pacha, capable of absorbing and transmuting external charge.' },
+    es: { label: 'METAFÍSICO', title: 'Mamayacu, la madre del agua', body: 'En la cosmovisión andina, la laguna no es un recurso: es un ser vivo. Mamayacu, el Agua Madre, capaz de absorber lo que pesa sobre una persona y devolverla limpia.' },
+    en: { label: 'METAPHYSICAL', title: 'Mamayacu, mother of the water', body: 'In the Andean worldview, the lagoon is not a resource: it is a living being. Mamayacu, the Mother Water, able to absorb what weighs on a person and return them cleansed.' },
   },
 ];
 
