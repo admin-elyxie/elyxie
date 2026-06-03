@@ -2225,8 +2225,8 @@ section[data-section="outro"] {
   line-height: 1.02;
   letter-spacing: -0.02em;
   color: #fff;
-  margin: 0 0 72px;
-  max-width: 17ch;
+  margin: 0 0 44px;
+  max-width: 28ch;
   text-wrap: balance;
 }
 .Provenance__head em {
@@ -2464,7 +2464,7 @@ section[data-section="outro"] {
   .ProvenanceGrid { grid-template-columns: 1fr; gap: 16px; }
   .ProvenanceCard { padding: 32px 28px 34px; }
   .ProvenanceCard__icon { margin-bottom: 28px; }
-  .Provenance__head { margin-bottom: 52px; }
+  .Provenance__head { margin-bottom: 32px; font-size: clamp(22px, 6vw, 34px); }
 }
 /* ---- Certificate · mobile safety (source uses fixed px) ---- */
 @media (max-width: 767px) {
