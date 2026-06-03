@@ -239,8 +239,8 @@ const VITRINA_FINISHES = [
     id: 'oro',
     price: 'USD 990',
     swatch: 'linear-gradient(145deg, #F6E4B8 0%, #D9B36B 46%, #A37C3A 100%)',
-    es: { name: 'Oro', material: 'ORO 24K SOBRE PLATA 950', line: 'La luz más cálida. Oro trazado sobre plata fina.' },
-    en: { name: 'Gold', material: '24K GOLD OVER 950 SILVER', line: 'The warmest light. Gold drawn over fine silver.' },
+    es: { name: 'Oro', material: 'ORO 18K SOBRE PLATA 950', line: 'Plata 950, con 5 micras de oro 18k, duradero para 5 años de uso diario.' },
+    en: { name: 'Gold', material: '18K GOLD OVER 950 SILVER', line: '950 silver, with 5 microns of 18k gold, durable for 5 years of daily wear.' },
   },
 ];
 
