@@ -295,7 +295,7 @@ function SectionVitrina({ lang }) {
   const t = lang === 'es' ? {
     eyebrow: 'LA PIEZA · METAL Y CADENA',
     head: <>Un solo guardián. <em>Tres metales.</em></>,
-    intro: 'El agua es la misma en los tres: recogida de la Laguna Negra, sellada para siempre. Lo que cambia es la casa que la guarda, y la cadena que la viste.',
+    intro: 'El agua es la misma en los tres: recogida de la Laguna Negra, sellada para siempre. Lo que cambia es la casa que la guarda.',
     metalLabel: 'El metal',
     chainLabel: 'CADENA · PARA QUIÉN ES',
     chainNote: 'La cadena no altera el precio.',
@@ -308,7 +308,7 @@ function SectionVitrina({ lang }) {
   } : {
     eyebrow: 'THE PIECE · METAL & CHAIN',
     head: <>One guardian. <em>Three metals.</em></>,
-    intro: 'The water is the same in all three: gathered from the Black Lagoon, sealed forever. What changes is the house that holds it, and the chain that wears it.',
+    intro: 'The water is the same in all three: gathered from the Black Lagoon, sealed forever. What changes is the house that holds it.',
     metalLabel: 'The metal',
     chainLabel: "CHAIN · WHO IT'S FOR",
     chainNote: 'The chain does not change the price.',
