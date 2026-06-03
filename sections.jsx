@@ -268,41 +268,51 @@ function SectionCertificate({ lang }) {
 // ===========================================================
 //  Section 5 — #elyxie Instagram grid (3 cards, mixed ratios)
 // ===========================================================
+// Los 3 últimos posts reales de @elyxie.es (capturados de la cuenta).
+// Para refrescarlos: re-leer el feed y actualizar base/url/fecha/caption.
 const INSTA = [
   {
-    img: 'assets/photography/insta-01.jpg',
-    ratio: '0.78 / 1',           // ~4:5 portrait
-    url:  'https://www.instagram.com/elyxie.es/',
-    es: 'Custodia primera. La esfera viaja en el bolsillo interior de un abrigo de paño desde Lima. Llega antes que su dueño.',
-    en: 'First custody. The sphere travels in the inner pocket of a wool coat from Lima. It arrives before its owner.',
-    handle: '@maria.elena',
+    base: 'assets/photography/insta-real-01',
+    ratio: '0.78 / 1',           // 1080×1351 · 4:5
+    url:  'https://www.instagram.com/p/DXZeeXljrPa/',
+    dateEs: '21 ABRIL 2026', dateEn: 'APRIL 21, 2026',
+    es: 'Algunas piezas están hechas para verse. Otras están hechas para trascender.',
+    en: 'Some pieces are made to be seen. Others are made to transcend.',
   },
   {
-    img: 'assets/photography/insta-02.jpg',
-    ratio: '1 / 1',              // square
-    url:  'https://www.instagram.com/elyxie.es/',
-    es: 'A las 03:14 todavía brilla. La habitación a oscuras, el agua despierta. Es la única que no duerme.',
-    en: 'At 03:14 it still glows. The room in darkness, the water awake. The only thing that does not sleep.',
-    handle: '@tomas.huaringa',
+    base: 'assets/photography/insta-real-02',
+    ratio: '1 / 1',              // reel 9:16 → recortado a cuadrado
+    url:  'https://www.instagram.com/p/DXQbIq2juC5/',
+    dateEs: '17 ABRIL 2026', dateEn: 'APRIL 17, 2026',
+    es: 'Toda historia tiene un origen. La nuestra comienza en el silencio, en las aguas sagradas de la Laguna Negra de Huancabamba, Perú.',
+    en: 'Every story has an origin. Ours begins in silence, in the sacred waters of Laguna Negra in Huancabamba, Peru.',
   },
   {
-    img: 'assets/photography/insta-03.jpg',
-    ratio: '0.78 / 1',
-    url:  'https://www.instagram.com/elyxie.es/',
-    es: 'La caja de cedro grabada. Hexágono, agua, sello. No es embalaje — es la primera capa de la custodia.',
-    en: 'The engraved cedar box. Hexagon, water, seal. It is not packaging — it is the first layer of custody.',
-    handle: '@elyxie.es',
+    base: 'assets/photography/insta-real-03',
+    ratio: '0.78 / 1',           // 1080×1395 · ~4:5
+    url:  'https://www.instagram.com/p/DW9fnC8jmHL/',
+    dateEs: '10 ABRIL 2026', dateEn: 'APRIL 10, 2026',
+    es: 'En los momentos más oscuros, siempre hay algo que te guía. ELYXIE no es solo lo que llevas, es lo que ilumina tu camino.',
+    en: 'In the darkest moments, there is always something that guides you. ELYXIE is not just what you wear, it is what illuminates your path.',
   },
 ];
 
+// Mes/año en vivo para el eyebrow ("SOCIALES · JUNIO 2026"); se actualiza solo.
+const FEED_MONTHS = {
+  es: ['ENERO','FEBRERO','MARZO','ABRIL','MAYO','JUNIO','JULIO','AGOSTO','SEPTIEMBRE','OCTUBRE','NOVIEMBRE','DICIEMBRE'],
+  en: ['JANUARY','FEBRUARY','MARCH','APRIL','MAY','JUNE','JULY','AUGUST','SEPTEMBER','OCTOBER','NOVEMBER','DECEMBER'],
+};
+
 function SectionInstagramGrid({ lang }) {
+  const now = new Date();
+  const eyebrow = (lang === 'es' ? 'SOCIALES · ' : 'SOCIAL · ') + FEED_MONTHS[lang][now.getMonth()] + ' ' + now.getFullYear();
   return (
     <section className="Section theme-light" data-theme="light" data-section="elyxie-feed" data-screen-label="05 Instagram">
       <Container>
         <div className="SectionHead">
           <h2 className="SectionHead__title">#elyxie</h2>
           <div className="SectionHead__meta">
-            <span>{lang === 'es' ? 'CUSTODIOS · DICIEMBRE 2026' : 'CUSTODIANS · DECEMBER 2026'}</span>
+            <span>{eyebrow}</span>
             <a className="SectionHead__link" href="https://www.instagram.com/elyxie.es/" target="_blank" rel="noopener">
               {lang === 'es' ? 'VER MÁS' : 'VIEW MORE'} →
             </a>
@@ -311,11 +321,12 @@ function SectionInstagramGrid({ lang }) {
 
         <ul className="InstaGrid">
           {INSTA.map((p, i) => {
-            const webp = p.img.replace(/\.jpg$/, '.webp');
-            const webp480 = p.img.replace(/\.jpg$/, '-480.webp');
+            const webp = `${p.base}.webp`;
+            const webp480 = `${p.base}-480.webp`;
+            const date = lang === 'es' ? p.dateEs : p.dateEn;
             return (
             <li key={i} className="InstaCard">
-              <a href={p.url} target="_blank" rel="noopener" aria-label={`Instagram post ${i + 1}`}>
+              <a href={p.url} target="_blank" rel="noopener" aria-label={`Instagram · ${date}`}>
                 <figure className="InstaCard__media" style={{ aspectRatio: p.ratio }}>
                   <picture>
                     <source
@@ -323,7 +334,7 @@ function SectionInstagramGrid({ lang }) {
                       srcSet={`${webp480} 480w, ${webp} 720w`}
                       sizes="(max-width: 767px) 100vw, (max-width: 1024px) 50vw, 33vw"
                     />
-                    <img src={p.img} alt="" loading="lazy" decoding="async"/>
+                    <img src={`${p.base}.jpg`} alt="" loading="lazy" decoding="async"/>
                   </picture>
                   <span className="InstaCard__badge" aria-hidden>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -334,7 +345,7 @@ function SectionInstagramGrid({ lang }) {
                   </span>
                 </figure>
                 <figcaption className="InstaCard__caption">
-                  <span className="InstaCard__handle">{p.handle}</span>
+                  <span className="InstaCard__handle">{date}</span>
                   <span className="InstaCard__text">{p[lang]}</span>
                 </figcaption>
               </a>
