@@ -138,13 +138,141 @@ function SectionVideoHero({ lang }) {
 }
 
 // ===========================================================
-//  Section 3 — #elyxie Instagram grid (3 cards, mixed ratios)
+//  Section 3 — Provenance ("what the sphere holds")
+// ===========================================================
+function IconGeological() {
+  return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" aria-hidden>
+    <path d="M2.5 19h19L14 7l-3 4.6L8.7 8.2z"/>
+  </svg>;
+}
+function IconAncestral() {
+  return <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+    <path d="M12 1.4c.55 4.9 1.7 6.05 6.6 6.6-4.9.55-6.05 1.7-6.6 6.6-.55-4.9-1.7-6.05-6.6-6.6 4.9-.55 6.05-1.7 6.6-6.6z"/>
+    <path d="M18.5 15.2c.27 2.4.83 2.96 3.2 3.2-2.37.24-2.93.8-3.2 3.2-.27-2.4-.83-2.96-3.2-3.2 2.37-.24 2.93-.8 3.2-3.2z"/>
+  </svg>;
+}
+function IconMetaphysical() {
+  return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" aria-hidden>
+    <path d="M12 2.4l7 2.6v5.4c0 4.7-3 7.9-7 9.6-4-1.7-7-4.9-7-9.6V5z"/>
+  </svg>;
+}
+
+const PROVENANCE = [
+  {
+    Icon: IconGeological,
+    es: { label: 'GEOLÓGICO', title: 'Una esponja sagrada', body: 'El ecosistema de páramo de Las Huaringas actúa como una colosal esponja ecológica. La Laguna Negra reposa a 3.957 m, su superficie oscura un portal de luz y mineral volcánico.' },
+    en: { label: 'GEOLOGICAL', title: 'A sacred sponge', body: 'The páramo ecosystem of Las Huaringas acts as a colossal ecological sponge. Black Lagoon sits at 3,957 m, its dark surface a portal of light and volcanic mineral.' },
+  },
+  {
+    Icon: IconAncestral,
+    es: { label: 'ANCESTRAL', title: '3.000 años de linaje', body: 'La evidencia arqueológica une este paisaje a las culturas Cupisnique y Chavín. Una red de caminos prehispánicos existió sólo para transportar esta agua.' },
+    en: { label: 'ANCESTRAL', title: '3,000 years of lineage', body: 'Archaeological evidence ties this landscape to the Cupisnique and Chavín cultures. A pre-Hispanic network of paths existed only to carry this water.' },
+  },
+  {
+    Icon: IconMetaphysical,
+    es: { label: 'METAFÍSICO', title: 'Mamayacu — madre del agua', body: 'En la cosmovisión andina, la laguna no es un recurso. Es Mamayacu: un espíritu vivo, un portal al Uku Pacha, capaz de absorber y transmutar la carga externa.' },
+    en: { label: 'METAPHYSICAL', title: 'Mamayacu — water mother', body: 'In the Andean cosmovision, the lagoon is not a resource. It is Mamayacu: a living spirit, a portal to Uku Pacha, capable of absorbing and transmuting external charge.' },
+  },
+];
+
+function SectionProvenance({ lang }) {
+  const t = lang === 'es'
+    ? { eyebrow: 'PROCEDENCIA · LO QUE GUARDA LA ESFERA', head: <>No es un detalle estético. <em>Es un núcleo energético.</em></> }
+    : { eyebrow: 'PROVENANCE · WHAT THE SPHERE HOLDS', head: <>Not an aesthetic detail. <em>An energetic core.</em></> };
+
+  return (
+    <section className="Section theme-dark" data-theme="dark" data-section="provenance" data-screen-label="03 Provenance">
+      <Container>
+        <p className="eyebrow-label Provenance__eyebrow">{t.eyebrow}</p>
+        <h2 className="Provenance__head">{t.head}</h2>
+
+        <ul className="ProvenanceGrid">
+          {PROVENANCE.map((c, i) => {
+            const Icon = c.Icon;
+            return (
+              <li key={i} className="ProvenanceCard">
+                <span className="ProvenanceCard__icon" aria-hidden><Icon/></span>
+                <span className="ProvenanceCard__label">{c[lang].label}</span>
+                <h3 className="ProvenanceCard__title">{c[lang].title}</h3>
+                <p className="ProvenanceCard__body">{c[lang].body}</p>
+              </li>
+            );
+          })}
+        </ul>
+
+        <CornerCrosses/>
+      </Container>
+    </section>
+  );
+}
+
+// ===========================================================
+//  Section 4 — Certificate ("first edition")
+//  Byte-perfect port of the example's EditionCertificate.jsx
+//  (same structure, copy, values, assets & design tokens).
+//  Fixed (non-localized) strings match the source exactly:
+//  the SACRED WATER tag, the dual product name, date & jeweler.
+// ===========================================================
+function SectionCertificate({ lang }) {
+  const t = lang === 'es' ? {
+    eyebrow: 'CERTIFICADO  ·  PRIMERA EDICIÓN',
+    title: 'Numerado. Reservado. Atestiguado.',
+    body: 'Cada pieza lleva un número de serie grabado a mano, firmado por el maestro joyero, acompañado de un certificado en papel sellado con el monograma de elyxie.',
+    issued: 'Emitido', by: 'Maestro joyero', seal: 'Sellado',
+  } : {
+    eyebrow: 'CERTIFICATE  ·  FIRST EDITION',
+    title: 'Numbered. Reserved. Witnessed.',
+    body: 'Each piece carries a hand-engraved serial, signed by the master jeweler, accompanied by a paper certificate sealed with the elyxie monogram.',
+    issued: 'Issued', by: 'Maestro joyero', seal: 'Sealed',
+  };
+
+  return (
+    <section className="Section theme-dark Certificate" data-theme="dark" data-section="certificate" data-screen-label="04 Certificate">
+      <div className="Certificate__halo" aria-hidden></div>
+      <div className="Container Certificate__inner">
+        <div className="Certificate__eyebrow">{t.eyebrow}</div>
+        <h2 className="Certificate__title">{t.title}</h2>
+        <p className="Certificate__body">{t.body}</p>
+
+        <div className="Cert">
+          <div className="Cert__bg" aria-hidden></div>
+          <div className="Cert__head">
+            <div className="Cert__brand"><span className="elyxie-logo" role="img" aria-label="elyxie"></span></div>
+            <div className="Cert__tag">SACRED WATER<br/>ANCESTRAL JEWELRY</div>
+          </div>
+          <div className="Cert__name">Ángel de la Laguna Negra</div>
+          <div className="Cert__nameEn">Angel of the Black Lagoon</div>
+          <div className="Cert__serial">N.º 01 / 100</div>
+          <div className="Cert__grid">
+            <div>
+              <div className="Cert__label">{t.issued}</div>
+              <div className="Cert__value">Lima · Perú</div>
+              <div className="Cert__value">20 · 05 · 2026</div>
+            </div>
+            <div>
+              <div className="Cert__label">{t.by}</div>
+              <div className="Cert__signature">J. Aliaga</div>
+            </div>
+            <div className="Cert__sealCol">
+              <div className="Cert__label">{t.seal}</div>
+              <img className="Cert__sealImg" src="assets/elyxie-mark.svg" alt="" aria-hidden/>
+            </div>
+          </div>
+        </div>
+      </div>
+      <CornerCrosses/>
+    </section>
+  );
+}
+
+// ===========================================================
+//  Section 5 — #elyxie Instagram grid (3 cards, mixed ratios)
 // ===========================================================
 const INSTA = [
   {
     img: 'assets/photography/insta-01.jpg',
     ratio: '0.78 / 1',           // ~4:5 portrait
-    url:  'https://instagram.com/elyxie.world',
+    url:  'https://www.instagram.com/elyxie.es/',
     es: 'Custodia primera. La esfera viaja en el bolsillo interior de un abrigo de paño desde Lima. Llega antes que su dueño.',
     en: 'First custody. The sphere travels in the inner pocket of a wool coat from Lima. It arrives before its owner.',
     handle: '@maria.elena',
@@ -152,7 +280,7 @@ const INSTA = [
   {
     img: 'assets/photography/insta-02.jpg',
     ratio: '1 / 1',              // square
-    url:  'https://instagram.com/elyxie.world',
+    url:  'https://www.instagram.com/elyxie.es/',
     es: 'A las 03:14 todavía brilla. La habitación a oscuras, el agua despierta. Es la única que no duerme.',
     en: 'At 03:14 it still glows. The room in darkness, the water awake. The only thing that does not sleep.',
     handle: '@tomas.huaringa',
@@ -160,22 +288,22 @@ const INSTA = [
   {
     img: 'assets/photography/insta-03.jpg',
     ratio: '0.78 / 1',
-    url:  'https://instagram.com/elyxie.world',
+    url:  'https://www.instagram.com/elyxie.es/',
     es: 'La caja de cedro grabada. Hexágono, agua, sello. No es embalaje — es la primera capa de la custodia.',
     en: 'The engraved cedar box. Hexagon, water, seal. It is not packaging — it is the first layer of custody.',
-    handle: '@elyxie.world',
+    handle: '@elyxie.es',
   },
 ];
 
 function SectionInstagramGrid({ lang }) {
   return (
-    <section className="Section theme-light" data-theme="light" data-section="elyxie-feed" data-screen-label="03 Instagram">
+    <section className="Section theme-light" data-theme="light" data-section="elyxie-feed" data-screen-label="05 Instagram">
       <Container>
         <div className="SectionHead">
           <h2 className="SectionHead__title">#elyxie</h2>
           <div className="SectionHead__meta">
             <span>{lang === 'es' ? 'CUSTODIOS · DICIEMBRE 2026' : 'CUSTODIANS · DECEMBER 2026'}</span>
-            <a className="SectionHead__link" href="https://instagram.com/elyxie.world" target="_blank" rel="noopener">
+            <a className="SectionHead__link" href="https://www.instagram.com/elyxie.es/" target="_blank" rel="noopener">
               {lang === 'es' ? 'VER MÁS' : 'VIEW MORE'} →
             </a>
           </div>
@@ -222,277 +350,105 @@ function SectionInstagramGrid({ lang }) {
 }
 
 // ===========================================================
-//  Section 4 — Full-bleed media + headline
+//  Section 7 — Footer (newsletter + footer)
+//  Byte-perfect port of the example's Footer.jsx — the email
+//  capture and the footer columns are a single component.
 // ===========================================================
-function SectionBrandStatement({ lang }) {
-  const t = lang === 'es' ? {
-    wordmark: 'elyxie',
-    head: <>En Elyxie no fabricamos joyas.<br/>Custodiamos <em>agua sagrada</em>,<br/>tallada en plata y oro.</>,
-    btn: 'Sobre nosotros',
-  } : {
-    wordmark: 'elyxie',
-    head: <>At Elyxie we do not make jewelry.<br/>We keep <em>sacred water</em>,<br/>carved in silver and gold.</>,
-    btn: 'About us',
-  };
-  return (
-    <section className="Section theme-dark FullMediaHeadline" data-theme="dark" data-section="brand-statement" data-screen-label="04 Brand statement">
-      <div className="FullMediaHeadline__media">
-        {/* Still poster — ambient slow zoom via CSS (Ken Burns).
-            Below the fold of the hero, so lazy + async is safe and saves
-            ~4 MB on initial load. */}
-        <picture>
-          <source
-            type="image/webp"
-            srcSet="assets/photography/brand-statement-bg-960.webp 960w, assets/photography/brand-statement-bg-1440.webp 1440w, assets/photography/brand-statement-bg.webp 1920w"
-            sizes="100vw"
-          />
-          <img
-            className="FullMediaHeadline__bg"
-            src="assets/photography/brand-statement-bg.jpg"
-            alt=""
-            loading="lazy"
-            decoding="async"
-          />
-        </picture>
-        <div className="FullMediaHeadline__overlay"></div>
-      </div>
-
-      <div className="FullMediaHeadline__content">
-        <span className="brand-wordmark">{t.wordmark}</span>
-        <h2 className="display-headline">{t.head}</h2>
-        <a className="Button Button--ghost" href="#about">
-          {t.btn}
-          <span className="Button__arrow">→</span>
-        </a>
-      </div>
-
-      <CornerCrosses />
-    </section>
-  );
-}
-
-// ===========================================================
-//  Section 5 — Newsletter
-// ===========================================================
-function SectionNewsletter({ lang }) {
-  const [email, setEmail] = useS('');
-  const [consent, setConsent] = useS(false);
-  const [submitted, setSubmitted] = useS(false);
-
-  const t = lang === 'es' ? {
-    head: 'Suscríbete al boletín',
-    sub: 'Recibe noticias de las próximas custodias antes que nadie. Una carta al mes — nunca dos.',
-    email: 'Tu correo electrónico*',
-    cta: 'Suscribirme',
-    consent: <>Acepto la recolección de mis datos personales como se describe en la <a href="#privacy">Política de Privacidad</a>.</>,
-    done: 'Gracias. Te escribiremos pronto.',
-  } : {
-    head: 'Subscribe to our newsletter',
-    sub: 'Hear about upcoming custodies before anyone else. One letter a month — never two.',
-    email: 'Your email*',
-    cta: 'Sign up',
-    consent: <>I agree to the collection and processing of my personal data as described in the <a href="#privacy">Privacy Policy</a>.</>,
-    done: 'Thank you. You\'ll hear from us soon.',
-  };
-
-  function onSubmit(e) {
-    e.preventDefault();
-    // TODO: integrate with newsletter service (Mailchimp / Klaviyo / Brevo)
-    setSubmitted(true);
-  }
-
-  return (
-    <section className="Section theme-dark Section--banner" data-theme="dark" data-section="newsletter" data-screen-label="05 Newsletter">
-      <div className="NewsletterBanner">
-        <picture className="NewsletterBanner__bg">
-          <source
-            type="image/webp"
-            srcSet="assets/photography/newsletter-bg-960.webp 960w, assets/photography/newsletter-bg-1440.webp 1440w, assets/photography/newsletter-bg.webp 1920w"
-            sizes="100vw"
-          />
-          <img src="assets/photography/newsletter-bg.jpg" alt="" loading="lazy" decoding="async"/>
-        </picture>
-
-        <div className="NewsletterBanner__content">
-          <Container>
-            <div className="NewsletterBanner__inner">
-              <h2 className="NewsletterBanner__title">{t.head}</h2>
-              <p className="NewsletterBanner__sub">{t.sub}</p>
-
-              {submitted ? (
-                <div className="NewsletterForm__done">{t.done}</div>
-              ) : (
-                <form className="NewsletterForm" onSubmit={onSubmit}>
-                  <div className="NewsletterForm__row">
-                    <label className="floating-label">
-                      <input
-                        type="email"
-                        name="email"
-                        required
-                        placeholder=" "
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                      />
-                      <span>{t.email}</span>
-                    </label>
-                    <button type="submit" className="Button Button--primary" disabled={!consent}>
-                      {t.cta}
-                      <span className="Button__arrow">→</span>
-                    </button>
-                  </div>
-
-                  <label className="checkbox">
-                    <input
-                      type="checkbox"
-                      name="consent"
-                      required
-                      checked={consent}
-                      onChange={(e) => setConsent(e.target.checked)}
-                    />
-                    <span className="checkbox__box" aria-hidden></span>
-                    <span className="checkbox__text">{t.consent}</span>
-                  </label>
-                </form>
-              )}
-            </div>
-          </Container>
-        </div>
-
-        <CornerCrosses />
-      </div>
-    </section>
-  );
-}
-
-// ===========================================================
-//  Section 6 — Outro wordmark
-// ===========================================================
-function SectionOutroWordmark() {
-  return (
-    <section className="Section theme-dark" data-theme="dark" data-section="outro" data-screen-label="06 Outro">
-      <div className="OutroWordmark">
-        <span className="OutroWordmark__text">elyxie</span>
-      </div>
-      <CornerCrosses />
-    </section>
-  );
-}
-
-// ===========================================================
-//  Section 7 — Footer
-// ===========================================================
-const FOOTER_COLS = {
-  es: [
-    { h: 'Ediciones', items: ['ÁNGEL DE LA LAGUNA NEGRA', 'MAMAYACU', 'HUARINGA', 'UKU PACHA'] },
-    { h: 'Materia',    items: ['CRISTAL SOPLADO', 'ALUMINATO DE ESTRONCIO'] },
-    { h: 'Sobre nosotros', items: ['Relato', 'Custodia', 'Ritual', 'Atelier en Lima'] },
-    { h: 'Adicional',  items: ['Mayoristas', 'Servicio', 'Trabaja con nosotros'] },
-    { h: 'Documentos', items: ['Política de Privacidad', 'Términos y Condiciones', 'Aviso Legal', 'Cookies'] },
-    { h: 'Contacto',   items: ['+51 1 388 9912', '+51 1 388 9955'], contact: true, cta: 'Contáctanos' },
-  ],
-  en: [
-    { h: 'Editions', items: ['ANGEL OF THE BLACK LAGOON', 'MAMAYACU', 'HUARINGA', 'UKU PACHA'] },
-    { h: 'Matter',     items: ['HAND-BLOWN GLASS', 'STRONTIUM ALUMINATE'] },
-    { h: 'About us',   items: ['Story', 'Custody', 'Ritual', 'Atelier in Lima'] },
-    { h: 'Additional', items: ['Dealers', 'Service', 'Jobs'] },
-    { h: 'Documents',  items: ['Privacy Policy', 'Terms & Conditions', 'Imprint', 'Cookies'] },
-    { h: 'Contact',    items: ['+51 1 388 9912', '+51 1 388 9955'], contact: true, cta: 'Contact us' },
-  ],
+const FOOT_COPY = {
+  en: {
+    eyebrow: 'JOIN THE CIRCLE',
+    title: 'The lagoon, in your inbox.',
+    body: 'A quiet letter, monthly. New rituals, new pieces, the next opening of the edition.',
+    placeholder: 'Your email',
+    button: 'Reserve',
+    discreet: 'We do not share addresses. Ever.',
+    brandBody: 'A single piece, hand-crafted in Lima, with water gathered from the Black Lagoon of Huancabamba.',
+    columns: [
+      { title: 'ELYXIE', links: ['Story', 'The lagoon', 'Master jeweler', 'Press'] },
+      { title: 'SHOP',   links: ['Ángel de la Laguna Negra', 'Coming soon', 'Care', 'Returns'] },
+      { title: 'REACH',  links: ['WhatsApp', 'Email', 'Instagram', 'Lima · Perú'] },
+    ],
+    copy: '© 2026 elyxie  ·  Sacred water from the Black Lagoon of Huancabamba',
+  },
+  es: {
+    eyebrow: 'ÚNETE AL CÍRCULO',
+    title: 'La laguna, en tu bandeja.',
+    body: 'Una carta silenciosa, cada mes. Nuevos rituales, nuevas piezas, la próxima apertura de la edición.',
+    placeholder: 'Tu correo',
+    button: 'Reservar',
+    discreet: 'No compartimos direcciones. Nunca.',
+    brandBody: 'Una sola pieza, hecha a mano en Lima, con agua recolectada de la Laguna Negra de Huancabamba.',
+    columns: [
+      { title: 'ELYXIE', links: ['Relato', 'La laguna', 'Maestro joyero', 'Prensa'] },
+      { title: 'TIENDA', links: ['Ángel de la Laguna Negra', 'Próximamente', 'Cuidado', 'Devoluciones'] },
+      { title: 'CONTACTO', links: ['WhatsApp', 'Correo', 'Instagram', 'Lima · Perú'] },
+    ],
+    copy: '© 2026 elyxie  ·  Agua sagrada de la Laguna Negra de Huancabamba',
+  },
 };
 
+// feather-style line icons (stroke 1.5) — matches the source Icons.jsx
+function FootIcon({ children }) {
+  return <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">{children}</svg>;
+}
+const FootIgIcon   = () => <FootIcon><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></FootIcon>;
+const FootWaIcon   = () => <FootIcon><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></FootIcon>;
+const FootMailIcon = () => <FootIcon><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></FootIcon>;
+
 function Footer({ lang }) {
-  // Mobile accordion: track which column is open
-  const [openIdx, setOpenIdx] = useS(-1);
-  const [isMobile, setIsMobile] = useS(false);
-
-  useE(() => {
-    const mq = window.matchMedia('(max-width: 810px)');
-    const handler = () => setIsMobile(mq.matches);
-    handler();
-    mq.addEventListener('change', handler);
-    return () => mq.removeEventListener('change', handler);
-  }, []);
-
-  const cols = FOOTER_COLS[lang];
-
+  const t = FOOT_COPY[lang];
   return (
-    <footer className="Footer theme-dark" data-theme="dark" data-section="footer" data-screen-label="07 Footer">
-      <Container>
-        <nav className="Footer__cols" aria-label="Footer">
-          {cols.map((col, i) => {
-            const open = isMobile ? openIdx === i : true;
-            return (
-              <div key={col.h} className={`Footer__col ${col.contact ? 'Footer__col--contact' : ''} ${open ? 'is-open' : ''}`}>
-                <h4 onClick={() => isMobile && setOpenIdx(openIdx === i ? -1 : i)}>
-                  {col.h}
-                  <span className="Footer__chev" aria-hidden>{open ? '−' : '+'}</span>
-                </h4>
-                <ul>
-                  {col.items.map((it) => (
-                    <li key={it}>
-                      {col.contact && it.startsWith('+')
-                        ? <a href={`tel:${it.replace(/\s/g, '')}`}>{it}</a>
-                        : <a href="#">{it}</a>}
-                    </li>
-                  ))}
-                </ul>
-                {col.cta && (
-                  <a className="Button Button--ghost Button--small" href="#contact">
-                    {col.cta}
-                    <span className="Button__arrow">→</span>
-                  </a>
-                )}
-              </div>
-            );
-          })}
-        </nav>
-
-        <div className="Footer__bottom">
-          <ul className="Footer__social" aria-label="Social media">
-            <li><a href="#" aria-label="Instagram"><InstagramIcon/></a></li>
-            <li><a href="#" aria-label="Facebook"><FacebookIcon/></a></li>
-            <li><a href="#" aria-label="YouTube"><YoutubeIcon/></a></li>
-            <li><a href="#" aria-label="Pinterest"><PinterestIcon/></a></li>
-          </ul>
-          <p className="Footer__copy">
-            © 2026 ELYXIE · {lang === 'es' ? 'Custodios de Mamayacu · Lima, Perú' : 'Custodians of Mamayacu · Lima, Peru'}
-          </p>
+    <footer className="SiteFooter" data-theme="dark" data-section="footer" data-screen-label="07 Footer">
+      <div className="SiteFooter__halo" aria-hidden></div>
+      <div className="Container SiteFooter__inner">
+        <div className="FootNews">
+          <div>
+            <div className="FootNews__eyebrow">{t.eyebrow}</div>
+            <h2 className="FootNews__title">{t.title}</h2>
+            <p className="FootNews__body">{t.body}</p>
+          </div>
+          <div className="FootForm">
+            <div className="FootForm__row">
+              <input className="FootForm__input" type="email" placeholder={t.placeholder}/>
+              <button className="FootForm__submit">{t.button}</button>
+            </div>
+            <div className="FootForm__discreet">{t.discreet}</div>
+          </div>
         </div>
-      </Container>
 
-      {/* Footer keeps ONLY the top crosses */}
-      <CornerCrosses topOnly/>
+        <div className="FootLower">
+          <div className="FootBrand">
+            <div className="FootBrand__name"><span className="elyxie-logo" role="img" aria-label="elyxie"></span></div>
+            <div className="FootBrand__tag">SACRED WATER  ·  ANCESTRAL JEWELRY</div>
+            <div className="FootBrand__body">{t.brandBody}</div>
+            <div className="FootSocials">
+              <a className="FootSocial" href="https://www.instagram.com/elyxie.es/" target="_blank" rel="noopener" aria-label="Instagram"><FootIgIcon/></a>
+              <button className="FootSocial" aria-label="WhatsApp"><FootWaIcon/></button>
+              <button className="FootSocial" aria-label="Email"><FootMailIcon/></button>
+            </div>
+          </div>
+          {t.columns.map((col) => (
+            <div key={col.title}>
+              <div className="FootCol__title">{col.title}</div>
+              <div className="FootCol__list">
+                {col.links.map((l) => <span key={l} className="FootCol__link">{l}</span>)}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="FootCopy">
+          <div className="FootCopy__text">{t.copy}</div>
+          <div className="FootCopy__name"><span className="elyxie-logo" role="img" aria-label="elyxie"></span></div>
+        </div>
+      </div>
     </footer>
   );
-}
-
-// ── tiny social glyphs ────────────────────────────────────────
-function InstagramIcon() {
-  return <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-    <rect x="3" y="3" width="18" height="18" rx="5"/>
-    <circle cx="12" cy="12" r="4"/>
-    <circle cx="17.5" cy="6.5" r="1" fill="currentColor"/>
-  </svg>;
-}
-function FacebookIcon() {
-  return <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-    <path d="M13.5 21v-8h2.7l.4-3.1h-3.1V7.9c0-.9.3-1.5 1.5-1.5h1.7V3.6c-.3 0-1.3-.1-2.4-.1-2.4 0-4 1.4-4 4.1V9.9H7.6V13h2.6v8h3.3z"/>
-  </svg>;
-}
-function YoutubeIcon() {
-  return <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-    <path d="M22 8.2a3 3 0 0 0-2-2c-1.8-.5-9-.5-9-.5s-7.2 0-9 .5a3 3 0 0 0-2 2c-.4 1.8-.4 3.8-.4 3.8s0 2 .4 3.8a3 3 0 0 0 2 2c1.8.5 9 .5 9 .5s7.2 0 9-.5a3 3 0 0 0 2-2c.4-1.8.4-3.8.4-3.8s0-2-.4-3.8zM9.5 15.5v-7l6 3.5-6 3.5z"/>
-  </svg>;
-}
-function PinterestIcon() {
-  return <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-    <path d="M12 2C6.5 2 2 6.5 2 12c0 4.2 2.6 7.8 6.2 9.3-.1-.8-.2-2 0-2.9.2-.8 1.2-5.1 1.2-5.1s-.3-.6-.3-1.5c0-1.4.8-2.5 1.9-2.5.9 0 1.3.7 1.3 1.5 0 .9-.6 2.3-.9 3.6-.3 1.1.5 2 1.6 2 1.9 0 3.4-2 3.4-5 0-2.6-1.9-4.4-4.6-4.4-3.1 0-5 2.3-5 4.8 0 1 .4 2 .8 2.6.1.1.1.2.1.3-.1.3-.2 1-.3 1.1 0 .2-.2.2-.4.1-1.2-.6-2-2.4-2-3.8 0-3.1 2.3-6 6.5-6 3.4 0 6.1 2.4 6.1 5.7 0 3.4-2.1 6.2-5.1 6.2-1 0-2-.5-2.3-1.1l-.6 2.4c-.2.9-.8 2-1.2 2.6.9.3 1.9.4 2.9.4 5.5 0 10-4.5 10-10S17.5 2 12 2z"/>
-  </svg>;
 }
 
 // ── Export to window so app.jsx can consume ────────────────────
 Object.assign(window, {
   CornerCrosses, Container,
-  SectionVideoHero, SectionInstagramGrid, SectionBrandStatement,
-  SectionNewsletter, SectionOutroWordmark, Footer,
+  SectionVideoHero, SectionProvenance, SectionCertificate,
+  SectionInstagramGrid, Footer,
 });
