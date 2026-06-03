@@ -24,7 +24,7 @@ Este sitio es el **escaparate narrativo de la marca**: una experiencia cinematog
 
 **Místico · Protector · Ancestral.**
 
-Voz: reverente, susurrada, cinematográfica (referencia sonora Hans Zimmer). Frases cortas y declarativas, con pausas y silencios; la intensidad crece, no grita. Poética pero nunca recargada. Bilingüe (cada texto vive como `{ es, en }`).
+Voz (**Reverente · Contenida · Bilingüe**): susurrada y cinematográfica (referencia sonora Hans Zimmer). Frases cortas y declarativas, con pausas y silencios; la intensidad crece, no grita. Recurre a pares de negación ("No se exhibe. Se siente."), a sustantivos sagrados en mayúscula (Mamayacu, Uku Pacha), y nunca a la venta agresiva ni a la urgencia. Poética pero nunca recargada. Bilingüe (cada texto vive como `{ es, en }`): el español lidera, el inglés aclara.
 
 Emociones a evocar: sobrecogimiento, sosiego, misterio, intimidad y la sensación de tocar algo sagrado y antiguo. Una sola luz en la oscuridad. *"No lo entiendes… hasta que lo sientes."*
 

@@ -1138,6 +1138,12 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
       // value, perfectly synced with the temple background cross-fade.
       let lastAlmaDayMixWrite = -1;
 
+      // Cache for the ORIGEN/HISTORIA right-column centring measurement. The
+      // active title's screen midpoint depends only on WHICH title shows and the
+      // viewport width, so we do the layout read once per title/width change and
+      // reuse it, instead of 3 querySelector + 2 getBoundingClientRect every
+      // frame across the whole 0.00-0.46 scroll band.
+      let originRightCache = { key: -1, midX: 0 };
       function animate(now) {
         raf = requestAnimationFrame(animate);
         // 60 Hz cap. Skip the frame entirely if we are early.
@@ -1557,17 +1563,29 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
         // jump when scrolling from section 1 to section 2.
         let pxOriginRightCenter = 0;
         if (!isMobile && !isTablet && introHold > 0.001) {
-          const titleEl = document.querySelector('.phase-content[data-active="true"] .phase-title')
-                       || document.querySelector('.phase-content .phase-title');
-          const railEl = document.querySelector('.rail');
-          if (titleEl && railEl) {
-            const tr = titleEl.getBoundingClientRect();
-            const rr = railEl.getBoundingClientRect();
-            if (tr.width > 0 && rr.width > 0 && rr.left > tr.right) {
-              const midX = (tr.right + rr.left) / 2;
-              const worldShift = (midX - vw / 2) * worldWidthAtZ0 / vw;
-              pxOriginRightCenter = worldShift * introHold;
+          // Which title is on screen (ORIGEN <0.18, HISTORIA <0.40, else MATERIA)
+          // plus the viewport width fully determine the measured midpoint. Only
+          // re-read the DOM when that key changes; reuse the cached screen midX
+          // every other frame.
+          const titleBand = tRaw < 0.18 ? 0 : tRaw < 0.40 ? 1 : 2;
+          const cacheKey = titleBand * 100000 + Math.round(vw);
+          if (originRightCache.key !== cacheKey) {
+            const titleEl = document.querySelector('.phase-content[data-active="true"] .phase-title')
+                         || document.querySelector('.phase-content .phase-title');
+            const railEl = document.querySelector('.rail');
+            if (titleEl && railEl) {
+              const tr = titleEl.getBoundingClientRect();
+              const rr = railEl.getBoundingClientRect();
+              if (tr.width > 0 && rr.width > 0 && rr.left > tr.right) {
+                originRightCache = { key: cacheKey, midX: (tr.right + rr.left) / 2 };
+              }
             }
+          }
+          if (originRightCache.midX > 0) {
+            // worldWidthAtZ0 is recomputed live each frame, so the result is
+            // identical to measuring every frame; only the DOM read is cached.
+            const worldShift = (originRightCache.midX - vw / 2) * worldWidthAtZ0 / vw;
+            pxOriginRightCenter = worldShift * introHold;
           }
         }
         // MATERIA horizontal-shift weight. The RISING edge (HISTORIA → MATERIA,

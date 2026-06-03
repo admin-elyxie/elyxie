@@ -455,6 +455,9 @@ function Hero({ lang, tweaks, pendantRef }) {
   const editionGeoVis = smootherstep((progress - 0.80) / 0.10);
   useEffect(() => {
     if (!almaIsVisible) return;
+    // Respect reduced-motion: skip the automatic 10s day/night cross-fade for
+    // users who asked for less motion (WCAG 2.3.3). The day frame stays put.
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
     const id = setInterval(() => setAlmaNight(n => !n), 10000);
     return () => clearInterval(id);
   }, [almaIsVisible]);
@@ -831,7 +834,7 @@ function Hero({ lang, tweaks, pendantRef }) {
                           </h2>
                         </div>
                         <p className="phase-sub">{p.sub[lang]}</p>
-                        <span className="phase-bilingual">
+                        <span className="phase-bilingual" lang={lang === 'es' ? 'en' : 'es'}>
                           {lang === 'es' ? p.label.en : p.label.es}
                         </span>
                       </div>
@@ -839,7 +842,7 @@ function Hero({ lang, tweaks, pendantRef }) {
                       <div className="phase-content__inner" style={innerStyle}>
                         <h2 className="phase-title">{p.title[lang]}</h2>
                         <p className="phase-sub">{p.sub[lang]}</p>
-                        <span className="phase-bilingual">
+                        <span className="phase-bilingual" lang={lang === 'es' ? 'en' : 'es'}>
                           {lang === 'es' ? p.label.en : p.label.es}
                         </span>
                       </div>
@@ -1185,6 +1188,12 @@ function App() {
     document.documentElement.style.setProperty('--grain-opacity', String(tweaks.grainAmount));
   }, [tweaks.grainAmount]);
 
+  // Keep <html lang> in sync with the UI language so screen readers switch
+  // pronunciation rules when the user toggles ES <-> EN (WCAG 3.1.1 / 3.1.2).
+  useEffect(() => {
+    document.documentElement.lang = lang;
+  }, [lang]);
+
   // Post-hero theme controller. The navbar is FIXED at the top, so its colour
   // must contrast with whatever section sits *directly behind it* — not the
   // "most visible" one. The previous IntersectionObserver picked the max
@@ -1232,13 +1241,20 @@ function App() {
   return (
     <>
       <Nav lang={lang} setLang={setLang} />
-      <Hero lang={lang} tweaks={tweaks} pendantRef={pendantRef} />
+      <main>
+        <h1 className="sr-only">
+          {lang === 'es'
+            ? 'Elyxie — Agua sagrada de la Laguna Negra, joyería-talismán de la cordillera peruana.'
+            : 'Elyxie — Sacred water from the Black Lagoon, talisman jewelry from the Peruvian cordillera.'}
+        </h1>
+        <Hero lang={lang} tweaks={tweaks} pendantRef={pendantRef} />
 
-      {/* Post-hero sections (structure parallels lightweight.info homepage) */}
-      <SectionVideoHero lang={lang} />
-      <SectionProvenance lang={lang} />
-      <SectionCertificate lang={lang} />
-      <SectionInstagramGrid lang={lang} />
+        {/* Post-hero sections (structure parallels lightweight.info homepage) */}
+        <SectionVideoHero lang={lang} />
+        <SectionProvenance lang={lang} />
+        <SectionCertificate lang={lang} />
+        <SectionInstagramGrid lang={lang} />
+      </main>
       <Footer lang={lang} />
 
       {/* Film grain — fixed overlay */}

@@ -373,6 +373,7 @@ const FOOT_COPY = {
     placeholder: 'Your email',
     button: 'Reserve',
     discreet: 'We do not share addresses. Ever.',
+    success: 'Thank you. The lagoon will find you.',
     brandBody: 'A single piece, hand-crafted in Lima, with water gathered from the Black Lagoon of Huancabamba.',
     columns: [
       { title: 'ELYXIE', links: ['Story', 'The lagoon', 'Master jeweler', 'Press'] },
@@ -388,6 +389,7 @@ const FOOT_COPY = {
     placeholder: 'Tu correo',
     button: 'Reservar',
     discreet: 'No compartimos direcciones. Nunca.',
+    success: 'Gracias. La laguna te encontrará.',
     brandBody: 'Una sola pieza, hecha a mano en Lima, con agua recolectada de la Laguna Negra de Huancabamba.',
     columns: [
       { title: 'ELYXIE', links: ['Relato', 'La laguna', 'Maestro joyero', 'Prensa'] },
@@ -408,6 +410,8 @@ const FootMailIcon = () => <FootIcon><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9
 
 function Footer({ lang }) {
   const t = FOOT_COPY[lang];
+  const [sent, setSent] = useS(false);
+  const onSubmit = (e) => { e.preventDefault(); setSent(true); };
   return (
     <footer className="SiteFooter" data-theme="dark" data-section="footer" data-screen-label="07 Footer">
       <div className="SiteFooter__halo" aria-hidden></div>
@@ -418,13 +422,23 @@ function Footer({ lang }) {
             <h2 className="FootNews__title">{t.title}</h2>
             <p className="FootNews__body">{t.body}</p>
           </div>
-          <div className="FootForm">
+          <form className="FootForm" onSubmit={onSubmit}>
             <div className="FootForm__row">
-              <input className="FootForm__input" type="email" placeholder={t.placeholder}/>
-              <button className="FootForm__submit">{t.button}</button>
+              <input
+                className="FootForm__input"
+                type="email"
+                name="email"
+                autoComplete="email"
+                required
+                aria-label={t.placeholder}
+                placeholder={t.placeholder}
+              />
+              <button className="FootForm__submit" type="submit">{t.button}</button>
             </div>
-            <div className="FootForm__discreet">{t.discreet}</div>
-          </div>
+            <div className="FootForm__discreet" role="status" aria-live="polite">
+              {sent ? t.success : t.discreet}
+            </div>
+          </form>
         </div>
 
         <div className="FootLower">
@@ -434,8 +448,8 @@ function Footer({ lang }) {
             <div className="FootBrand__body">{t.brandBody}</div>
             <div className="FootSocials">
               <a className="FootSocial" href="https://www.instagram.com/elyxie.es/" target="_blank" rel="noopener" aria-label="Instagram"><FootIgIcon/></a>
-              <button className="FootSocial" aria-label="WhatsApp"><FootWaIcon/></button>
-              <button className="FootSocial" aria-label="Email"><FootMailIcon/></button>
+              <a className="FootSocial" href="#contact" aria-label="WhatsApp"><FootWaIcon/></a>
+              <a className="FootSocial" href="#contact" aria-label="Email"><FootMailIcon/></a>
             </div>
           </div>
           {t.columns.map((col) => (
