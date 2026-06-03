@@ -177,8 +177,8 @@ const PROVENANCE = [
 
 function SectionProvenance({ lang }) {
   const t = lang === 'es'
-    ? { eyebrow: 'PROCEDENCIA · LO QUE GUARDA LA ESFERA', head: <>No es un detalle estético. <em>Es un núcleo energético.</em></> }
-    : { eyebrow: 'PROVENANCE · WHAT THE SPHERE HOLDS', head: <>Not an aesthetic detail. <em>An energetic core.</em></> };
+    ? { eyebrow: 'PROCEDENCIA · LO QUE GUARDA LA ESFERA', head: <>No es un detalle estético.<br/><em>Es un núcleo energético.</em></> }
+    : { eyebrow: 'PROVENANCE · WHAT THE SPHERE HOLDS', head: <>Not an aesthetic detail.<br/><em>An energetic core.</em></> };
 
   return (
     <section className="Section theme-dark" data-theme="dark" data-section="provenance" data-screen-label="03 Provenance">
@@ -251,7 +251,7 @@ function SectionCertificate({ lang }) {
             </div>
             <div>
               <div className="Cert__label">{t.by}</div>
-              <div className="Cert__signature">J. Aliaga</div>
+              <div className="Cert__signature">J. Zamora</div>
             </div>
             <div className="Cert__sealCol">
               <div className="Cert__label">{t.seal}</div>
