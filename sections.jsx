@@ -326,7 +326,6 @@ function SectionVitrina({ lang }) {
 
         {/* ── Viewer: spotlit display panel ───────────────────────────── */}
         <div className="Vitrina__viewer">
-          <div className="Vitrina__downlight" aria-hidden></div>
           <div className="Vitrina__panel">
             {/* Every view×finish×chain shot stacked; only the active one is
                 opaque, so changing the metal, the chain, or the thumbnail

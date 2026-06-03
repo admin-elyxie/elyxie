@@ -2320,18 +2320,6 @@ section[data-section="outro"] {
 
 /* ---- Viewer: spotlit display panel ---- */
 .Vitrina__viewer { position: relative; }
-.Vitrina__downlight {
-  position: absolute;
-  left: 50%; top: -16%;
-  width: 116%; height: 128%;
-  transform: translateX(-50%);
-  background: radial-gradient(54% 46% at 50% 0%,
-    rgba(233, 215, 177, 0.12) 0%,
-    rgba(125, 255, 178, 0.05) 32%,
-    rgba(233, 215, 177, 0) 64%);
-  pointer-events: none;
-  z-index: 0;
-}
 .Vitrina__panel {
   position: relative;
   z-index: 1;
