@@ -232,8 +232,8 @@ const VITRINA_FINISHES = [
     id: 'rodio',
     price: 'USD 490',
     swatch: 'linear-gradient(145deg, #FFFFFF 0%, #E4E8EC 46%, #B2BAC2 100%)',
-    es: { name: 'Rodio', material: 'PLATA 950 SELLADA EN RODIO', line: 'Plata sellada bajo rodio: más blanca, más dura, sin pátina.' },
-    en: { name: 'Rhodium', material: 'RHODIUM-SEALED 950 SILVER', line: 'Silver sealed under rhodium: whiter, harder, untarnishing.' },
+    es: { name: 'Rodio', material: 'PLATA 950 SELLADA EN RODIO', line: 'Plata 950 sellada en rodio, más blanca, brillante y duradera.' },
+    en: { name: 'Rhodium', material: 'RHODIUM-SEALED 950 SILVER', line: '950 silver sealed in rhodium, whiter, brighter and more durable.' },
   },
   {
     id: 'oro',
