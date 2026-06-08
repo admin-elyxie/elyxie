@@ -251,12 +251,20 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
         stencil: false,
         depth: true,
       });
-      // Pixel-ratio cap 2.0 — covers retina laptops (DPR 2) at native and
-      // narrows the upscale on DPR-3 iPhones from 2× to 1.5×. 4× the
-      // fragment work of DPR=1, but iPhone GPUs handle this scene fine and
-      // the quality jump on phones is the whole point. Capping (vs. raw
-      // DPR) still protects retina laptops from 9× shader cost.
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2.0));
+      // Pixel-ratio cap by PHYSICAL display density (devicePixelRatio). Unlike a
+      // viewport-width test, devicePixelRatio is stable across window resizes and
+      // device rotations, so the cap never goes stale and never reallocates the
+      // framebuffer mid-session. Dense phone screens (DPR ≥ 3 — modern iPhones,
+      // the displays the original 2.0 cap was tuned for) keep cap 2.0: the quality
+      // jump there is the whole point and those GPUs handle it. Everything else —
+      // retina laptops (DPR 2), the dev box — caps at 1.5: rendering at native 2.0
+      // costs 4× the fragments of DPR 1, which dominates idle GPU load AND
+      // framebuffer memory on exactly the machines where the scene runs hottest.
+      // 1.5 cuts the shaded fragments ~44% while MSAA (antialias:true, above)
+      // still cleans the wing silhouettes — so on retina the only loss is a hair
+      // of edge softness, invisible in motion. Scroll motion + breathing untouched.
+      const _dpr = window.devicePixelRatio || 1;
+      renderer.setPixelRatio(Math.min(_dpr, _dpr >= 2.5 ? 2.0 : 1.5));
       renderer.setSize(container.clientWidth, container.clientHeight);
       renderer.setClearColor(0x000000, 0);
       renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -1010,33 +1018,21 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
             });
             stateRef.current.modelCenterY = (_bbox.min.y + _bbox.max.y) / 2;
             stateRef.current.modelBboxY = { min: _bbox.min.y, max: _bbox.max.y };
-            // Cache ALL visible mesh vertices in angel-local frame. The
-            // render loop applies the current angel rotation, projects with
-            // the live camera, and finds the perspective-corrected screen-
-            // space Y extremes. Bbox corners alone aren't enough because
-            // the corner (xMax, yMax, zMin) is often a void area outside
-            // the actual geometry — the real wing tip lives at some other
-            // point inside the bbox. Iterating real vertices guarantees we
-            // find true extremes. Total ~30 k floats = 360 KB; per-frame
-            // iteration of ~30 k verts is well under 1 ms on modern CPUs.
-            const _verts = [];
-            const _v = new THREE.Vector3();
-            model.traverse((o) => {
-              if (!o.isMesh || !o.visible || !o.geometry) return;
-              const pos = o.geometry.attributes.position;
-              if (!pos) return;
-              for (let i = 0; i < pos.count; i++) {
-                _v.fromBufferAttribute(pos, i).applyMatrix4(o.matrixWorld);
-                _verts.push(_v.x, _v.y, _v.z);
-              }
-            });
-            stateRef.current.modelVerts = new Float32Array(_verts);
+            // NOTE: a per-vertex cache (modelVerts) used to live here — every
+            // visible vertex (~1M on this model) projected into a Float32Array
+            // (~12 MB) to back a "find the true screen-space Y extremes by
+            // iterating real vertices" framing. That approach was abandoned for
+            // the simpler orb-centred framing (see the mobile phase-01 block
+            // further down), so the cache was WRITTEN ONCE AND NEVER READ. It's
+            // removed: it only cost a ~1M-vertex load-time loop and 12 MB of
+            // resident memory for nothing. modelBboxY above is the only datum
+            // the framing actually needs, and it comes from the cheap per-mesh
+            // bbox union above.
             angel.position.y = _savedY;
             // Debug
             window.__elyxie_debug = window.__elyxie_debug || {};
             window.__elyxie_debug.modelCenterY = stateRef.current.modelCenterY;
             window.__elyxie_debug.modelBboxY = stateRef.current.modelBboxY;
-            window.__elyxie_debug.vertCount = _verts.length / 3;
           }
 
           // ===== Phase 03 (MATERIA) trio Y offset =====
@@ -1123,10 +1119,28 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
       let tabVisible = !document.hidden;
       // FPS cap: 60 Hz is the perceptual ceiling for the orbital motion + scroll
       // sync. On 120/144 Hz displays the loop would otherwise run at 2-2.4× the
-      // necessary rate. Frame interval = 1/60 sec, with a small slack to absorb
-      // jitter without dropping otherwise-on-time frames.
-      const FRAME_INTERVAL = 1000 / 60;
+      // necessary rate.
+      //
+      // ADAPTIVE pacing: hold 60 Hz while `progress` is moving (active scroll or
+      // a snap tween) and for a short grace window after, so every scroll-driven
+      // camera / position move stays perfectly smooth. Once the scene goes idle —
+      // only the slow phosphor breathing, the orbital camera drift and the
+      // fairy-dust remain, all already sampled well below 60 Hz — it backs off.
+      // A min-interval gate quantises to rAF divisors, so the 26 ms idle target
+      // renders every OTHER animation frame: ≈30 Hz on a 60 Hz panel, ≈40 Hz on
+      // a 120 Hz / ProMotion one. That returns ~1/3–1/2 of the per-frame CPU
+      // (loop math + draw-call submission) and GPU work while parked, which is
+      // most of the page's lifetime. This does NOT flatten presence: EVERY
+      // animation in this loop integrates against `dt`, so a lower frame rate
+      // changes the SAMPLING density only — never the speed, phase or look of the
+      // motion (the idle motion is glacial: a 4 s breath, a 25 s orbit). Revert
+      // by setting IDLE = ACTIVE.
+      const FRAME_INTERVAL_ACTIVE = 1000 / 60;
+      const FRAME_INTERVAL_IDLE   = 1000 / 40; // 25 ms → ≈30 Hz @60 Hz, ≈40 Hz @120 Hz
+      const ACTIVE_GRACE_MS = 600; // stay at 60 Hz this long after the last move
       let lastFrameTime = 0;
+      let lastProgressSeen = -1;
+      let lastActiveT = 0;
       // --angel-x throttle: only publish the CSS var when the value moved
       // > 0.4% from the last write. The CSS layers consuming it (.hero-smoke
       // mask) only fade in during phase 01 anyway, so sub-pixel updates do
@@ -1146,8 +1160,16 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
       let originRightCache = { key: -1, midX: 0 };
       function animate(now) {
         raf = requestAnimationFrame(animate);
-        // 60 Hz cap. Skip the frame entirely if we are early.
-        if (now - lastFrameTime < FRAME_INTERVAL - 1) return;
+        // Adaptive frame pacing: 60 Hz while progress is moving (scroll / snap)
+        // or within the grace window after; 40 Hz once idle. Detect "moving" by
+        // comparing the scroll progress against last frame's. Skip the frame
+        // entirely if we are early for the currently-selected cap.
+        const _p = stateRef.current.progress;
+        if (_p !== lastProgressSeen) { lastProgressSeen = _p; lastActiveT = now; }
+        const _interval = (now - lastActiveT < ACTIVE_GRACE_MS)
+          ? FRAME_INTERVAL_ACTIVE
+          : FRAME_INTERVAL_IDLE;
+        if (now - lastFrameTime < _interval - 1) return;
         lastFrameTime = now;
 
         const dt = Math.min((now - lastT) / 1000, 0.1); // clamp to 100ms to absorb tab-switch gaps
@@ -2426,6 +2448,13 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
         }
         renderer.dispose();
         envMap.dispose();
+        // The side-angel / EDICIÓN metals reflect a SECOND, "cool" PMREM env map
+        // (buildStudioEnvMap → coolMetalEnv, stored on materials). material.dispose()
+        // in the traverse below frees the materials but NOT the textures they
+        // reference, so this env map would leak its GPU texture on unmount. Free
+        // it explicitly. (Harmless no-op if the GLB never resolved.)
+        const _coolEnv = stateRef.current.materials && stateRef.current.materials.coolMetalEnv;
+        if (_coolEnv && _coolEnv.dispose) _coolEnv.dispose();
         scene.traverse((o) => {
           if (o.geometry) o.geometry.dispose();
           if (o.material) {
