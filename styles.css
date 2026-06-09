@@ -2550,6 +2550,7 @@ section[data-section="outro"] {
 }
 
 /* Price for the active metal + edition meta */
+.Vitrina__info { container-type: inline-size; } /* habilita cqi: la línea meta se mide contra el ancho de la columna */
 .Vitrina__price { margin: 0 0 28px; }
 .Vitrina__priceNum {
   display: block;
@@ -2559,10 +2560,12 @@ section[data-section="outro"] {
   color: var(--gold-300);
   font-variant-numeric: tabular-nums;
 }
+/* una sola línea siempre: sin tope de 38ch (que la partía en 2) y con la fuente
+   medida contra el ancho de la columna (cqi) para que quepa en desktop y móvil */
 .Vitrina__meta {
-  display: block; margin-top: 12px; max-width: 38ch;
+  display: block; margin-top: 12px; white-space: nowrap;
   font-family: var(--font-body);
-  font-size: 9.5px; font-weight: 500; line-height: 1.5;
+  font-size: clamp(6.5px, 2.15cqi, 9.5px); font-weight: 500; line-height: 1.5;
   letter-spacing: 0.2em; text-transform: uppercase;
   color: rgba(255, 255, 255, 0.56);
 }
