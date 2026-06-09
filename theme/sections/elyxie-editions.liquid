@@ -1,0 +1,37 @@
+{%- comment -%}
+  Ediciones · Custodia — emits the editions list from the `edition` metaobject
+  (bilingual, state, serial, linked product). Edit the entries in Admin → Content
+  → Metaobjects → Edition.
+{%- endcomment -%}
+<div data-elyxie-target='[data-section="certificate"]' hidden></div>
+<script type="application/json" data-elyxie="editions">
+{
+  "editions": [
+    {%- assign efirst = true -%}
+    {%- for e in metaobjects.edition.values -%}
+      {%- unless efirst -%},{%- endunless -%}{%- assign efirst = false -%}
+      {
+        "title": { "es": {{ e.title_es.value | json }}, "en": {{ e.title_en.value | json }} },
+        "subtitle": { "es": {{ e.subtitle_es.value | json }}, "en": {{ e.subtitle_en.value | json }} },
+        "state": {{ e.state.value | json }},
+        "serial": {{ e.serial.value | json }},
+        "phosphor": {{ e.phosphor.value | json }},
+        "order": {{ e.display_order.value | default: 0 }},
+        "productHandle": {{ e.product.value.handle | json }}
+      }
+    {%- endfor -%}
+  ]
+}
+</script>
+
+{% schema %}
+{
+  "name": "Ediciones · Custodia",
+  "settings": [
+    {
+      "type": "paragraph",
+      "content": "Las ediciones se editan en Admin → Content → Metaobjects → Edition (título, estado, serial, producto)."
+    }
+  ]
+}
+{% endschema %}

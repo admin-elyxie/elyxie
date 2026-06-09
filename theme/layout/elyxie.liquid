@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="{{ request.locale.iso_code }}">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>elyxie — un santuario que se lleva puesto</title>
+  <link rel="canonical" href="{{ canonical_url }}"/>
+  <link rel="icon" href="{{ 'elyxie-mark.svg' | asset_url }}"/>
+
+  {%- comment -%} Open TCP+TLS to cross-origins on the critical path early. {%- endcomment -%}
+  <link rel="preconnect" href="https://unpkg.com" crossorigin>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://api.fontshare.com" crossorigin>
+  <link rel="preload" as="fetch" href="{{ 'angel.glb' | asset_url }}" crossorigin>
+
+  {%- comment -%} Fonts: Cormorant Garamond (display) + Satoshi (body). {%- endcomment -%}
+  <link rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&display=swap"/>
+  <link rel="stylesheet"
+        href="https://api.fontshare.com/v2/css?f[]=satoshi@300,400,500&display=swap"/>
+
+  {{ 'colors_and_type.css' | asset_url | stylesheet_tag }}
+  {{ 'styles.css' | asset_url | stylesheet_tag }}
+
+  {{ content_for_header }}
+
+  {%- comment -%} Inline splash — same as the standalone one-pager. {%- endcomment -%}
+  <style>
+    #__splash {
+      position: fixed; inset: 0;
+      background:
+        radial-gradient(ellipse 70% 80% at 50% 50%,
+          rgba(38, 96, 100, 0.45) 0%,
+          rgba(12, 36, 44, 0.85) 38%,
+          rgba(2, 10, 14, 0.98) 72%,
+          rgba(0, 4, 6, 1.00) 95%),
+        #051613;
+      color: #E9D7B1;
+      display: flex; align-items: center; justify-content: center;
+      flex-direction: column;
+      gap: 33.6px;
+      z-index: 9999;
+      font-family: "Cormorant Garamond", "EB Garamond", Georgia, serif;
+      transition: opacity 600ms cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    #__splash[data-hidden="true"] { opacity: 0; pointer-events: none; }
+    #__splash .__sp-mark {
+      width: clamp(240px, 32vw, 380px);
+      aspect-ratio: 1795 / 430;
+      background-color: #E9D7B1;
+      -webkit-mask: url("{{ 'elyxie-wordmark.svg' | asset_url }}") no-repeat center / contain;
+              mask: url("{{ 'elyxie-wordmark.svg' | asset_url }}") no-repeat center / contain;
+      filter: drop-shadow(0 0 40px rgba(233, 215, 177, 0.25));
+      animation: __sp-breathe 4s ease-in-out infinite;
+    }
+    #__splash .__sp-tag {
+      font-family: "Satoshi", "Inter", system-ui, sans-serif;
+      font-size: 12px; font-weight: 500; letter-spacing: 0.32em;
+      text-transform: uppercase; color: rgba(233, 215, 177, 0.5);
+    }
+    #__splash .__sp-loader { display: flex; flex-direction: column; align-items: center; gap: 19.2px; margin-top: 14.4px; }
+    #__splash .__sp-track { width: 264px; max-width: 72vw; height: 1.2px; background: rgba(233, 215, 177, 0.16); overflow: hidden; }
+    #__splash .__sp-fill {
+      width: 100%; height: 100%; transform: scaleX(0); transform-origin: left center;
+      background: linear-gradient(90deg, rgba(201, 166, 107, 0.7) 0%, #E9D7B1 100%);
+      box-shadow: 0 0 12px rgba(233, 215, 177, 0.5);
+      animation: __sp-fill-grow 9000ms linear forwards;
+    }
+    @keyframes __sp-fill-grow { 0% { transform: scaleX(0); } 40% { transform: scaleX(0.78); } 100% { transform: scaleX(0.97); } }
+    @keyframes __sp-breathe {
+      0%, 100% { opacity: 0.85; filter: drop-shadow(0 0 30px rgba(233, 215, 177, 0.20)); }
+      50%      { opacity: 1.00; filter: drop-shadow(0 0 60px rgba(233, 215, 177, 0.40)); }
+    }
+    @media (prefers-reduced-motion: reduce) { #__splash .__sp-mark { animation: none; } #__splash .__sp-fill { animation-duration: 600ms; } }
+  </style>
+</head>
+<body data-theme="dark">
+  {% sections 'elyxie-header-group' %}
+  {{ content_for_layout }}
+  {% sections 'elyxie-footer-group' %}
+
+  {%- comment -%}
+    Base data + MERGE of every per-phase section's data slice into window.__ELYXIE,
+    then the asset resolver. Each section (Vitrina, Ediciones, …) emits a
+    <script type="application/json" data-elyxie="…"> block; we fold them all into
+    one object the app reads. Runs before the deferred app scripts.
+  {%- endcomment -%}
+  <script>
+    window.__ELYXIE = {
+      locale: {{ request.locale.iso_code | json }},
+      assetBase: {{ 'angel.glb' | asset_url | split: '?' | first | split: 'angel.glb' | first | json }},
+      files: {
+        "main-film.mp4": "https://cdn.shopify.com/s/files/1/0821/9187/6335/files/main-film-720.mp4?v=1781026058",
+        "main-film-720.mp4": "https://cdn.shopify.com/s/files/1/0821/9187/6335/files/main-film-720.mp4?v=1781026058"
+      }
+    };
+    document.querySelectorAll('script[data-elyxie]').forEach(function (el) {
+      try { var s = JSON.parse(el.textContent); for (var k in s) { window.__ELYXIE[k] = s[k]; } } catch (e) {}
+    });
+    window.ELYXIE_ASSET = function (p) {
+      var name = String(p).split('/').pop().split('?')[0];
+      var f = window.__ELYXIE && window.__ELYXIE.files;
+      if (f && f[name]) { return f[name]; }
+      var b = (window.__ELYXIE && window.__ELYXIE.assetBase) || '';
+      return b ? b + name : p;
+    };
+  </script>
+
+  {%- comment -%}
+    Theme-editor nicety: clicking a phase section in the editor scrolls the live
+    (single-app) experience to the matching block. Each section carries a hidden
+    [data-elyxie-target] (a selector or "top"); we scroll there on select. Only
+    fires inside the editor (shopify:section:select) — inert on the live site.
+  {%- endcomment -%}
+  <script>
+    document.addEventListener('shopify:section:select', function (e) {
+      var m = (e.target && e.target.querySelector) ? e.target.querySelector('[data-elyxie-target]') : null;
+      if (!m) return;
+      var t = m.getAttribute('data-elyxie-target');
+      // Shopify auto-scrolls to the (empty) section wrapper at the bottom of the
+      // DOM first; run AFTER it (and once more) so our scroll to the real app
+      // block wins. Repeat to beat the app's scroll-snap settling.
+      var go = function () {
+        if (t === 'top') { window.scrollTo({ top: 0, behavior: 'smooth' }); return; }
+        var el = document.querySelector(t);
+        if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+      };
+      setTimeout(go, 150);
+      setTimeout(go, 500);
+    });
+  </script>
+
+  {%- comment -%} Importmap for three/addons (kept on CDN — flat theme assets/ can't host the jsm tree). {%- endcomment -%}
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+    }
+  }
+  </script>
+
+  {%- comment -%} Three.js + GLB loaders preamble. Exposes them on window, dispatches three-ready. {%- endcomment -%}
+  <script type="module">
+    import * as THREE from 'three';
+    import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+    import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
+    import { KTX2Loader } from 'three/addons/loaders/KTX2Loader.js';
+    import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
+    import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
+    window.THREE = THREE;
+    window.GLTFLoader = GLTFLoader;
+    window.DRACOLoader = DRACOLoader;
+    window.KTX2Loader = KTX2Loader;
+    window.MeshoptDecoder = MeshoptDecoder;
+    window.mergeVerticesFn = mergeVertices;
+    window.__threeReady = true;
+    window.dispatchEvent(new Event('three-ready'));
+  </script>
+
+  <script src="https://unpkg.com/react@18.3.1/umd/react.production.min.js" crossorigin="anonymous" defer></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js" crossorigin="anonymous" defer></script>
+
+  {%- comment -%} App code, compiled by build.js and mirrored into theme assets/. asset_url versions automatically. {%- endcomment -%}
+  <script src="{{ 'tweaks-panel.js' | asset_url }}" defer></script>
+  <script src="{{ 'pendant.js' | asset_url }}" defer></script>
+  <script src="{{ 'sections.js' | asset_url }}" defer></script>
+  <script src="{{ 'app.js' | asset_url }}" defer></script>
+
+  {%- comment -%} Loader controller: hold splash until pendant fires angel-ready. {%- endcomment -%}
+  <script>
+    (function () {
+      var splash = document.getElementById('__splash');
+      if (!splash) return;
+      var fill = document.getElementById('__sp-fill');
+      var done = false;
+      function complete() {
+        if (done) return;
+        done = true;
+        if (fill) {
+          var cs = getComputedStyle(fill).transform;
+          fill.style.animation = 'none';
+          fill.style.transform = (cs && cs !== 'none') ? cs : 'scaleX(0)';
+          requestAnimationFrame(function () {
+            fill.style.transition = 'transform 480ms cubic-bezier(0.4, 0, 0.2, 1)';
+            fill.style.transform = 'scaleX(1)';
+          });
+        }
+        setTimeout(function () { splash.dataset.hidden = 'true'; setTimeout(function () { splash.remove(); }, 700); }, 520);
+      }
+      if (window.__angelReady) complete();
+      else window.addEventListener('angel-ready', complete);
+      setTimeout(complete, 30000);
+    })();
+  </script>
+</body>
+</html>

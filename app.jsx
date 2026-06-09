@@ -551,8 +551,8 @@ function Hero({ lang, tweaks, pendantRef }) {
           // frame while the loop decodes. Both layers stay mounted and playing
           // while ALMA is on screen; the day/night beat just cross-fades their
           // wrapper opacity (almaNight).
-          const daySrc   = isNarrow ? 'assets/video/templo-dia-bg-720.mp4'   : 'assets/video/templo-dia-bg.mp4';
-          const nightSrc = isNarrow ? 'assets/video/templo-noche-bg-720.mp4' : 'assets/video/templo-noche-bg.mp4';
+          const daySrc   = ELYXIE_ASSET(isNarrow ? 'assets/video/templo-dia-bg-720.mp4'   : 'assets/video/templo-dia-bg.mp4');
+          const nightSrc = ELYXIE_ASSET(isNarrow ? 'assets/video/templo-noche-bg-720.mp4' : 'assets/video/templo-noche-bg.mp4');
           return (
             <React.Fragment>
               <div className="alma-bg alma-bg--day"
@@ -594,7 +594,7 @@ function Hero({ lang, tweaks, pendantRef }) {
           // changes) — origen-bg.mp4 was deployed in a prior session, so the
           // filename alone would serve the stale cached clip to returning
           // visitors and CDNs. Bump this suffix whenever the laguna video changes.
-          const src = isNarrow ? 'assets/video/origen-bg-720.mp4?2' : 'assets/video/origen-bg.mp4?2';
+          const src = ELYXIE_ASSET(isNarrow ? 'assets/video/origen-bg-720.mp4' : 'assets/video/origen-bg.mp4');
           return (
             <div
               className="laguna-bg"
@@ -618,7 +618,7 @@ function Hero({ lang, tweaks, pendantRef }) {
                 loop
                 playsInline
                 preload="auto"
-                poster="assets/photography/laguna-negra-bg.webp"
+                poster={ELYXIE_ASSET('assets/photography/laguna-negra-bg.webp')}
               >
                 <source src={src} type="video/mp4" />
               </video>
@@ -646,7 +646,7 @@ function Hero({ lang, tweaks, pendantRef }) {
           const tribuOut = ss((progress - 0.36) / 0.08);
           const o = s1s2 * (1 - tribuOut);
           if (o <= 0.005) return null;
-          const src = isNarrow ? 'assets/video/tribu-bg-720.mp4' : 'assets/video/tribu-bg.mp4';
+          const src = ELYXIE_ASSET(isNarrow ? 'assets/video/tribu-bg-720.mp4' : 'assets/video/tribu-bg.mp4');
           return (
             <div
               className="tribu-bg"
@@ -1092,8 +1092,8 @@ function Nav({ lang, setLang }) {
 
         {/* Desktop inline links + language switcher (hidden on mobile via CSS) */}
         <div className="nav__links">
-          {NAV_LINKS[lang].map((l) => (
-            <a key={l} className="nav__link" href="#">{l}</a>
+          {(((typeof window !== 'undefined') && window.__ELYXIE && window.__ELYXIE.nav && window.__ELYXIE.nav[lang]) || NAV_LINKS[lang].map((l) => ({ label: l, url: '#' }))).map((l, i) => (
+            <a key={l.label + i} className="nav__link" href={l.url || '#'}>{l.label}</a>
           ))}
         </div>
         <div className="nav__lang" style={{ '--lang-pos': lang === 'en' ? 1 : 0 }} role="group" aria-label="Language">

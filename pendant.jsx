@@ -19,7 +19,10 @@ const smootherstep = (t) => { const x = t < 0 ? 0 : t > 1 ? 1 : t; return x * x 
 const lerp = (a, b, t) => a + (b - a) * t;
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
-const MODEL_URL = 'assets/models/angel.glb';
+// Inside the Shopify theme, assets live in a flat (CDN) `assets/` dir; the
+// section injects ELYXIE_ASSET() to resolve any path by basename. On the
+// standalone (Vercel) page ELYXIE_ASSET is undefined → fall back to the path.
+const MODEL_URL = (typeof ELYXIE_ASSET !== 'undefined') ? ELYXIE_ASSET('assets/models/angel.glb') : 'assets/models/angel.glb';
 
 // Procedural studio cube map → PMREM. Same palette as the original pendant
 // so the gold reads the same against the page background.

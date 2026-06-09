@@ -1,0 +1,26 @@
+{%- comment -%}
+  Origen · Hero 3D — owns the app mount point (#root) and the splash. The whole
+  ELYXIE experience (3D angel + scroll phases) renders here; the other phase
+  sections below contribute data/settings that the app merges.
+{%- endcomment -%}
+<div data-elyxie-target="top" hidden></div>
+<div id="__splash" aria-hidden="true">
+  <span class="__sp-mark" role="img" aria-label="elyxie"></span>
+  <span class="__sp-tag">Sacred Waters</span>
+  <div class="__sp-loader" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-label="Cargando">
+    <div class="__sp-track"><div class="__sp-fill" id="__sp-fill"></div></div>
+  </div>
+</div>
+<div id="root"></div>
+
+{% schema %}
+{
+  "name": "Origen · Hero 3D",
+  "settings": [
+    {
+      "type": "paragraph",
+      "content": "El héroe 3D y las 5 fases de scroll se renderizan aquí (app acoplado). Las superficies editables están en las secciones de abajo."
+    }
+  ]
+}
+{% endschema %}

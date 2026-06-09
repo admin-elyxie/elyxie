@@ -2,6 +2,12 @@
 // tweaks-panel.jsx
 // Reusable Tweaks shell + form-control helpers.
 //
+// Asset resolver (non-regression): inside the Shopify theme, sections/elyxie.liquid
+// sets window.ELYXIE_ASSET to map any flat-dir asset by basename. On the standalone
+// (Vercel) page it's absent, so install an identity fallback → relative paths keep
+// working unchanged. Runs first (this is the first deferred script in document order).
+if (typeof window !== 'undefined' && !window.ELYXIE_ASSET) window.ELYXIE_ASSET = function (p) { return p; };
+//
 // PRODUCTION GATE: the panel only mounts when (a) the page is loaded inside an
 // iframe (the design host context) OR (b) the URL has `?edit` / `?tweaks`. In
 // regular production navigations the file exports lightweight stubs so app.jsx

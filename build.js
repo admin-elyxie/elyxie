@@ -16,8 +16,19 @@ const fs = require('fs');
 const ROOT = __dirname;
 const SOURCES = ['tweaks-panel.jsx', 'pendant.jsx', 'sections.jsx', 'app.jsx'];
 const OUTDIR = path.join(ROOT, 'dist');
+// When the Shopify theme exists, mirror the compiled JS into its (flat) assets
+// dir so `shopify theme dev/push` serves the same bundles the Vercel page uses.
+const THEME_ASSETS = path.join(ROOT, 'theme', 'assets');
 
 fs.mkdirSync(OUTDIR, { recursive: true });
+
+function mirrorToTheme() {
+  if (!fs.existsSync(THEME_ASSETS)) return;
+  SOURCES.forEach((src) => {
+    const name = src.replace(/\.jsx$/, '.js');
+    fs.copyFileSync(path.join(OUTDIR, name), path.join(THEME_ASSETS, name));
+  });
+}
 
 const baseOpts = {
   loader: { '.jsx': 'jsx' },
@@ -49,6 +60,7 @@ async function buildOnce() {
     const built = fs.statSync(out).size;
     return `  ${src.padEnd(20)} ${(orig/1024).toFixed(1).padStart(6)} KB → ${(built/1024).toFixed(1).padStart(6)} KB`;
   }).join('\n');
+  mirrorToTheme();
   console.log(`\nbuilt in ${ms}ms:\n${sizes}\n`);
 }
 

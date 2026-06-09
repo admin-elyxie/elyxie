@@ -1,0 +1,11 @@
+{
+  "layout": "elyxie",
+  "sections": {
+    "hero": { "type": "elyxie-hero" },
+    "vitrina": { "type": "elyxie-vitrina" },
+    "editions": { "type": "elyxie-editions" },
+    "film": { "type": "elyxie-film" },
+    "instagram": { "type": "elyxie-instagram" }
+  },
+  "order": ["hero", "vitrina", "editions", "film", "instagram"]
+}

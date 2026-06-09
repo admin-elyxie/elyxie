@@ -1,0 +1,42 @@
+{%- comment -%}
+  Pie de página · ELYXIE — emits the footer columns the app's footer reads
+  (window.__ELYXIE.footerColumns). Columns + links come from nested Shopify menus
+  (ES + EN): each top-level menu item is a column, its children are the links.
+  Edit in Online Store → Navegación. Selecting this section scrolls to the footer.
+{%- endcomment -%}
+<div data-elyxie-target='[data-section="footer"]' hidden></div>
+<script type="application/json" data-elyxie="footer">
+{
+  "footerColumns": {
+    "es": [
+      {%- assign menu = section.settings.menu_es -%}{%- assign cf = true -%}
+      {%- for col in menu.links -%}{%- unless cf -%},{%- endunless -%}{%- assign cf = false -%}
+        { "title": {{ col.title | json }}, "links": [
+          {%- assign lf = true -%}{%- for l in col.links -%}{%- unless lf -%},{%- endunless -%}{%- assign lf = false -%}
+            { "label": {{ l.title | json }}, "url": {{ l.url | json }} }
+          {%- endfor -%}
+        ] }
+      {%- endfor -%}
+    ],
+    "en": [
+      {%- assign menu = section.settings.menu_en -%}{%- assign cf = true -%}
+      {%- for col in menu.links -%}{%- unless cf -%},{%- endunless -%}{%- assign cf = false -%}
+        { "title": {{ col.title | json }}, "links": [
+          {%- assign lf = true -%}{%- for l in col.links -%}{%- unless lf -%},{%- endunless -%}{%- assign lf = false -%}
+            { "label": {{ l.title | json }}, "url": {{ l.url | json }} }
+          {%- endfor -%}
+        ] }
+      {%- endfor -%}
+    ]
+  }
+}
+</script>
+{% schema %}
+{
+  "name": "Pie de página · ELYXIE",
+  "settings": [
+    { "type": "link_list", "id": "menu_es", "label": "Menú footer (ES)", "info": "Cada elemento de 1er nivel = una columna; sus sub-enlaces = los links. Edita en Online Store → Navegación" },
+    { "type": "link_list", "id": "menu_en", "label": "Menú footer (EN)" }
+  ]
+}
+{% endschema %}

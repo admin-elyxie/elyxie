@@ -1,0 +1,3878 @@
+/* ===========================================================
+   Elyxie — scroll-driven hero · custom styles
+   builds on /assets/colors_and_type.css
+   =========================================================== */
+
+* { box-sizing: border-box; }
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--theme-bg, var(--emerald-950));
+  color: var(--theme-fg, var(--white-100));
+  /* `overflow-x: hidden` would break position:sticky on the hero pin-stage.
+     Use `clip` (does not establish a scroll container) and clip on html only. */
+  font-family: var(--font-body);
+  transition: background-color 80ms linear, color 80ms linear;
+}
+html {
+  overflow-x: clip;
+}
+
+body[data-theme="light"] {
+  --theme-bg: #F6F2E8;
+  --theme-fg: #0A2620;
+  --theme-fg-muted: rgba(10, 38, 32, 0.55);
+  --theme-fg-faint: rgba(10, 38, 32, 0.20);
+  --theme-fg-hairline: rgba(10, 38, 32, 0.15);
+}
+body[data-theme="dark"] {
+  --theme-bg: #051613;
+  --theme-fg: #ffffff;
+  --theme-fg-muted: rgba(255, 255, 255, 0.55);
+  --theme-fg-faint: rgba(255, 255, 255, 0.18);
+  --theme-fg-hairline: rgba(255, 255, 255, 0.12);
+}
+
+/* ---------- Fixed Navbar ---------- */
+.nav {
+  position: fixed; top: 0; left: 0; right: 0;
+  z-index: 50;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 18px 32px;
+  color: var(--theme-fg);
+  transition: color 80ms linear, background-color 240ms ease;
+  height: 76px;
+  background: transparent;
+}
+.nav > * { pointer-events: auto; }
+.nav__brand {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-weight: 400;
+  font-size: 28px;
+  letter-spacing: -0.01em;
+  line-height: 1;
+  color: inherit;
+}
+
+/* elyxie wordmark logo — vectorised from the brand artwork (SACRED WATERS
+   stripped). Drawn as a CSS mask so it paints in `currentColor`, inheriting
+   whatever colour each text wordmark used (white on dark, dark on light,
+   champagne gold, …). One cached SVG, scales with no loss. */
+.elyxie-logo {
+  display: inline-block;
+  aspect-ratio: 1795 / 430;
+  background-color: currentColor;
+  -webkit-mask: url("{{ 'elyxie-wordmark.svg' | asset_url }}") no-repeat center / contain;
+          mask: url("{{ 'elyxie-wordmark.svg' | asset_url }}") no-repeat center / contain;
+  vertical-align: middle;
+}
+.nav__brand      .elyxie-logo { height: 21px; }
+.Cert__brand     .elyxie-logo { height: 27px; }
+.brand-wordmark  .elyxie-logo { height: 19px; }
+.FootBrand__name .elyxie-logo { height: 31px; }
+.FootCopy__name  .elyxie-logo { height: 13px; }
+.nav__links {
+  display: flex;
+  gap: 36px;
+  align-items: center;
+}
+.nav__link {
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: inherit;
+  text-decoration: none;
+  opacity: 0.78;
+  transition: opacity 200ms ease;
+  cursor: pointer;
+}
+.nav__link:hover { opacity: 1; }
+/* Language toggle — segmented pill */
+.nav__lang {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  padding: 4px;
+  background: color-mix(in srgb, var(--theme-fg) 12%, transparent);
+  border: 1px solid var(--theme-fg-hairline);
+  border-radius: 999px;
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.26em;
+  text-transform: uppercase;
+  color: var(--theme-fg);
+  overflow: hidden;
+  isolation: isolate;
+}
+.nav__lang button {
+  position: relative;
+  z-index: 2;
+  background: transparent;
+  border: 0;
+  /* Equal width on both buttons so the 50%-wide sliding pill aligns
+     exactly under each label (ES/EN have slightly different glyph
+     widths, which used to leave the indicator off-centre). */
+  width: 52px;
+  padding: 6px 0;
+  color: inherit;
+  opacity: 0.6;
+  cursor: pointer;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  border-radius: 999px;
+  transition: opacity 240ms ease, color 240ms ease;
+  text-align: center;
+  /* Balance the trailing letter-spacing (0.26em after the last glyph)
+     so the label sits centred in the pill instead of shifted left. */
+  text-indent: 0.26em;
+}
+.nav__lang button[data-active="true"] {
+  opacity: 1;
+}
+/* Sliding indicator pill behind the active button. We position it via a
+   CSS custom property `--lang-pos` set by the React component (0 or 1). */
+.nav__lang::before {
+  content: "";
+  position: absolute;
+  z-index: 1;
+  /* The global reset (`*`) does NOT cover pseudo-elements, so this ::before
+     defaults to content-box — its 1px border then spilled 2px past the
+     width/height (and translateX overshot by 2px), leaving the pill pinned
+     2px off the right + bottom edges. Force border-box so it's inset a
+     uniform 4px on all four sides in both ES/EN positions. */
+  box-sizing: border-box;
+  top: 4px;
+  left: 4px;
+  width: calc(50% - 4px);
+  height: calc(100% - 8px);
+  background: color-mix(in srgb, var(--theme-fg) 18%, transparent);
+  border: 1px solid var(--theme-fg-hairline);
+  border-radius: 999px;
+  transform: translateX(calc(var(--lang-pos, 0) * 100%));
+  transition: transform 320ms cubic-bezier(0.65, 0, 0.35, 1),
+              background-color 240ms ease;
+}
+/* The separator dot in the original markup is no longer needed visually */
+.nav__lang span.sep { display: none; }
+
+/* ---------- Hero wrap (pin) ---------- */
+.pin-wrap {
+  position: relative;
+  width: 100%;
+}
+.pin-stage {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  width: 100%;
+  overflow: hidden;
+}
+
+/* WebGL canvas fills the stage */
+.scene-canvas {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  display: block;
+}
+
+/* Phase 01 (BIENVENIDA) vignette. Same layer as .laguna-bg (z-index: 0,
+   under the transparent 3D canvas). Off-center radial gradient (focal point
+   at ~70% X to match the right-shifted angel) with a subtle deep-teal cast
+   that drops to near-black at the edges. The reference image's background
+   reads as a dark cinematic stage with a slight blue-green tint — that's
+   what this layer reproduces. Opacity is driven by an inline gaussian in
+   app.jsx so the layer only paints during phase 01. */
+.hero-vignette-01 {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  /* CSS vars for the beam + haze widths so we can scale them per viewport.
+     Defaults match the desktop look. Mobile/tablet media queries override
+     these so the volumetric shaft reads dramatically on narrower screens
+     instead of shrinking to a thread (16% of a 390px viewport is only
+     ~62px wide). Heights stay 100% so the shaft falls the full frame. */
+  --beam-w: 16%;
+  --haze-w: 42%;
+  /* Layered stack (front of stack = first listed = paints LAST = on top):
+     1. Stars — pinpoint white specks scattered as the reference background.
+     2. Volumetric beam — narrow tall ellipse anchored above the top edge,
+        brightest at its source and fading downward. Reads as the spotlight
+        shaft falling on the angel.
+     3. Haze drift — broader, more diffuse vertical glow under the beam.
+        Simulates light-catching particulate ("neblina") in the air.
+     4. Primary radial — soft teal halo around the angel, near-black corners.
+     The order matters: beam + haze must paint OVER the primary radial so the
+     vertical shaft reads as light cutting through the dark space. */
+  background:
+    /* Stars layer */
+    radial-gradient(1.5px 1.5px at 12% 18%, rgba(255,255,255,0.7), transparent 60%),
+    radial-gradient(1px   1px   at 24% 62%, rgba(255,255,255,0.55), transparent 60%),
+    radial-gradient(1.2px 1.2px at 38% 30%, rgba(255,255,255,0.5),  transparent 60%),
+    radial-gradient(1px   1px   at 8%  78%, rgba(255,255,255,0.45), transparent 60%),
+    radial-gradient(1.4px 1.4px at 92% 15%, rgba(255,255,255,0.6),  transparent 60%),
+    radial-gradient(1px   1px   at 78% 88%, rgba(255,255,255,0.4),  transparent 60%),
+    radial-gradient(1.2px 1.2px at 55% 12%, rgba(255,255,255,0.5),  transparent 60%),
+    radial-gradient(0.8px 0.8px at 31% 8%,  rgba(255,255,255,0.4),  transparent 60%),
+    radial-gradient(1px   1px   at 88% 64%, rgba(255,255,255,0.45), transparent 60%),
+    radial-gradient(0.8px 0.8px at 18% 42%, rgba(255,255,255,0.35), transparent 60%),
+    radial-gradient(1px   1px   at 46% 86%, rgba(255,255,255,0.4),  transparent 60%),
+    radial-gradient(0.8px 0.8px at 96% 48%, rgba(255,255,255,0.35), transparent 60%),
+    /* Volumetric beam — narrow vertical cone falling from above the top
+       edge. Brighter near the source, fades down toward the angel.
+       Horizontal anchor uses --angel-x (published per-frame from
+       pendant.jsx) so the beam always lands above the model regardless of
+       viewport: desktop, tablet, or mobile (where the angel is centered).
+       Width uses --beam-w so we can widen the shaft on smaller screens. */
+    radial-gradient(ellipse var(--beam-w) 100% at var(--angel-x, 74%) -10%,
+      rgba(250, 252, 245, 0.78) 0%,
+      rgba(235, 250, 242, 0.62) 6%,
+      rgba(215, 240, 230, 0.46) 16%,
+      rgba(185, 222, 215, 0.30) 32%,
+      rgba(150, 200, 198, 0.18) 50%,
+      rgba(110, 170, 175, 0.08) 70%,
+      transparent 88%),
+    /* Haze drift — broader, more diffuse glow trailing under the beam,
+       simulates the "neblina" (mist) catching the light. Same anchor.
+       Width uses --haze-w so the atmospheric glow scales with the beam. */
+    radial-gradient(ellipse var(--haze-w) 100% at var(--angel-x, 73%) 5%,
+      rgba(195, 230, 228, 0.36) 0%,
+      rgba(160, 210, 215, 0.22) 22%,
+      rgba(120, 180, 190, 0.12) 48%,
+      rgba(70,  140, 155, 0.04) 72%,
+      transparent 92%),
+    /* Primary radial — teal halo + dark corners */
+    radial-gradient(ellipse 58% 70% at 72% 48%,
+      rgba(38, 96, 100, 0.65) 0%,
+      rgba(12, 36, 44, 0.85) 38%,
+      rgba(2, 10, 14, 0.95) 72%,
+      rgba(0, 4, 6, 1.00) 95%);
+  transition: opacity 180ms linear;
+  will-change: opacity;
+}
+
+/* ---------- Phase 03 (MATERIA) atmosphere ----------
+   Recreates the reference handoff visual: a warm directional light cone
+   pouring from the top-right corner, soft volumetric haze settling in the
+   middle-right where the cone meets the air, and tiny cream-tinted star
+   particles scattered through the frame. Same z-index layer as
+   .hero-vignette-01 so it paints BEHIND the transparent 3D canvas — the
+   angels composite on top using their own env-map reflections, and a real
+   DirectionalLight (phase03Spot in pendant.jsx) from the same upper-right
+   direction adds the matching warm rim on the upper wings so the CSS
+   atmosphere and the 3D lighting share one apparent light source.
+   Opacity is gated by a gaussian centred on tRaw=0.50 (the MATERIA peak)
+   so the layer fades in/out cleanly at the band edges and stays at 0
+   during phases 01/02/04/05 (no leak into BIENVENIDA/ALMA backdrops). */
+.hero-vignette-03 {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  /* Layered stack (front of stack = first listed = paints LAST = on top):
+     1. Stars — warm cream specks scattered across the upper 2/3 of frame,
+        denser near where the cone scatters most. Slight cream tint so they
+        feel lit by the same source as the angel rim highlights.
+     2. Top-right hotspot — bright concentrated glow at the cone's source.
+     3. Light cone — large elliptical fan anchored ABOVE the top edge so
+        only its lower half is visible; bends slightly toward the centre
+        where the trio sits.
+     4. Warm haze — golden-amber wash settling in the middle-right where
+        the cone diffuses into the air around the angels.
+     5. Cool counter — subtle teal shadow on the lower-left so the frame
+        reads as warm/cool/dark three-tone instead of monochrome amber.
+     6. Base atmosphere — dark teal-emerald with vertical depth gradient.
+     Order matters: stars + cone paint OVER haze/base so they read as
+     bright pinpoints and a cutting volumetric shaft, not as fog. */
+  background:
+    /* Stars — biased to upper 2/3, warm-cream tints */
+    radial-gradient(1.5px 1.5px at 12% 16%, rgba(255, 245, 220, 0.65), transparent 60%),
+    radial-gradient(1px   1px   at 22% 28%, rgba(255, 245, 220, 0.45), transparent 60%),
+    radial-gradient(1.2px 1.2px at 36% 18%, rgba(255, 245, 220, 0.50), transparent 60%),
+    radial-gradient(1px   1px   at 44% 32%, rgba(255, 240, 215, 0.35), transparent 60%),
+    radial-gradient(1.4px 1.4px at 58% 12%, rgba(255, 240, 215, 0.55), transparent 60%),
+    radial-gradient(0.9px 0.9px at 64% 24%, rgba(255, 235, 200, 0.40), transparent 60%),
+    radial-gradient(1.5px 1.5px at 76% 20%, rgba(255, 240, 215, 0.70), transparent 60%),
+    radial-gradient(1px   1px   at 82% 34%, rgba(255, 240, 215, 0.45), transparent 60%),
+    radial-gradient(1.2px 1.2px at 90% 28%, rgba(255, 240, 215, 0.60), transparent 60%),
+    radial-gradient(0.8px 0.8px at 14% 42%, rgba(255, 240, 215, 0.30), transparent 60%),
+    radial-gradient(1px   1px   at 28% 54%, rgba(255, 235, 200, 0.35), transparent 60%),
+    radial-gradient(1.1px 1.1px at 48% 48%, rgba(255, 235, 200, 0.45), transparent 60%),
+    radial-gradient(0.9px 0.9px at 56% 62%, rgba(255, 235, 200, 0.30), transparent 60%),
+    radial-gradient(1.2px 1.2px at 72% 64%, rgba(255, 230, 190, 0.40), transparent 60%),
+    radial-gradient(1px   1px   at 84% 56%, rgba(255, 230, 190, 0.35), transparent 60%),
+    radial-gradient(0.8px 0.8px at 92% 72%, rgba(255, 230, 190, 0.30), transparent 60%),
+    radial-gradient(1px   1px   at 38% 78%, rgba(255, 230, 190, 0.30), transparent 60%),
+    radial-gradient(0.9px 0.9px at 24% 84%, rgba(255, 225, 180, 0.25), transparent 60%),
+    /* Top-right hotspot: bright concentrated source. Pumped up vs the
+       first draft because the smoke turbulence below was washing the warm
+       tint to grey — these alphas need to punch through the cloud. */
+    radial-gradient(ellipse 38% 28% at 98% 0%,
+      rgba(255, 220, 160, 0.78) 0%,
+      rgba(255, 200, 135, 0.50) 18%,
+      rgba(230, 180, 110, 0.28) 40%,
+      rgba(180, 140,  80, 0.12) 65%,
+      transparent 85%),
+    /* Light cone: elliptical fan anchored above the top-right corner so
+       only its lower portion is visible. Horizontal anchor at 84% (not
+       100%) so the cone tips slightly toward the centre where the trio
+       lives. Alphas raised so the shaft reads as a clear directional
+       beam, not ambient warmth. */
+    radial-gradient(ellipse 70% 100% at 84% -18%,
+      rgba(250, 215, 155, 0.42) 0%,
+      rgba(225, 185, 130, 0.26) 18%,
+      rgba(180, 150, 105, 0.14) 40%,
+      rgba(130, 115,  85, 0.06) 65%,
+      transparent 82%),
+    /* Warm haze: amber wash where the cone meets the trio */
+    radial-gradient(ellipse 58% 50% at 72% 60%,
+      rgba(180, 150, 110, 0.14) 0%,
+      rgba(130, 110,  80, 0.08) 35%,
+      transparent 72%),
+    /* Cool counter on the lower-left for three-tone depth */
+    radial-gradient(ellipse 50% 60% at 10% 90%,
+      rgba(20, 50, 55, 0.22) 0%,
+      transparent 65%),
+    /* Base dark teal-emerald with vertical depth */
+    radial-gradient(ellipse 120% 110% at 50% 55%,
+      rgba(18, 48, 52, 0.55) 0%,
+      rgba( 8, 28, 36, 0.85) 45%,
+      rgba( 2, 14, 20, 0.95) 78%,
+      rgba( 0,  6, 10, 1.00) 100%);
+  transition: opacity 320ms ease-out;
+  will-change: opacity;
+}
+
+/* Volumetric smoke texture overlay. SVG turbulence (fractalNoise) tinted
+   warm-amber via feColorMatrix → soft cloudy texture that reads as actual
+   smoke catching the light, not just gradients. mix-blend-mode: screen
+   makes the cloud BRIGHTEN the underlying warm areas (cone + haze) and
+   leave the dark base mostly alone — same selective-glow trick studio
+   photographers use with fog machines under key lights.
+   mask-image fades the smoke out at the top-right corner so the hotspot/
+   cone gradients punch through cleanly (otherwise the noise was diluting
+   the light source to a uniform haze). Densest in the lower-centre where
+   the trio sits — matches the reference handoff visual. Pseudo-element
+   so it inherits the parent's opacity fade-in/out without extra JS. */
+.hero-vignette-03::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='1400' height='900' preserveAspectRatio='none'><defs><filter id='t' x='0' y='0' width='100%' height='100%'><feTurbulence type='fractalNoise' baseFrequency='0.009' numOctaves='3' seed='7' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.82  0 0 0 0 0.68  0 0 0 0 0.48  0 0 0 0.20 0'/></filter></defs><rect width='100%' height='100%' filter='url(%23t)'/></svg>");
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  mix-blend-mode: screen;
+  opacity: 0.50;
+  pointer-events: none;
+  /* Fade smoke OUT in the top-right quadrant so the light hotspot stays
+     crisp; densest mid-bottom where the trio + haze want texture. */
+  -webkit-mask-image: radial-gradient(ellipse 75% 75% at 35% 70%, #000 0%, rgba(0,0,0,0.85) 35%, rgba(0,0,0,0.40) 60%, rgba(0,0,0,0.10) 80%, transparent 100%);
+          mask-image: radial-gradient(ellipse 75% 75% at 35% 70%, #000 0%, rgba(0,0,0,0.85) 35%, rgba(0,0,0,0.40) 60%, rgba(0,0,0,0.10) 80%, transparent 100%);
+}
+
+/* Phase 02 (ORIGEN) backdrop. The reference photo is portrait 928×1131; on
+   landscape viewports `cover` keeps the central column (lake + sun-break +
+   mountain) visible. Sits below the transparent 3D canvas (z-index: 0 vs the
+   .scene-host's z-index: 1) so the angel composites cleanly on top. */
+.laguna-bg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  /* Wrapper for the ORIGEN video. The video itself lives inside as a
+     <video> tag; this wrapper carries the opacity + filter inline styles
+     so the GPU compositor handles the cross-fade in one layer (filtering
+     a video tag directly forces per-frame re-encoding). overflow:hidden
+     clips the video to the wrapper bounds (no cover-overflow leakage). */
+  overflow: hidden;
+  pointer-events: none;
+  /* Drive in/out via inline opacity from app.jsx (gaussian on scroll progress).
+     A short transition smooths any micro-jitter at the curve's edges. */
+  transition: opacity 180ms linear;
+  will-change: opacity;
+}
+.laguna-bg__video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center center;
+  display: block;
+  /* The video element shouldn't intercept clicks/scrolls — pointer-events
+     already off on the wrapper but redeclared here as a guarantee. */
+  pointer-events: none;
+}
+
+/* Phase 02 (HISTORIA) "Tribu" video backdrop. Same wrapper/video split as
+   .laguna-bg so the GPU composites opacity+filter once. The square source
+   (2160²) is cropped to the viewport by object-fit:cover — center-anchored
+   so the subject stays framed on portrait phones and landscape desktop. */
+.tribu-bg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  transition: opacity 180ms linear;
+  will-change: opacity;
+}
+.tribu-bg__video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center center;
+  display: block;
+  pointer-events: none;
+}
+/* Desktop (≥1025px): RAISE the Tribu framing so the candle manta (the ceremony)
+   reads larger and lower-centre, the focal point of HISTORIA. The 1440×1440
+   source at object-fit:cover fills the wide desktop width exactly, leaving
+   vertical overflow cropped equally top/bottom at the default center. Pushing
+   object-position-Y to 82% pans the visible window DOWN (shows more of the
+   lower frame = the full offering cloth with candles, flowers and bowls),
+   cropping the upper sky — a ~20% upward raise of the framing. No horizontal
+   shift: the manta stays centred so the small descended angel can sit directly
+   above it. Desktop-only: tablet/mobile stack the copy on top and keep the
+   video centred for now. */
+@media (min-width: 1025px) {
+  .tribu-bg__video {
+    object-position: center 82%;
+  }
+}
+
+/* ---------- Phase 04 (ALMA) temple backdrop ----------
+   Two stacked layers (day + night). Both sit at the same z-index 0 as
+   .laguna-bg; only one is at opacity > 0 at any moment. app.jsx toggles
+   the `--alma-night` flag every 5 s (only while ALMA is visible), and
+   each layer's inline opacity = phaseSoulProximity × (active ? 1 : 0).
+   The 1100 ms CSS transition gives a smooth cross-fade between the two
+   temple photos and avoids a hard cut at the moment of the toggle. */
+.alma-bg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  background-size: cover;
+  background-position: center center;
+  background-repeat: no-repeat;
+  pointer-events: none;
+  transition: opacity 800ms cubic-bezier(0.4, 0, 0.2, 1);
+  will-change: opacity;
+}
+/* Poster stills stay as the background-image so the very first frame paints
+   while the temple loop decodes (and as a fallback if video fails). */
+.alma-bg--day   { background-image: url("{{ 'temple-day.jpg' | asset_url }}"); }
+.alma-bg--night { background-image: url("{{ 'temple-night.jpg' | asset_url }}"); }
+/* Temple day/night video loops fill each layer (same wrapper pattern as the
+   Laguna/Tribu backdrops): the wrapper div carries the cross-fade opacity, the
+   <video> inside covers via object-fit. */
+.alma-bg__video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center center;
+  display: block;
+  pointer-events: none;
+}
+
+/* Ensure the 3D canvas host sits above the backdrop so the angel composites on
+   top of the photograph. Editorial chrome (.frame, .phase-layer, stepper…)
+   already has higher z-index, so they remain in front of the canvas. */
+.scene-host { z-index: 1; }
+
+/* ---------- Editorial frame: top divider + left rail + corner crosses ---------- */
+.frame {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 4;
+  color: var(--theme-fg);
+  transition: color 80ms linear;
+}
+.frame__h {
+  display: none;
+}
+.frame__v {
+  position: absolute;
+  /* Rail spans cross-to-cross: terminates at the vertical centers of
+     .frame__cross--tl (top: 75px + 5px) and .frame__cross--bl
+     (bottom: 24px + 5px) so the corner "+" marks act as caps instead of
+     decorative beads on a full-height line. */
+  top: 80px; bottom: 29px; left: 56px;
+  width: 1px;
+  background: currentColor;
+  opacity: 0.22;
+}
+.frame__cross {
+  position: absolute;
+  width: 10px; height: 10px;
+  opacity: 0.55;
+}
+.frame__cross::before, .frame__cross::after {
+  content: "";
+  position: absolute;
+  background: currentColor;
+}
+.frame__cross::before {
+  top: 50%; left: 0; right: 0; height: 1px; transform: translateY(-50%);
+}
+.frame__cross::after {
+  left: 50%; top: 0; bottom: 0; width: 1px; transform: translateX(-50%);
+}
+.frame__cross--tl { top: 75px;    left: 51px; }
+.frame__cross--tr { top: 75px;    right: 24px; }
+.frame__cross--bl { bottom: 24px; left: 51px; }
+/* BR cross only renders on mobile — it caps the right-edge progress rail
+   which is repositioned to mirror the left .frame__v at that breakpoint.
+   On desktop/tablet, the progress rail lives inboard with its own labels,
+   so a BR corner mark would dangle without a line to terminate. */
+.frame__cross--br { display: none; }
+
+/* ---------- Phase content ----------
+   All 5 phase-content elements share grid cell (1,1) so they overlap
+   absolutely on top of each other; the active one becomes visible. */
+.phase-layer {
+  position: absolute; inset: 0;
+  pointer-events: none;
+  z-index: 3;
+  display: grid;
+  grid-template-columns: 1fr;
+  align-items: center;
+}
+
+.phase-content {
+  grid-row: 1; grid-column: 1;
+  padding: 0 96px 0 180px;
+  max-width: min(760px, 55%);
+  color: var(--theme-fg);
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 700ms cubic-bezier(0.4,0,0.2,1), transform 700ms cubic-bezier(0.4,0,0.2,1);
+  will-change: opacity, transform;
+}
+.phase-content[data-active="true"] {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+.phase-eyebrow {
+  display: inline-flex; align-items: center; gap: 14px;
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: var(--color-gold-bright);
+  margin-bottom: 28px;
+}
+.phase-eyebrow__num {
+  font-variant-numeric: tabular-nums;
+  color: var(--theme-fg);
+  opacity: 0.6;
+}
+.phase-eyebrow__dot {
+  width: 4px; height: 4px; border-radius: 50%;
+  background: var(--color-gold-bright);
+  opacity: 0.7;
+}
+.phase-title {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-weight: 300;
+  font-size: clamp(40px, 5.2vw, 76px);
+  line-height: 0.98;
+  letter-spacing: -0.02em;
+  margin: 0 0 24px 0;
+  color: var(--theme-fg);
+  text-wrap: pretty;
+}
+.phase-title .accent {
+  color: var(--color-gold-bright);
+}
+.phase-sub {
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.55;
+  font-weight: 300;
+  color: var(--theme-fg);
+  opacity: 0.72;
+  max-width: 42ch;
+  margin: 0 0 28px 0;
+}
+.phase-bilingual {
+  display: block;
+  font-family: var(--font-body);
+  font-size: 11px;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: var(--theme-fg);
+  opacity: 0.5;
+  margin-top: 12px;
+}
+
+/* ---------- MATERIA labels ----------
+   Three brand labels (plata / oro / rodio) injected imperatively by pendant.jsx
+   as DOM siblings of the WebGL canvas, one per angel in the phase-03 trio. The
+   animate loop writes `transform: translate(Xpx, Ypx) translate(-50%, 22px)` so
+   each label centers under its angel; `opacity` is driven by phase03Proximity
+   so the labels fade in with the trio and don't peek through outside MATERIA.
+   pointer-events: none — they're decorative, the user shouldn't hit-test them.
+   text-shadow gives a soft dark halo so the type stays legible against the
+   bright gold/silver/rhodium reflections behind it. */
+.materia-label {
+  position: absolute;
+  top: 0; left: 0;
+  pointer-events: none;
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.34em;
+  text-transform: uppercase;
+  color: var(--theme-fg);
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.6), 0 0 16px rgba(0, 0, 0, 0.35);
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity 240ms ease-out;
+  will-change: transform, opacity;
+  z-index: 2;
+}
+@media (max-width: 767px) {
+  .materia-label { font-size: 10px; letter-spacing: 0.28em; }
+}
+
+/* Phase positioning — left/right alternation for editorial rhythm */
+.phase-content[data-position="left"]   { justify-self: start;  margin-left: 0; }
+.phase-content[data-position="right"]  { justify-self: end;    margin-right: 0; text-align: right; }
+.phase-content[data-position="center"] { justify-self: center; text-align: center; }
+.phase-content[data-position="right"] .phase-eyebrow { justify-content: flex-end; }
+
+/* ---------- Phase 04 (ALMA) split layout ----------
+   The "soul" beat focuses on the angel's glowing orb at chest level. The
+   user asked for the title ABOVE the orb and the sub-copy BELOW it, with
+   a generous gap so neither layer ever covers the sphere itself (which
+   IS the soul, per the brand language). We override the centered single-
+   block layout by stretching this phase-content to fill the grid cell
+   and splitting its inner into a top anchor + bottom anchor with the 3D
+   canvas showing through the empty middle band where the orb lives.
+   The doubled selector `.phase-content.phase-content--alma` bumps the
+   specificity to (0,2,0) so it outranks the later `@media .phase-content`
+   tablet/mobile blocks below (lines ~1832 + ~2177) — without that, those
+   later rules clobber our padding back to the standard 160px-left layout
+   and the title gets pushed to the very top of the viewport. */
+.phase-content.phase-content--alma {
+  align-self: stretch;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  /* Pull the copy block UP — the title sits ABOVE the angel's head, over
+     the upper wing area. The wings (dark gold + deep shadows between
+     feathers) give better contrast than the bright lower temple marble,
+     and the overlap with the wings is intentional (user OK'd it for both
+     day and night). The orb stays clear and remains the focal point. */
+  justify-content: flex-start;
+  align-items: center;
+  padding: 13vh 32px 0;
+  max-width: 100%;
+  text-align: center;
+  margin: 0;
+}
+.phase-content--alma .phase-content__inner {
+  width: 100%;
+  max-width: 760px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.phase-content--alma .phase-title  { text-align: center; margin: 0; }
+/* ALMA title cross-fade. Both h2's share one grid cell so they overlap
+   at the same line height — the stack auto-sizes to whichever title is
+   taller so the layout never reflows during the swap. Each h2 carries
+   inline opacity from app.jsx (driven by `almaNight`) and the 900 ms
+   transition lines up with the temple background cross-fade. */
+.phase-title-stack {
+  display: grid;
+  width: 100%;
+  justify-items: center;
+}
+.phase-title-stack .phase-title--alma-slot {
+  grid-row: 1;
+  grid-column: 1;
+  transition: opacity 900ms cubic-bezier(0.4, 0, 0.2, 1);
+  will-change: opacity;
+}
+.phase-content--alma .phase-sub    { text-align: center; max-width: 52ch; margin: 0 auto 14px; }
+.phase-content--alma .phase-bilingual { text-align: center; }
+
+@media (max-width: 1024px) {
+  .phase-content.phase-content--alma {
+    padding: 12vh 24px 0;
+    justify-self: stretch;
+    margin: 0;
+  }
+}
+@media (max-width: 767px) {
+  /* Mobile (also covers small tablets ≤ 767px wide). Text needs to sit
+     RIGHT below the navbar — the user wants the copy as high as possible.
+     `.phase-layer { padding-top: 90px }` (line ~2282) already pushes the
+     grid 14px below the 76px navbar, so our own padding-top can drop to
+     0 and the title lands flush below the chrome. */
+  .phase-content.phase-content--alma {
+    align-self: stretch;
+    height: 100%;
+    padding: 0 16px;
+    justify-self: stretch;
+    margin: 0;
+  }
+  .phase-content--alma .phase-sub { max-width: 38ch; }
+}
+
+/* ---------- Phase 05 (EDICIÓN) — the finale in the void ----------
+   The journey resolves in darkness, not cream (the theme arc in app.jsx
+   drains the cream background back to emerald-black across 0.85→0.90, so the
+   orb reads as the one light). The copy resolves as an inscription on a
+   plinth BELOW the receded angel — never over the orb — which fixes the old
+   headline-over-model collision. Doubled selector for (0,2,0) specificity so
+   it outranks the later @media `.phase-content` blocks (same trick ALMA uses
+   above), keeping the bottom-anchored layout on tablet/mobile too. */
+.phase-content.phase-content--edition {
+  align-self: stretch;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+  padding: 0 32px 11vh;
+  max-width: 100%;
+  text-align: center;
+  margin: 0;
+}
+/* Edge-only vignette: deepens the corners toward true black while staying
+   fully transparent across the central ~55% where the angel + orb live, so
+   the single green light is never dimmed by a CSS layer. It rides the
+   phase-content opacity transition (no JS), fading in as EDICIÓN becomes
+   active. Sits behind the inscription (z-index 0) which lifts to z-index 1. */
+.phase-content--edition::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(ellipse 72% 74% at 50% 44%,
+    rgba(2, 10, 8, 0) 55%,
+    rgba(2, 10, 8, 0.62) 100%);
+  z-index: 0;
+}
+.phase-content--edition .phase-content__inner--edition {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 640px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+/* Engraved authentication seal: the serial struck like a register mark, not
+   shown as a statistic. Champagne, mono, wide-tracked, flanked by two short
+   hairlines that stop clear of the number. */
+.edition-seal {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  margin-bottom: 24px;
+}
+.edition-seal__line {
+  width: 44px;
+  height: 1px;
+  background: var(--color-gold-bright);
+  opacity: 0.45;
+}
+.edition-seal__serial {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  letter-spacing: 0.42em;
+  text-indent: 0.42em; /* offset the trailing tracking so it reads centered */
+  text-transform: uppercase;
+  color: var(--color-gold-bright);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.phase-title--edition {
+  margin: 0 0 14px;
+  text-shadow: 0 2px 34px rgba(0, 0, 0, 0.5);
+}
+/* Micro-label under the title (EDITION / EDICIÓN) — part of the design
+   system's English caption line. */
+.phase-content--edition .phase-bilingual {
+  margin: 0 0 26px;
+  opacity: 0.55;
+}
+.phase-content--edition .phase-sub {
+  margin: 0 auto 32px;
+  max-width: 46ch;
+  opacity: 0.8;
+}
+/* The acquisition invitation. Ghost button on the void reads as an entry to
+   a closed circle rather than a storefront action. */
+.edition-cta {
+  align-self: center;
+}
+
+@media (min-width: 768px) and (max-width: 1024px) {
+  .phase-content.phase-content--edition { padding: 0 24px 12vh; }
+}
+@media (max-width: 767px) {
+  .phase-content.phase-content--edition { padding: 0 16px 10vh; }
+  .edition-seal { gap: 14px; margin-bottom: 20px; }
+  .edition-seal__line { width: 32px; }
+  .edition-seal__serial { font-size: 12px; letter-spacing: 0.34em; text-indent: 0.34em; }
+  .phase-content--edition .phase-sub { max-width: 34ch; }
+}
+
+/* === EDICIÓN — "estrella fija" (copy LEFT, angel + rotating geometry RIGHT) =
+   The finale now mirrors ORIGEN/MATERIA's editorial split: a left copy column
+   and the angel shifted into the right, with a slow-rotating Metatron's-cube
+   polygon behind it. Overrides the earlier centred/bottom-anchored edition
+   layout (this block is later in source, so it wins at equal specificity). == */
+.phase-content.phase-content--edition {
+  align-self: auto;
+  height: auto;
+  display: block;
+  justify-content: initial;
+  align-items: initial;
+  text-align: left;
+  padding: 0 96px 0 180px;
+  max-width: min(760px, 55%);
+}
+/* Drop the blackout vignette from the previous concept. */
+.phase-content--edition::before { content: none; }
+
+.phase-content--edition .phase-content__inner--edition {
+  position: static;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  text-align: left;
+  width: 100%;
+  max-width: none;
+}
+.edition-eyebrow { margin: 0 0 24px; }
+.phase-title--edition {
+  font-style: normal;
+  margin: 0 0 26px;
+  line-height: 1.0;
+  text-shadow: 0 2px 30px rgba(0, 0, 0, 0.4);
+}
+.phase-title--edition .accent {
+  font-style: italic;
+  color: var(--color-gold-bright);
+}
+.phase-content--edition .phase-sub { margin: 0 0 30px; max-width: 42ch; }
+
+/* Serial hallmark, left-aligned: the struck number then a trailing hairline. */
+.phase-content--edition .edition-seal { justify-content: flex-start; margin: 0 0 12px; }
+/* Scarcity line under the number — quiet, tracked caps. */
+.edition-scarcity {
+  margin: 0 0 30px;
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--theme-fg);
+  opacity: 0.62;
+}
+[data-theme="light"] .edition-scarcity { color: #7a5f33; opacity: 0.9; }
+.edition-cta {
+  align-self: flex-start;
+  border-radius: var(--radius-pill, 999px);
+}
+
+/* === EDICIÓN — "la última luz": the void backdrop ==========================
+   No paper, no relief shadow, no Metatron. The finale is the emerald-black void
+   with the orb as the single light. Three backdrop layers (all z-index 0, BEHIND
+   the transparent 3D canvas, so the angel + glowing orb composite on top): an
+   edge vignette that closes the frame toward true black, a layered phosphor
+   bloom centred on the orb, and a thin shaft of that light descending into the
+   struck hallmark. Desktop coordinates target the right-hand orb of the
+   estrella-fija layout; the responsive blocks below recentre them. ========== */
+
+/* Edge vignette — darkness closes in around the light. */
+.edition-void {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background: radial-gradient(ellipse 82% 88% at 50% 50%,
+    rgba(5, 22, 19, 0) 30%,
+    rgba(2, 9, 8, 0.5) 66%,
+    rgba(0, 3, 2, 0.94) 100%);
+}
+
+/* The single light: a layered bloom centred on the orb. The bright core sits
+   where the 3D orb renders, so the orb appears to emit it; the wide skirt
+   scatters phosphor green into the dark air. */
+.edition-glow {
+  position: absolute;
+  left: 72%;
+  top: 50%;
+  width: min(960px, 62vw);
+  height: min(960px, 62vw);
+  transform: translate(-50%, -50%);
+  z-index: 0;
+  pointer-events: none;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 50%,
+    rgba(125, 255, 178, 0.34) 0%,
+    rgba(86, 224, 150, 0.18) 17%,
+    rgba(45, 150, 120, 0.10) 37%,
+    rgba(20, 70, 70, 0.05) 56%,
+    rgba(5, 22, 19, 0) 74%);
+  filter: blur(6px);
+  animation: edition-glow-breathe 6.5s ease-in-out infinite;
+}
+@keyframes edition-glow-breathe {
+  0%, 100% { transform: translate(-50%, -50%) scale(0.97); opacity: 0.9; }
+  50%      { transform: translate(-50%, -50%) scale(1.04); opacity: 1; }
+}
+
+/* Hallmark: a thread of the orb's light descends into the struck serial —
+   "the piece receives its mark." Desktop only; tablet/mobile rely on the
+   corner badge for the serial. */
+.edition-hallmark {
+  position: absolute;
+  left: 72%;
+  top: 57%;
+  transform: translateX(-50%);
+  z-index: 0;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.edition-hallmark__shaft {
+  width: 1px;
+  height: 16vh;
+  background: linear-gradient(to bottom,
+    rgba(125, 255, 178, 0) 0%,
+    rgba(201, 166, 107, 0.5) 58%,
+    rgba(233, 215, 177, 0.85) 100%);
+}
+.edition-hallmark__serial {
+  margin-top: 18px;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: clamp(13px, 1vw, 16px);
+  letter-spacing: 0.4em;
+  text-indent: 0.4em;
+  color: var(--color-gold-bright);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  text-shadow: 0 0 18px rgba(125, 255, 178, 0.22);
+}
+@media (prefers-reduced-motion: reduce) {
+  .edition-glow { animation: none; }
+}
+
+/* EDICIÓN CTA — a gold-edged invitation, not a storefront button. Quiet
+   champagne in the void; on hover a soft phosphor-warm glow blooms (entry to a
+   closed circle). */
+.Button--ghost.edition-cta {
+  border-color: rgba(201, 166, 107, 0.45);
+  color: var(--color-gold-bright, #E9D7B1);
+  transition: border-color 300ms ease, background 300ms ease, color 300ms ease, box-shadow 300ms ease;
+}
+.Button--ghost.edition-cta:hover {
+  border-color: rgba(233, 215, 177, 0.85);
+  background: rgba(233, 215, 177, 0.08);
+  color: #fff;
+  box-shadow: 0 0 30px rgba(125, 255, 178, 0.12), 0 8px 34px rgba(0, 0, 0, 0.45);
+}
+@media (prefers-reduced-motion: reduce) {
+  .Button--ghost.edition-cta { transition: none; }
+}
+/* === EDICIÓN responsive — the desktop "estrella fija" 2-column split (copy
+   LEFT, angel RIGHT) has no room below ~1024px: the headline and body run into
+   the centred angel + Metatron. So tablet and mobile RESTACK into a single
+   column "altarpiece": the angel rides up into the top half (framed by the
+   Metatron, via the bigger pyEditionShift in pendant.jsx) and the inscription
+   is bottom-anchored beneath it. The doubled `.phase-content.phase-content--edition`
+   selector ((0,2,0)) outranks the generic @media `.phase-content` blocks, and
+   these rules sit AFTER the desktop block above so they win at the breakpoint.
+   The desktop-only relief pieces (cast shadow, ceremonial pedestal) are tuned
+   to the right column, so they're dropped here; the corner badge already
+   carries "EDICIÓN LIMITADA · N.º 01 / 100". === */
+@media (min-width: 768px) and (max-width: 1024px) {
+  .phase-content.phase-content--edition {
+    align-self: stretch;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    align-items: flex-start;
+    text-align: left;
+    padding: 0 64px 12vh;
+    max-width: 100%;
+  }
+  .phase-content--edition .phase-content__inner--edition {
+    width: 100%;
+    max-width: 600px;
+    align-items: flex-start;
+  }
+  .phase-title--edition { font-size: clamp(44px, 6.4vw, 60px); line-height: 1.03; margin: 0 0 22px; }
+  .phase-content--edition .phase-sub { max-width: 54ch; margin: 0 0 28px; }
+  /* Bloom recentred on the angel (upper area of the stacked altarpiece). */
+  .edition-glow { left: 50%; top: 34%; width: min(760px, 96vw); height: min(760px, 96vw); }
+  .edition-hallmark { display: none; }
+}
+@media (max-width: 767px) {
+  .phase-content.phase-content--edition {
+    align-self: stretch;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    align-items: flex-start;
+    text-align: left;
+    /* Horizontal padding raised 22→30px so the inscription clears the frame
+       rails (.frame__v left + .rail right sit 16px from each edge) with a
+       ~14px gutter instead of crowding them. Bottom padding raised 8.5→14vh so
+       the inscription rises toward the relic (forming one centred altarpiece)
+       instead of being stranded at the very bottom under a tall void. */
+    padding: 0 30px 14vh;
+    max-width: 100%;
+  }
+  .phase-content--edition .phase-content__inner--edition {
+    width: 100%;
+    max-width: 100%;
+    align-items: flex-start;
+  }
+  .edition-eyebrow { margin: 0 0 16px; }
+  .phase-title--edition { font-size: clamp(32px, 8.6vw, 43px); line-height: 1.05; margin: 0 0 18px; }
+  .phase-content--edition .phase-sub {
+    /* max-width trimmed 42→34ch so the body never runs to the right frame rail
+       on narrow phones; keeps a clear right gutter and a 60-65ch measure. */
+    font-size: 14.5px; line-height: 1.62; max-width: 34ch; margin: 0 0 26px; opacity: 0.85;
+  }
+  .edition-cta { align-self: flex-start; }
+  /* Bloom recentred on the (small) angel up top; oversized so the phosphor
+     light fills the dark around the relic. */
+  .edition-glow { left: 50%; top: 30%; width: 140vw; height: 140vw; }
+  .edition-hallmark { display: none; }
+}
+
+/* Light-theme (ivory finale) contrast fixes for EDICIÓN. The base champagne /
+   white treatments vanish on cream, so recolor to deep gold + dark ink. */
+[data-theme="light"] .phase-title--edition .accent { color: #8a6a2e; }
+[data-theme="light"] .edition-eyebrow { color: #7a5f33; opacity: 0.9; }
+[data-theme="light"] .phase-content--edition .edition-seal__serial { color: #6f5630; }
+[data-theme="light"] .phase-content--edition .edition-seal__line { background: #6f5630; opacity: 0.4; }
+[data-theme="light"] .Button--ghost.edition-cta {
+  background: rgba(255, 255, 255, 0.42);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(122, 95, 51, 0.32);
+  color: #16221d;
+  box-shadow: 0 2px 20px rgba(20, 30, 25, 0.06);
+}
+[data-theme="light"] .Button--ghost.edition-cta:hover {
+  border-color: rgba(122, 95, 51, 0.6);
+  background: rgba(201, 166, 107, 0.2);
+  color: #16221d;
+}
+[data-theme="light"] .edition-geo__poly {
+  opacity: 0.72;
+  filter: drop-shadow(0 0 18px rgba(201, 166, 107, 0.25));
+}
+
+/* ---------- Stepper (floating labels on the LEFT edge of the viewport) ----------
+   In the reference, the step labels sit directly on the left margin with
+   no rail behind them. No ticks, no crossing line — just three rows
+   distributed vertically. */
+/* ---------- Stepper (sits on the left frame rail) ---------- */
+.stepper {
+  position: absolute;
+  left: 32px;
+  top: 130px;
+  bottom: 70px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  z-index: 5;
+  color: var(--theme-fg);
+  transition: color 80ms linear;
+  font-family: var(--font-body);
+  font-size: 10px;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  pointer-events: none;
+}
+.stepper__item {
+  display: flex; align-items: center; gap: 14px;
+  position: relative;
+  padding-left: 30px;
+  opacity: 0.32;
+  transition: opacity 320ms ease;
+  white-space: nowrap;
+}
+.stepper__item[data-active="true"] { opacity: 1; }
+/* Click affordance for the rail buttons (phases 01..05). Only adds a
+   pointer cursor on hover — no color, size, or position change.
+   The parent .stepper carries `pointer-events: none` so it doesn't block
+   the 3D canvas behind it, which means each interactive row must
+   re-enable pointer events explicitly. Without `pointer-events: auto`
+   the canvas captures the click and the row's onClick never fires. */
+.stepper__item[role="button"] { cursor: pointer; pointer-events: auto; }
+.stepper__item[role="button"]:focus-visible { outline: 1px solid currentColor; outline-offset: 4px; }
+
+/* Global keyboard focus ring. currentColor adapts to the dark/light theme; the
+   more-specific stepper and nav-menu rules keep their own bespoke focus styles. */
+a:focus-visible,
+button:focus-visible,
+[role="button"]:focus-visible,
+input:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 3px;
+}
+/* Tick crossing the rail */
+.stepper__item::before {
+  content: "";
+  position: absolute;
+  left: 20px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 8px;
+  height: 1px;
+  background: currentColor;
+  opacity: 0.6;
+  transition: width 320ms ease, opacity 320ms ease;
+}
+.stepper__item[data-active="true"]::before {
+  width: 22px;
+  opacity: 1;
+}
+.stepper__num {
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+  opacity: 0.7;
+  font-size: 9px;
+  display: block;
+}
+.stepper__label {
+  display: block;
+  font-weight: 500;
+  font-size: 10px;
+  margin-top: 4px;
+}
+.stepper__col { display: flex; flex-direction: column; }
+
+/* ---------- Progress rail (right side) ---------- */
+.rail {
+  position: absolute;
+  right: 40px;
+  top: 50%;
+  transform: translateY(-50%);
+  height: 280px;
+  width: 1px;
+  background: var(--theme-fg-hairline);
+  z-index: 4;
+}
+.rail__fill {
+  position: absolute; top: 0; left: 0; right: 0;
+  background: var(--color-gold-bright);
+  height: 0%;
+  transition: height 80ms linear;
+}
+.rail__label {
+  position: absolute;
+  right: 8px;
+  top: -28px;
+  font-family: var(--font-body);
+  font-size: 10px;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: var(--theme-fg);
+  opacity: 0.5;
+  white-space: nowrap;
+}
+.rail__pct {
+  position: absolute;
+  right: 8px;
+  bottom: -28px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  color: var(--theme-fg);
+  opacity: 0.5;
+  white-space: nowrap;
+}
+
+/* ---------- Serial badge (top-right of hero) ---------- */
+.edition-badge {
+  position: absolute;
+  bottom: 40px;
+  right: 64px;
+  display: flex; flex-direction: column; align-items: flex-end;
+  gap: 4px;
+  font-family: var(--font-body);
+  font-size: 10px;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: var(--theme-fg);
+  opacity: 0.6;
+  z-index: 4;
+}
+.edition-badge__serial {
+  color: var(--color-gold-bright);
+  opacity: 1;
+}
+
+/* ---------- Film grain (perf-optimised) ----------
+   ONE layer instead of two stacked overlays. Slower animation (4 steps over
+   4s) so the browser doesn't repaint the full viewport every ~200ms. Pauses
+   completely under prefers-reduced-motion. The previous .grain--coarse
+   companion is rendered visually optional because the texture below covers
+   both density bands; if you miss it, raise --grain-opacity slightly. */
+.grain {
+  position: fixed;
+  inset: -10%;
+  pointer-events: none;
+  z-index: 60;
+  mix-blend-mode: overlay;
+  opacity: var(--grain-opacity, 0.12);
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 240 240'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.92' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 1.1 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+  background-size: 240px 240px;
+  background-repeat: repeat;
+  animation: grain-shift 4s steps(4) infinite;
+  /* Promote to its own compositor layer so the animation lives off the
+     main thread instead of forcing whole-page repaints. */
+  will-change: transform;
+  transform: translateZ(0);
+}
+/* Second grain layer kept as a no-op shell so the JSX (which renders two
+   .grain divs) stays valid without forcing a second full-viewport composite. */
+.grain--coarse {
+  display: none;
+}
+@keyframes grain-shift {
+  0%   { transform: translate3d(0, 0, 0); }
+  25%  { transform: translate3d(-2%, -1%, 0); }
+  50%  { transform: translate3d(1%, 1%, 0); }
+  75%  { transform: translate3d(-1%, 2%, 0); }
+  100% { transform: translate3d(0, 0, 0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .grain { animation: none; }
+}
+
+/* ---------- After-hero sections ---------- */
+.editions-section {
+  position: relative;
+  background: var(--theme-bg);
+  color: var(--theme-fg);
+  padding: 160px 40px 200px;
+  border-top: 1px solid var(--theme-fg-hairline);
+  z-index: 2;
+}
+.editions-header {
+  display: flex; align-items: flex-end; justify-content: space-between;
+  max-width: 1440px; margin: 0 auto 80px;
+  gap: 40px;
+}
+.editions-header__title {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-weight: 300;
+  font-size: clamp(40px, 5vw, 72px);
+  line-height: 0.96;
+  letter-spacing: -0.02em;
+  margin: 0;
+  max-width: 12ch;
+}
+.editions-header__meta {
+  font-family: var(--font-body);
+  font-size: 11px;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: var(--theme-fg);
+  opacity: 0.55;
+  max-width: 260px;
+  text-align: right;
+  line-height: 1.7;
+}
+
+.editions-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 24px;
+  max-width: 1440px; margin: 0 auto;
+}
+.edition-card {
+  position: relative;
+  display: flex; flex-direction: column;
+  text-decoration: none;
+  color: var(--theme-fg);
+  cursor: pointer;
+}
+.edition-card__media {
+  position: relative;
+  aspect-ratio: 0.78 / 1;
+  overflow: hidden;
+  background: var(--emerald-900);
+  margin-bottom: 20px;
+}
+.edition-card__media img {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  transition: transform 1200ms cubic-bezier(0.2,0,0,1);
+}
+.edition-card:hover .edition-card__media img { transform: scale(1.04); }
+.edition-card__corner {
+  position: absolute;
+  width: 12px; height: 12px;
+  color: rgba(255,255,255,0.7);
+}
+.edition-card__corner::before, .edition-card__corner::after {
+  content: ""; position: absolute; background: currentColor;
+}
+.edition-card__corner::before {
+  top: 50%; left: 0; right: 0; height: 1px; transform: translateY(-50%);
+}
+.edition-card__corner::after {
+  left: 50%; top: 0; bottom: 0; width: 1px; transform: translateX(-50%);
+}
+.edition-card__corner--tl { top: 12px; left: 12px; }
+.edition-card__corner--tr { top: 12px; right: 12px; }
+.edition-card__corner--bl { bottom: 12px; left: 12px; }
+.edition-card__corner--br { bottom: 12px; right: 12px; }
+
+.edition-card__serial {
+  position: absolute;
+  bottom: 16px; left: 18px;
+  font-family: var(--font-body);
+  font-size: 9px;
+  letter-spacing: 0.32em;
+  color: rgba(255,255,255,0.85);
+  text-transform: uppercase;
+}
+.edition-card__phosphor {
+  position: absolute;
+  top: 16px; right: 18px;
+  display: inline-flex; align-items: center; gap: 6px;
+  font-family: var(--font-body);
+  font-size: 9px;
+  letter-spacing: 0.32em;
+  color: var(--phosphor-400);
+  text-transform: uppercase;
+}
+.edition-card__phosphor::before {
+  content: "";
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--phosphor-400);
+  box-shadow: 0 0 8px var(--phosphor-400);
+}
+
+.edition-card__title {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-weight: 300;
+  font-size: 26px;
+  line-height: 1.1;
+  margin: 0;
+  letter-spacing: -0.01em;
+  color: var(--theme-fg);
+}
+.edition-card__sub {
+  font-family: var(--font-body);
+  font-size: 10px;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: var(--theme-fg);
+  opacity: 0.55;
+  margin-top: 6px;
+}
+.edition-card__price {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--theme-fg-hairline);
+  font-family: var(--font-body);
+  font-size: 12px;
+  color: var(--theme-fg);
+}
+.edition-card__price strong { font-weight: 500; }
+.edition-card__price .arrow {
+  font-size: 20px;
+  transition: transform 280ms cubic-bezier(0.2,0,0,1);
+}
+.edition-card:hover .edition-card__price .arrow {
+  transform: translateX(6px);
+}
+
+/* ---------- Manifesto strip ---------- */
+.manifesto {
+  position: relative;
+  background: var(--emerald-950);
+  color: var(--white-100);
+  padding: 160px 40px;
+  text-align: center;
+  border-top: 1px solid var(--white-08);
+}
+.manifesto__quote {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-weight: 300;
+  font-size: clamp(32px, 4vw, 56px);
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+  max-width: 24ch;
+  margin: 0 auto 32px;
+  color: var(--gold-300);
+  text-wrap: balance;
+}
+.manifesto__quote em { color: var(--phosphor-400); font-style: italic; }
+.manifesto__attribution {
+  font-family: var(--font-body);
+  font-size: 11px;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: var(--white-60);
+}
+
+/* ---------- Footer mini ---------- */
+.footer-mini {
+  background: var(--emerald-950);
+  color: var(--white-70);
+  padding: 60px 40px 32px;
+  border-top: 1px solid var(--white-08);
+  font-family: var(--font-body);
+  font-size: 11px;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 24px;
+}
+.footer-mini__brand {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-weight: 400;
+  font-size: 22px;
+  letter-spacing: -0.01em;
+  text-transform: none;
+  color: var(--gold-300);
+}
+.footer-mini__links {
+  display: flex; gap: 28px;
+}
+
+/* ---------- Scroll hint at the bottom of hero ---------- */
+.scroll-hint {
+  position: absolute;
+  bottom: 40px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--font-body);
+  font-size: 9px;
+  letter-spacing: 0.4em;
+  text-transform: uppercase;
+  color: var(--theme-fg);
+  opacity: 0.55;
+  transition: opacity 280ms ease, color 80ms linear;
+}
+.scroll-hint__line {
+  width: 1px; height: 36px;
+  background: linear-gradient(to bottom, transparent, currentColor);
+  animation: scroll-hint-pulse 1.8s ease-in-out infinite;
+}
+@keyframes scroll-hint-pulse {
+  0%, 100% { opacity: 0.3; transform: scaleY(0.6); transform-origin: top; }
+  50% { opacity: 1; transform: scaleY(1); transform-origin: top; }
+}
+.scroll-hint[data-hidden="true"] { opacity: 0; }
+
+/* ---------- Misc ---------- */
+.sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0;
+  margin: -1px; overflow: hidden; clip: rect(0,0,0,0);
+  white-space: nowrap; border: 0;
+}
+
+/* ===========================================================
+   POST-HERO SECTIONS (sections 2–7)
+   Structure mirrors lightweight.info/en; styling is pure Elyxie.
+   =========================================================== */
+
+/* ---------- Section + Container scaffolding ---------- */
+.Section {
+  position: relative;
+  background: var(--theme-bg);
+  color: var(--theme-fg);
+  padding: 96px 0 96px;
+  border-top: 1px solid var(--theme-fg-hairline);
+  transition: background-color 200ms ease, color 200ms ease;
+}
+.Section.theme-light  { --theme-bg: #F6F2E8; --theme-fg: #0A2620;
+                        --theme-fg-muted: rgba(10,38,32,0.55);
+                        --theme-fg-faint: rgba(10,38,32,0.20);
+                        --theme-fg-hairline: rgba(10,38,32,0.14); }
+.Section.theme-dark   { --theme-bg: #051613; --theme-fg: #ffffff;
+                        --theme-fg-muted: rgba(255,255,255,0.55);
+                        --theme-fg-faint: rgba(255,255,255,0.18);
+                        --theme-fg-hairline: rgba(255,255,255,0.10); }
+.Section--banner { padding: 0; }   /* newsletter: full-bleed banner */
+
+.Container {
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: 0 56px;
+  position: relative;
+}
+
+/* ---------- CornerCrosses ---------- */
+.cc {
+  position: absolute; inset: 0;
+  pointer-events: none;
+  color: var(--theme-fg);
+  z-index: 2;
+}
+.cc__cross {
+  position: absolute;
+  width: 9px; height: 9px;
+  opacity: 0.55;
+}
+.cc__cross::before, .cc__cross::after {
+  content: ""; position: absolute; background: currentColor;
+}
+.cc__cross::before { top: 50%; left: 0; right: 0; height: 1px; transform: translateY(-50%); }
+.cc__cross::after  { left: 50%; top: 0; bottom: 0; width: 1px; transform: translateX(-50%); }
+.cc__cross--tl { top: 22px;    left: 22px; }
+.cc__cross--tr { top: 22px;    right: 22px; }
+.cc__cross--bl { bottom: 22px; left: 22px; }
+.cc__cross--br { bottom: 22px; right: 22px; }
+
+/* ===========================================================
+   Section 2 — Video full-width + Play button
+   =========================================================== */
+.VideoSection__eyebrow {
+  display: flex; align-items: center; gap: 16px;
+  font-family: var(--font-body);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: var(--theme-fg);
+  opacity: 0.7;
+  margin-bottom: 28px;
+}
+.VideoSection__line {
+  flex: 0 0 36px;
+  height: 1px;
+  background: currentColor;
+  opacity: 0.6;
+}
+
+.MediaPlayer {
+  position: relative;
+  margin: 0;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  background: #000;
+  border: 1px solid var(--theme-fg-hairline);
+}
+.MediaPlayer__video {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.MediaPlayer .cc {
+  /* Use the same cross color reference but force inverted (we're over an image) */
+  color: #fff;
+}
+
+.PlayButton {
+  position: absolute;
+  bottom: 28px; right: 28px;
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 26px;
+  background: rgba(5, 22, 19, 0.55);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  color: #fff;
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background-color 240ms ease, border-color 240ms ease, transform 220ms ease;
+}
+.PlayButton svg { display: block; flex: 0 0 14px; }
+.PlayButton:hover {
+  background: rgba(125, 255, 178, 0.16);
+  border-color: rgba(125, 255, 178, 0.45);
+  color: var(--phosphor-400);
+  transform: translateY(-1px);
+}
+
+.MediaPlayer__caption {
+  margin-top: 20px;
+  font-family: var(--font-body);
+  font-size: 13px;
+  letter-spacing: 0.02em;
+  color: var(--theme-fg);
+  opacity: 0.62;
+  max-width: 52ch;
+}
+
+/* Lightbox */
+.Lightbox {
+  position: fixed; inset: 0;
+  background: rgba(0, 0, 0, 0.92);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  z-index: 200;
+  display: flex; align-items: center; justify-content: center;
+  padding: 56px;
+  animation: lb-fade 240ms ease both;
+}
+@keyframes lb-fade { from { opacity: 0; } to { opacity: 1; } }
+.Lightbox__inner {
+  position: relative;
+  max-width: 1400px; width: 100%;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+}
+.Lightbox__inner img {
+  width: 100%; height: 100%; object-fit: cover;
+}
+.Lightbox__overlay {
+  position: absolute; inset: 0;
+  background: linear-gradient(180deg, rgba(0,0,0,0) 40%, rgba(0,0,0,0.85) 100%);
+  display: flex; flex-direction: column; justify-content: flex-end;
+  padding: 48px 56px;
+  color: #fff;
+}
+.Lightbox__title {
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 0.4em;
+  text-transform: uppercase;
+  color: var(--gold-300);
+  margin-bottom: 8px;
+}
+.Lightbox__sub {
+  font-family: var(--font-body);
+  font-size: 11px;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.65);
+  margin-bottom: 24px;
+}
+.Lightbox__soon {
+  display: inline-block;
+  padding: 10px 18px;
+  border: 1px solid rgba(255,255,255,0.25);
+  font-family: var(--font-body);
+  font-size: 10px;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: var(--phosphor-400);
+  align-self: flex-start;
+}
+.Lightbox__close {
+  position: absolute;
+  top: 24px; right: 28px;
+  width: 44px; height: 44px;
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.18);
+  color: #fff;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  transition: background-color 200ms ease;
+}
+.Lightbox__close:hover { background: rgba(255,255,255,0.16); }
+
+/* ===========================================================
+   Section 3 — Instagram grid
+   =========================================================== */
+.SectionHead {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 32px;
+  margin-bottom: 56px;
+}
+.SectionHead__title {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-weight: 300;
+  font-size: clamp(44px, 5vw, 76px);
+  line-height: 0.96;
+  letter-spacing: -0.02em;
+  margin: 0;
+  color: var(--theme-fg);
+}
+.SectionHead__meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  font-family: var(--font-body);
+  font-size: 11px;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--theme-fg);
+}
+.SectionHead__meta > span:first-child { opacity: 0.55; }
+.SectionHead__link {
+  color: var(--theme-fg);
+  opacity: 0.9;
+  text-decoration: none;
+  transition: opacity 200ms ease, transform 200ms ease;
+}
+.SectionHead__link:hover { opacity: 1; transform: translateX(4px); }
+
+.InstaGrid {
+  list-style: none;
+  margin: 0; padding: 0;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 28px;
+  align-items: flex-start;
+}
+.InstaCard {
+  position: relative;
+}
+.InstaCard > a {
+  display: block;
+  text-decoration: none;
+  color: var(--theme-fg);
+}
+.InstaCard__media {
+  position: relative;
+  margin: 0 0 16px 0;
+  overflow: hidden;
+  background: var(--emerald-900);
+}
+.InstaCard__media img {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform 800ms cubic-bezier(0.2, 0, 0, 1);
+}
+.InstaCard > a:hover .InstaCard__media img { transform: scale(1.03); }
+.InstaCard__badge {
+  position: absolute;
+  bottom: 14px; right: 14px;
+  width: 28px; height: 28px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: rgba(255,255,255,0.14);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255,255,255,0.22);
+  border-radius: 50%;
+  color: #fff;
+}
+.InstaCard__caption {
+  display: flex; flex-direction: column;
+  gap: 6px;
+  font-family: var(--font-body);
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--theme-fg);
+}
+.InstaCard__handle {
+  font-family: var(--font-body);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--theme-fg);
+  opacity: 0.5;
+}
+.InstaCard__text {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--theme-fg);
+  opacity: 0.78;
+  max-width: 38ch;
+}
+
+/* ===========================================================
+   Section 4 — Full-bleed media + headline
+   =========================================================== */
+.FullMediaHeadline {
+  position: relative;
+  min-height: 100vh;
+  padding: 0;
+  border-top: none;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+}
+.FullMediaHeadline__media {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+.FullMediaHeadline__bg {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  /* slow Ken Burns drift */
+  animation: kenburns 28s ease-in-out infinite alternate;
+}
+@keyframes kenburns {
+  0%   { transform: scale(1.05) translate(0%, 0%); }
+  100% { transform: scale(1.12) translate(-1.5%, -1%); }
+}
+.FullMediaHeadline__overlay {
+  position: absolute; inset: 0;
+  background:
+    linear-gradient(90deg, rgba(5,22,19,0.78) 0%, rgba(5,22,19,0.55) 38%, rgba(5,22,19,0.28) 100%),
+    linear-gradient(180deg, rgba(5,22,19,0.3) 0%, rgba(5,22,19,0.6) 100%);
+}
+.FullMediaHeadline__content {
+  position: relative;
+  z-index: 2;
+  max-width: 1440px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 0 56px;
+  color: #fff;
+}
+.brand-wordmark {
+  display: inline-block;
+  font-family: var(--font-display);
+  font-style: italic;
+  font-weight: 400;
+  font-size: 26px;
+  letter-spacing: -0.01em;
+  color: var(--gold-300);
+  margin-bottom: 36px;
+}
+.display-headline {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-weight: 300;
+  font-size: clamp(40px, 5.4vw, 84px);
+  line-height: 1.02;
+  letter-spacing: -0.02em;
+  color: #fff;
+  margin: 0 0 44px 0;
+  max-width: 18ch;
+  text-wrap: balance;
+}
+.display-headline em {
+  font-style: italic;
+  color: var(--gold-300);
+}
+
+.Button {
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 28px;
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  border: 1px solid;
+  cursor: pointer;
+  text-decoration: none;
+  transition: background-color 240ms ease, border-color 240ms ease,
+              color 240ms ease, transform 220ms ease;
+}
+.Button__arrow {
+  font-size: 16px;
+  letter-spacing: 0;
+  transition: transform 220ms cubic-bezier(0.2,0,0,1);
+}
+.Button:hover .Button__arrow { transform: translateX(5px); }
+.Button--ghost {
+  background: transparent;
+  border-color: rgba(255,255,255,0.30);
+  color: #fff;
+}
+.Button--ghost:hover {
+  border-color: var(--gold-300);
+  color: var(--gold-300);
+}
+.theme-light .Button--ghost {
+  border-color: rgba(10,38,32,0.25);
+  color: #0A2620;
+}
+.theme-light .Button--ghost:hover {
+  border-color: #0A2620;
+  background: #0A2620;
+  color: #F6F2E8;
+}
+.Button--primary {
+  background: linear-gradient(180deg, var(--gold-300), var(--gold-500));
+  border-color: transparent;
+  color: var(--emerald-800);
+  box-shadow: 0 0 30px rgba(233,215,177,0.25);
+}
+.Button--primary:hover:not(:disabled) {
+  box-shadow: 0 0 60px rgba(233,215,177,0.35), 0 0 120px rgba(233,215,177,0.18);
+}
+.Button--primary:disabled {
+  background: rgba(255,255,255,0.08);
+  color: rgba(255,255,255,0.4);
+  cursor: not-allowed;
+  box-shadow: none;
+}
+.Button--small { padding: 12px 22px; font-size: 10px; }
+
+/* ===========================================================
+   Section 5 — Newsletter
+   =========================================================== */
+.NewsletterBanner {
+  position: relative;
+  overflow: hidden;
+  min-height: 540px;
+  display: flex; align-items: center;
+  padding: 96px 0;
+}
+.NewsletterBanner__bg {
+  position: absolute; inset: 0;
+  z-index: 0;
+}
+.NewsletterBanner__bg img {
+  width: 100%; height: 100%; object-fit: cover;
+  opacity: 0.55;
+  filter: grayscale(15%);
+}
+.NewsletterBanner__content {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  color: #fff;
+  background: linear-gradient(180deg, rgba(5,22,19,0.55) 0%, rgba(5,22,19,0.85) 100%);
+  padding: 56px 0;
+}
+.NewsletterBanner__inner { max-width: 760px; }
+.NewsletterBanner__title {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-weight: 300;
+  font-size: clamp(36px, 4.4vw, 64px);
+  line-height: 1.02;
+  letter-spacing: -0.02em;
+  margin: 0 0 14px 0;
+  color: #fff;
+}
+.NewsletterBanner__sub {
+  font-family: var(--font-body);
+  font-size: 15px;
+  font-weight: 300;
+  color: rgba(255,255,255,0.72);
+  max-width: 50ch;
+  margin: 0 0 36px 0;
+  line-height: 1.55;
+}
+
+.NewsletterForm__row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+/* Floating label: pure CSS — label sits on the input, lifts when focused
+   or when the input has a non-empty value. The trick is the empty placeholder
+   " " so :placeholder-shown matches only when the field is genuinely empty. */
+.floating-label {
+  position: relative;
+  display: block;
+}
+.floating-label input {
+  width: 100%;
+  height: 56px;
+  padding: 22px 18px 8px 18px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.18);
+  color: #fff;
+  font-family: var(--font-body);
+  font-size: 14px;
+  outline: none;
+  transition: border-color 240ms ease, background-color 240ms ease;
+}
+.floating-label input:focus {
+  border-color: var(--gold-300);
+  background: rgba(255,255,255,0.06);
+}
+.floating-label span {
+  position: absolute;
+  left: 18px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-family: var(--font-body);
+  font-size: 13px;
+  color: rgba(255,255,255,0.55);
+  pointer-events: none;
+  letter-spacing: 0.02em;
+  transition: top 220ms ease, font-size 220ms ease, color 220ms ease, letter-spacing 220ms ease, transform 220ms ease;
+}
+.floating-label input:focus + span,
+.floating-label input:not(:placeholder-shown) + span {
+  top: 12px;
+  transform: translateY(0);
+  font-size: 10px;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--gold-300);
+}
+
+/* Checkbox */
+.checkbox {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  cursor: pointer;
+  font-family: var(--font-body);
+  font-size: 12px;
+  color: rgba(255,255,255,0.62);
+  line-height: 1.5;
+  user-select: none;
+}
+.checkbox input { position: absolute; opacity: 0; pointer-events: none; }
+.checkbox__box {
+  flex: 0 0 16px;
+  width: 16px; height: 16px;
+  border: 1px solid rgba(255,255,255,0.35);
+  position: relative;
+  margin-top: 2px;
+  transition: border-color 200ms ease, background-color 200ms ease;
+}
+.checkbox input:checked + .checkbox__box {
+  background: var(--gold-300);
+  border-color: var(--gold-300);
+}
+.checkbox input:checked + .checkbox__box::after {
+  content: "";
+  position: absolute;
+  left: 4px; top: 0px;
+  width: 5px; height: 10px;
+  border: solid var(--emerald-800);
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+.checkbox__text a {
+  color: rgba(255,255,255,0.85);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.NewsletterForm__done {
+  padding: 20px 24px;
+  background: rgba(125, 255, 178, 0.10);
+  border: 1px solid rgba(125, 255, 178, 0.35);
+  color: var(--phosphor-400);
+  font-family: var(--font-body);
+  font-size: 13px;
+  letter-spacing: 0.04em;
+}
+
+/* ===========================================================
+   Section 6 — Outro wordmark
+   =========================================================== */
+section[data-section="outro"] {
+  padding: 0;
+  border-top: 1px solid rgba(255,255,255,0.06);
+}
+.OutroWordmark {
+  height: 70vh;
+  min-height: 480px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.OutroWordmark__text {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-weight: 300;
+  font-size: clamp(80px, 18vw, 280px);
+  line-height: 1;
+  letter-spacing: -0.04em;
+  color: rgba(233, 215, 177, 0.22);   /* champagne, ghosted */
+  text-transform: lowercase;
+  user-select: none;
+}
+
+/* ===========================================================
+   Section 7 — Footer
+   =========================================================== */
+.Footer {
+  position: relative;
+  background: var(--emerald-950);
+  color: rgba(255,255,255,0.7);
+  padding: 96px 0 36px;
+  border-top: 1px solid rgba(255,255,255,0.06);
+}
+.Footer__cols {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 36px;
+  margin-bottom: 72px;
+}
+.Footer__col h4 {
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: var(--gold-300);
+  margin: 0 0 20px 0;
+  padding: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: default;
+}
+.Footer__chev { display: none; }
+.Footer__col ul {
+  list-style: none;
+  margin: 0; padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.Footer__col li { margin: 0; }
+.Footer__col a {
+  font-family: var(--font-body);
+  font-size: 11px;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.72);
+  text-decoration: none;
+  transition: color 200ms ease;
+}
+.Footer__col a:hover { color: var(--gold-300); }
+.Footer__col--contact .Button {
+  margin-top: 18px;
+}
+
+.Footer__bottom {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 24px;
+  padding-top: 36px;
+  border-top: 1px solid rgba(255,255,255,0.08);
+  flex-wrap: wrap;
+}
+.Footer__social {
+  list-style: none;
+  margin: 0; padding: 0;
+  display: flex;
+  gap: 16px;
+}
+.Footer__social a {
+  display: inline-flex;
+  align-items: center; justify-content: center;
+  width: 40px; height: 40px;
+  border: 1px solid rgba(255,255,255,0.14);
+  color: rgba(255,255,255,0.72);
+  transition: color 200ms ease, border-color 200ms ease, background-color 200ms ease;
+  border-radius: 50%;
+}
+.Footer__social a:hover {
+  color: var(--gold-300);
+  border-color: var(--gold-300);
+}
+.Footer__copy {
+  font-family: var(--font-body);
+  font-size: 10px;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.45);
+  margin: 0;
+}
+
+/* ===========================================================
+   Section 3 — Provenance ("what the sphere holds")
+   =========================================================== */
+/* Shared eyebrow used by Provenance + Certificate (champagne, no rule) */
+.eyebrow-label {
+  font-family: var(--font-body);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.34em;
+  text-transform: uppercase;
+  color: var(--gold-300);
+  opacity: 0.82;
+}
+.Provenance__eyebrow { margin: 0 0 26px; }
+.Provenance__head {
+  font-family: var(--font-display);
+  font-style: normal;
+  font-weight: 300;
+  font-size: clamp(40px, 5.4vw, 78px);
+  line-height: 1.02;
+  letter-spacing: -0.02em;
+  color: #fff;
+  margin: 0 0 44px;
+  max-width: 28ch;
+  text-wrap: balance;
+}
+.Provenance__head em {
+  font-style: italic;
+  color: var(--gold-300);
+}
+.ProvenanceGrid {
+  list-style: none;
+  margin: 0; padding: 0;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 28px;
+}
+.ProvenanceCard {
+  display: flex;
+  flex-direction: column;
+  padding: 40px 36px 44px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 20px;
+  transition: background-color 260ms ease, border-color 260ms ease, transform 260ms ease;
+}
+.ProvenanceCard:hover {
+  background: rgba(255, 255, 255, 0.035);
+  border-color: rgba(233, 215, 177, 0.26);
+  transform: translateY(-3px);
+}
+.ProvenanceCard__icon {
+  display: inline-flex;
+  align-items: center; justify-content: center;
+  width: 48px; height: 48px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--gold-300) 9%, transparent);
+  border: 1px solid rgba(233, 215, 177, 0.22);
+  color: var(--gold-300);
+  margin-bottom: 60px;
+}
+.ProvenanceCard__label {
+  font-family: var(--font-body);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.45);
+  margin-bottom: 16px;
+}
+.ProvenanceCard__title {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-weight: 400;
+  font-size: 28px;
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+  color: #fff;
+  margin: 0 0 18px;
+}
+.ProvenanceCard__body {
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 1.65;
+  color: rgba(255, 255, 255, 0.58);
+  margin: 0;
+}
+
+/* ===========================================================
+   Section 3.5 — Vitrina (piece configurator)
+   Dark "altar" between Provenance and Certificate. One guardian in three
+   metals: discs pick the metal, a spotlight block names it, two tiles pick
+   the chain, and the active price reads as a struck serif number. The cream
+   catalog photo lives in a spotlit panel and cross-fades on any change.
+   Two-column on desktop, viewer-first stack on tablet & mobile.
+   =========================================================== */
+.Vitrina { padding: 128px 0; overflow: hidden; }
+.Vitrina__inner {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.04fr);
+  gap: clamp(40px, 5vw, 80px);
+  align-items: center;
+}
+
+/* ---- Viewer: spotlit display panel ---- */
+.Vitrina__viewer { position: relative; }
+.Vitrina__panel {
+  position: relative;
+  z-index: 1;
+  aspect-ratio: 1 / 1;
+  background: #0B1F1A;   /* seats the frame before the photo decodes */
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 50px 110px rgba(0, 0, 0, 0.55), 0 0 72px rgba(233, 215, 177, 0.07);
+}
+.Vitrina__shot {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 600ms var(--ease-out);
+}
+.Vitrina__shot[data-on="true"] { opacity: 1; }
+.Vitrina__shot img {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  object-position: center 32%;   /* lift the pendant, trim the empty lower bust */
+}
+/* Inner vignette + hairline frame: tints the bright photo's edges back
+   toward the void so it reads as a lit vitrine, not a pasted cutout. */
+.Vitrina__panel::after {
+  content: "";
+  position: absolute; inset: 0;
+  pointer-events: none; z-index: 2;
+  border: 1px solid rgba(10, 38, 32, 0.14);
+  border-radius: 8px;
+  box-shadow: inset 0 0 64px 10px rgba(5, 22, 19, 0.30);
+}
+/* Edition chip — the museum label struck on the lit vitrine. Glass over the
+   bright photo (dark veil + light text); the one deliberate glass surface. */
+.Vitrina__chip {
+  position: absolute; z-index: 3;
+  top: 16px; left: 16px;
+  padding: 7px 14px;
+  border-radius: 999px;
+  background: rgba(7, 20, 16, 0.58);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  font-family: var(--font-body);
+  font-size: 9.5px; font-weight: 500;
+  letter-spacing: 0.24em; text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.92);
+  font-variant-numeric: tabular-nums;
+}
+/* Emerald corner crosses struck on the bright panel (TR/BL/BR; the chip
+   takes the top-left). */
+.Vitrina__cc {
+  position: absolute; z-index: 3;
+  width: 9px; height: 9px;
+  opacity: 0.55;
+  color: rgba(10, 38, 32, 0.85);
+}
+.Vitrina__cc::before, .Vitrina__cc::after { content: ""; position: absolute; background: currentColor; }
+.Vitrina__cc::before { top: 50%; left: 0; right: 0; height: 1px; transform: translateY(-50%); }
+.Vitrina__cc::after  { left: 50%; top: 0; bottom: 0; width: 1px; transform: translateX(-50%); }
+.Vitrina__cc--tr { top: 16px;    right: 16px; }
+.Vitrina__cc--bl { bottom: 16px; left: 16px; }
+.Vitrina__cc--br { bottom: 16px; right: 16px; }
+
+/* ---- Thumbnail strip: the piece's other shots, below the panel ---- */
+.Vitrina__thumbs {
+  display: flex;
+  gap: 12px;
+  margin-top: 14px;
+}
+.Vitrina__thumb {
+  flex: 0 0 auto;
+  width: 84px;
+  aspect-ratio: 1 / 1;
+  padding: 0;
+  background: #0B1F1A;   /* seats the frame before the thumb decodes */
+  border: 1px solid var(--white-08);
+  border-radius: 7px;
+  overflow: hidden;
+  cursor: pointer;
+  opacity: 0.6;
+  transition: opacity 320ms var(--ease-out),
+              border-color 320ms var(--ease-out),
+              transform 320ms var(--ease-out);
+}
+.Vitrina__thumb img {
+  display: block;
+  width: 100%; height: 100%;
+  object-fit: cover;
+}
+.Vitrina__thumb:hover { opacity: 0.9; transform: translateY(-2px); }
+.Vitrina__thumb:focus-visible { outline: none; box-shadow: var(--ring-focus); }
+.Vitrina__thumb[data-on="true"] {
+  opacity: 1;
+  border-color: var(--gold-300);
+  box-shadow: 0 0 0 1px var(--gold-300), 0 8px 20px rgba(0, 0, 0, 0.4);
+}
+
+/* ---- Inscription column ---- */
+.Vitrina__eyebrow { margin: 0 0 22px; }
+.Vitrina__head {
+  font-family: var(--font-display);
+  font-weight: 300;
+  font-size: clamp(34px, 4vw, 58px);
+  line-height: 1.04;
+  letter-spacing: -0.02em;
+  color: #fff;
+  margin: 0 0 18px;
+  max-width: 15ch;
+  text-wrap: balance;
+}
+.Vitrina__head em { font-style: italic; color: var(--gold-300); }
+.Vitrina__intro {
+  font-family: var(--font-body);
+  font-size: 15px; line-height: 1.65;
+  color: rgba(255, 255, 255, 0.72);
+  max-width: 46ch;
+  margin: 0 0 38px;
+}
+
+/* Metal selector — three noble discs */
+.Vitrina__metals {
+  display: flex; gap: 18px;
+  padding-bottom: 30px; margin-bottom: 30px;
+  border-bottom: 1px solid var(--white-08);
+}
+.Vitrina__metal {
+  padding: 4px; line-height: 0;
+  background: none; border: 0; cursor: pointer;
+  border-radius: 50%;
+}
+.Vitrina__metal:focus-visible { outline: none; box-shadow: var(--ring-focus); }
+.Vitrina__disc {
+  display: block;
+  width: 56px; height: 56px;
+  border-radius: 50%;
+  box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.55), 0 2px 7px rgba(0, 0, 0, 0.45);
+  outline: 1px solid rgba(255, 255, 255, 0.14);
+  transition: box-shadow 320ms var(--ease-out), transform 320ms var(--ease-out);
+}
+.Vitrina__metal:hover .Vitrina__disc { transform: scale(1.04); }
+.Vitrina__metal[data-on="true"] .Vitrina__disc {
+  outline-color: transparent;
+  box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.55),
+              0 0 0 2px var(--color-bg-deep),
+              0 0 0 3px var(--gold-300),
+              0 0 20px rgba(233, 215, 177, 0.42);
+  transform: scale(1.06);
+}
+
+/* Active metal spotlight — material · name · one line */
+.Vitrina__spotlight { margin-bottom: 34px; }
+.Vitrina__material {
+  margin: 0 0 11px;
+  font-family: var(--font-body);
+  font-size: 10px; font-weight: 500;
+  letter-spacing: 0.28em; text-transform: uppercase;
+  color: var(--gold-300);
+}
+.Vitrina__name {
+  font-family: var(--font-display);
+  font-weight: 300; font-size: clamp(28px, 3.2vw, 42px);
+  line-height: 1.05; letter-spacing: -0.01em;
+  color: #fff; margin: 0 0 14px;
+}
+.Vitrina__name em { font-style: italic; color: var(--gold-300); }
+.Vitrina__line {
+  margin: 0;
+  max-width: 40ch;
+  font-family: var(--font-body);
+  font-size: 15px; line-height: 1.6;
+  color: rgba(255, 255, 255, 0.78);
+}
+
+/* Chain tiles — two options, each with its length + link spec */
+.Vitrina__chainLabel {
+  display: block; margin: 0 0 13px;
+  font-family: var(--font-body);
+  font-size: 10px; font-weight: 500;
+  letter-spacing: 0.28em; text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.56);
+}
+.Vitrina__chains {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+  margin-bottom: 12px;
+}
+.Vitrina__chainOpt {
+  display: flex; align-items: center; gap: 13px;
+  padding: 15px 16px;
+  text-align: left; cursor: pointer;
+  background: var(--white-04);
+  border: 1px solid var(--white-08);
+  /* sharp corners — brand rule for interactive surfaces */
+  transition: border-color 280ms var(--ease-out), background 280ms var(--ease-out), box-shadow 280ms var(--ease-out);
+}
+.Vitrina__chainOpt:hover { background: var(--white-06); border-color: var(--white-12); }
+.Vitrina__chainOpt:focus-visible { outline: none; box-shadow: var(--ring-focus); }
+.Vitrina__chainOpt[data-on="true"] {
+  border-color: var(--gold-300);
+  background: color-mix(in srgb, var(--gold-300) 8%, transparent);
+  box-shadow: 0 0 22px rgba(233, 215, 177, 0.10);
+}
+.Vitrina__chainGlyph {
+  flex: none; display: flex;
+  color: rgba(255, 255, 255, 0.5);
+  transition: color 280ms var(--ease-out);
+}
+.Vitrina__chainOpt[data-on="true"] .Vitrina__chainGlyph { color: var(--gold-300); }
+.Vitrina__chainText { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.Vitrina__chainName {
+  font-family: var(--font-body);
+  font-size: 14px; font-weight: 500;
+  letter-spacing: 0.01em;
+  color: rgba(255, 255, 255, 0.72);
+  transition: color 280ms var(--ease-out);
+}
+.Vitrina__chainOpt[data-on="true"] .Vitrina__chainName { color: #fff; }
+.Vitrina__chainSpec {
+  font-family: var(--font-body);
+  font-size: 11px; letter-spacing: 0.02em;
+  color: rgba(255, 255, 255, 0.55);
+  font-variant-numeric: tabular-nums;
+}
+.Vitrina__note {
+  margin: 0 0 36px;
+  font-family: var(--font-body);
+  font-size: 11px; letter-spacing: 0.02em;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+/* Price for the active metal + edition meta */
+.Vitrina__price { margin: 0 0 28px; }
+.Vitrina__priceNum {
+  display: block;
+  font-family: var(--font-display);
+  font-weight: 400; font-size: clamp(34px, 4vw, 50px);
+  line-height: 1; letter-spacing: -0.01em;
+  color: var(--gold-300);
+  font-variant-numeric: tabular-nums;
+}
+.Vitrina__meta {
+  display: block; margin-top: 12px; max-width: 38ch;
+  font-family: var(--font-body);
+  font-size: 9.5px; font-weight: 500; line-height: 1.5;
+  letter-spacing: 0.2em; text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.56);
+}
+
+/* Foot — custody CTA. Pill format (per reference): a roomy gold capsule with a soft champagne halo. */
+.Vitrina__foot { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.Vitrina__cta {
+  border-radius: 999px;
+  padding: 18px 40px;
+  box-shadow: 0 0 48px rgba(233, 215, 177, 0.32);
+}
+
+/* Spotlight + price settle when the metal changes */
+@keyframes vitrinaRise { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: none; } }
+@keyframes vitrinaFade { from { opacity: 0; } to { opacity: 1; } }
+.Vitrina__spotlight { animation: vitrinaRise 460ms var(--ease-out); }
+.Vitrina__priceNum { animation: vitrinaFade 520ms var(--ease-out); }
+
+/* ---- Vitrina · tablet ---- */
+@media (max-width: 1024px) {
+  .Vitrina { padding: 96px 0; }
+  .Vitrina__inner { grid-template-columns: 1fr; gap: 52px; }
+  .Vitrina__viewer { width: 100%; max-width: 480px; margin: 0 auto; }
+  .Vitrina__head { font-size: clamp(32px, 6vw, 50px); max-width: 18ch; }
+  .Vitrina__intro { max-width: 56ch; }
+}
+/* ---- Vitrina · mobile ---- */
+@media (max-width: 767px) {
+  .Vitrina { padding: 76px 0; }
+  .Vitrina__metals { gap: 14px; }
+  .Vitrina__disc { width: 50px; height: 50px; }
+  .Vitrina__chains { grid-template-columns: 1fr; }
+  .Vitrina__thumb { width: 72px; }
+  .Vitrina__cta { width: 100%; justify-content: center; }
+}
+/* ---- Vitrina · reduced motion ---- */
+@media (prefers-reduced-motion: reduce) {
+  .Vitrina__shot,
+  .Vitrina__disc,
+  .Vitrina__thumb,
+  .Vitrina__chainOpt,
+  .Vitrina__chainGlyph,
+  .Vitrina__chainName { transition: none; }
+  .Vitrina__spotlight,
+  .Vitrina__priceNum { animation: none; }
+}
+
+/* ===========================================================
+   Section 4 — Certificate ("first edition")
+   Byte-perfect port of the example's EditionCertificate.jsx
+   (inline styles → classes; identical values, assets & tokens).
+   =========================================================== */
+.Certificate {
+  padding: 120px 0;
+  background: var(--color-bg);
+  overflow: hidden;
+}
+.Certificate__halo {
+  position: absolute;
+  top: 50%; left: 50%;
+  width: 1100px; height: 1100px;
+  transform: translate(-50%, -50%);
+  background: radial-gradient(circle, rgba(125, 255, 178, 0.10) 0%, rgba(125, 255, 178, 0.04) 25%, rgba(125, 255, 178, 0) 70%);
+  filter: blur(12px);
+  pointer-events: none;
+  z-index: 0;
+}
+.Certificate__inner { position: relative; z-index: 2; }
+.Certificate__eyebrow {
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: var(--color-gold-bright);
+  margin-bottom: 24px;
+  text-align: center;
+}
+.Certificate__title {
+  font-family: var(--font-display);
+  font-weight: 300;
+  font-style: italic;
+  font-size: 56px;
+  line-height: 1.05;
+  letter-spacing: -0.015em;
+  color: #fff;
+  margin: 0 auto 28px;
+  max-width: 20ch;
+  text-align: center;
+}
+.Certificate__body {
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.65;
+  font-weight: 300;
+  color: rgba(255, 255, 255, 0.7);
+  max-width: 52ch;
+  margin: 0 auto 64px;
+  text-align: center;
+}
+.Cert {
+  position: relative;
+  max-width: 720px;
+  margin: 0 auto;
+  background: linear-gradient(180deg, #F6F2E8 0%, #ECE2C9 100%);
+  color: #0A2620;
+  border-radius: 6px;
+  padding: 56px 64px;
+  box-shadow: 0 60px 120px rgba(0, 0, 0, 0.45), 0 0 80px rgba(201, 166, 107, 0.2);
+  overflow: hidden;
+}
+.Cert__bg {
+  position: absolute;
+  inset: 0;
+  opacity: 0.06;
+  pointer-events: none;
+  background-image: url("{{ 'flower-of-life.svg' | asset_url }}");
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 70%;
+}
+.Cert__head {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 40px;
+}
+.Cert__brand {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: 36px;
+  color: #0A2620;
+}
+.Cert__tag {
+  font-family: var(--font-body);
+  font-size: 9px;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: #5C5C5C;
+  text-align: right;
+  line-height: 1.6;
+}
+.Cert__name {
+  position: relative;
+  z-index: 1;
+  font-family: var(--font-display);
+  font-style: italic;
+  font-weight: 400;
+  font-size: 44px;
+  color: #0A2620;
+  text-align: center;
+  margin-bottom: 6px;
+}
+.Cert__nameEn {
+  position: relative;
+  z-index: 1;
+  font-family: var(--font-body);
+  font-size: 11px;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: #5C5C5C;
+  text-align: center;
+  margin-bottom: 36px;
+}
+.Cert__serial {
+  position: relative;
+  z-index: 1;
+  text-align: center;
+  margin-bottom: 36px;
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: 72px;
+  line-height: 1;
+  color: #8C7340;
+}
+.Cert__grid {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 32px;
+  padding-top: 28px;
+  border-top: 1px solid rgba(10, 38, 32, 0.2);
+}
+.Cert__label {
+  font-family: var(--font-body);
+  font-size: 9px;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: #707C7A;
+  margin-bottom: 6px;
+}
+.Cert__value {
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 500;
+  color: #0A2620;
+}
+.Cert__signature {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: 22px;
+  color: #0A2620;
+  margin-top: 4px;
+}
+.Cert__sealCol { text-align: right; }
+.Cert__sealImg {
+  width: 60px;
+  margin-left: auto;
+  margin-top: 4px;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.15));
+}
+
+/* ---- Provenance · responsive ---- */
+@media (max-width: 900px) {
+  .ProvenanceGrid { grid-template-columns: 1fr; gap: 16px; }
+  .ProvenanceCard { padding: 32px 28px 34px; }
+  .ProvenanceCard__icon { margin-bottom: 28px; }
+  .Provenance__head { margin-bottom: 32px; font-size: clamp(22px, 6vw, 34px); }
+}
+/* ---- Certificate · mobile safety (source uses fixed px) ---- */
+@media (max-width: 767px) {
+  .Certificate { padding: 80px 0; }
+  .Certificate__title { font-size: 34px; }
+  .Certificate__body { font-size: 14px; margin-bottom: 44px; }
+  .Cert { padding: 36px 26px; }
+  .Cert__brand { font-size: 28px; }
+  .Cert__name { font-size: 30px; }
+  .Cert__serial { font-size: 46px; }
+  .Cert__grid { grid-template-columns: 1fr; gap: 24px; }
+  .Cert__sealCol { text-align: left; }
+  .Cert__sealImg { margin-left: 0; }
+}
+
+/* ===========================================================
+   RESPONSIVE
+   =========================================================== */
+@media (max-width: 1100px) {
+  .Footer__cols { grid-template-columns: repeat(3, 1fr); }
+  .InstaGrid    { grid-template-columns: repeat(2, 1fr); }
+  .InstaCard:nth-child(3) { grid-column: 1 / -1; }
+}
+@media (max-width: 810px) {
+  .Container { padding: 0 24px; }
+  .Section { padding: 64px 0; }
+  .NewsletterForm__row { grid-template-columns: 1fr; }
+  .InstaGrid { grid-template-columns: 1fr; }
+  .InstaCard:nth-child(3) { grid-column: auto; }
+  .SectionHead { flex-direction: column; align-items: flex-start; gap: 16px; }
+  .SectionHead__meta { align-items: flex-start; }
+
+  /* Footer → accordion */
+  .Footer__cols { grid-template-columns: 1fr; gap: 0; }
+  .Footer__col  {
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    padding: 18px 0;
+  }
+  .Footer__col h4 {
+    margin-bottom: 0;
+    cursor: pointer;
+    font-size: 12px;
+  }
+  .Footer__chev {
+    display: inline-block;
+    font-family: var(--font-mono);
+    font-size: 16px;
+    color: rgba(255,255,255,0.6);
+  }
+  .Footer__col ul {
+    max-height: 0;
+    overflow: hidden;
+    margin-top: 0;
+    transition: max-height 320ms ease, margin-top 320ms ease;
+  }
+  .Footer__col.is-open ul {
+    max-height: 600px;
+    margin-top: 18px;
+  }
+  .Footer__col--contact .Button { display: none; }
+  .Footer__col.is-open.Footer__col--contact .Button { display: inline-flex; margin-top: 18px; }
+
+  .Lightbox { padding: 16px; }
+  .Lightbox__overlay { padding: 24px; }
+}
+
+
+/* ---- Mobile-only elements: hidden at desktop by default ---- */
+.nav__mobile-actions { display: none; }
+.mobile-drawer { display: none; }
+
+/* ===========================================================
+   MOBILE PASS (≤ 767px) — added 2026-05
+   Self-contained overrides only. Do not edit anything above this
+   line; every desktop rule must keep its current behavior.
+   =========================================================== */
+
+/* ---- Tablet refinements (768-1024) keep desktop chrome but loosen
+        the editions / hero so it doesn't crowd. ---- */
+@media (min-width: 768px) and (max-width: 1024px) {
+  /* Same overflow-x rule as desktop & mobile: `clip` so sticky still works */
+  html, body { overflow-x: clip; }
+
+  /* Hero: use dvh so iOS Safari chrome doesn't desync sticky pin */
+  .pin-wrap { height: 360dvh !important; }
+  .pin-stage { height: 100dvh; }
+  .scene-host { position: absolute; inset: 0; }
+
+  /* Loosen phase content so it doesn't collide with the stepper / rail.
+     Tightened max-width (was 620px / 62%) so the headline column ends at
+     ~50% of the viewport — leaving the right half clear for the angel
+     (which now sits at the same desktop-style right offset to avoid the
+     previous wing-on-text collision).
+     padding-left bumped 100→160 (the stepper "03 MATERIA" label is ~85px
+     wide and starts at x=24, so its right edge lands near x=110 — with
+     padding-left:100 the phase-sub paragraph collided with it when text
+     wrapped to 3+ lines on left-positioned phases (MATERIA / ALMA).
+     max-width grown 48→64% so the wider start point doesn't truncate the
+     subcopy. */
+  /* ORIGEN / BIENVENIDA / MATERIA all resolve their 3D model to world-x≈0
+     (horizontally CENTRED) on tablet — the transitionCenter ramp pulls the
+     angel to centre by tRaw≈0.20 and px03Shift is excluded on tablet (see
+     pendant.jsx). A LEFT-column headline at this narrow width (its min(540,64%)
+     box reaches past screen-centre) therefore lands right on top of the centred
+     figure. Stack like mobile instead: copy anchored to the TOP, centred, with
+     the rotating/centred angel in the open space below. ALMA + EDICIÓN keep
+     their own (0,2,0) `align-self: stretch` layouts, so this generic (0,1,0)
+     rule never touches them. */
+  .phase-content {
+    align-self: start;
+    padding: 104px 32px 0;
+    max-width: 100%;
+    justify-self: center !important;
+    text-align: center !important;
+    margin: 0 !important;
+  }
+  .phase-content .phase-eyebrow { justify-content: center !important; }
+  .phase-title { font-size: clamp(38px, 5.6vw, 58px); }
+  .phase-sub { font-size: 14px; max-width: 46ch; margin: 0 auto 24px; }
+
+  /* Beam + haze widened on tablet so the volumetric shaft still reads as
+     a dramatic column rather than a thin thread. */
+  .hero-vignette-01 { --beam-w: 22%; --haze-w: 50%; }
+
+  /* Pull stepper / rail tighter to the edges */
+  .stepper { left: 24px; }
+  .rail { right: 28px; }
+  /* Rail recomputed for tablet cross positions (top: 70px / bottom: 22px,
+     10x10 → centers at top: 75px and bottom: 27px). */
+  .frame__v { left: 44px; top: 75px; bottom: 27px; }
+  .frame__cross--tl { left: 39px; top: 70px; }
+  .frame__cross--bl { left: 39px; bottom: 22px; }
+  .frame__cross--tr { right: 22px; top: 70px; }
+
+  /* Editions */
+  .editions-grid { grid-template-columns: repeat(2, 1fr); gap: 32px 24px; }
+  .editions-section { padding: 120px 32px 140px; }
+  .editions-header { margin-bottom: 56px; }
+
+  .Container { padding: 0 40px; }
+  .Footer__cols { grid-template-columns: repeat(3, 1fr); gap: 28px; }
+}
+
+/* ===========================================================
+   MOBILE  (≤ 767px)
+   =========================================================== */
+@media (max-width: 767px) {
+
+  /* ---- Global hygiene ------------------------------------ */
+  /* NOTE: overflow-x MUST be `clip`, not `hidden` — `hidden` establishes
+     a scroll container which breaks position:sticky on .pin-stage, which
+     means the 3D scene won't pin during scroll. The original desktop CSS
+     already sets `html { overflow-x: clip }` at the top of this file; we
+     re-affirm it for mobile and add body for safety. */
+  html, body { overflow-x: clip; }
+
+  /* ---- NAV (mobile) -------------------------------------- */
+  .nav {
+    height: 60px;
+    padding: 12px 16px;
+  }
+  .nav__brand { font-size: 24px; }
+  .nav__links,
+  .nav__lang { display: none; }
+
+  .nav__mobile-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .nav__icon-btn {
+    width: 40px; height: 40px;
+    display: inline-flex;
+    align-items: center; justify-content: center;
+    background: color-mix(in srgb, var(--theme-fg) 8%, transparent);
+    border: 1px solid var(--theme-fg-hairline);
+    border-radius: 50%;
+    color: var(--theme-fg);
+    cursor: pointer;
+    padding: 0;
+    transition: background-color 220ms ease, border-color 220ms ease, color 220ms ease;
+  }
+  .nav__icon-btn:hover,
+  .nav__icon-btn:focus-visible {
+    background: color-mix(in srgb, var(--theme-fg) 16%, transparent);
+    outline: none;
+  }
+  .nav[data-drawer-open="true"] .nav__icon-btn--menu {
+    background: var(--theme-fg);
+    color: var(--theme-bg);
+    border-color: var(--theme-fg);
+  }
+
+  /* ---- MOBILE DRAWER ------------------------------------- */
+  .mobile-drawer {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    background: #051613;
+    color: #fff;
+    transform: translateX(100%);
+    transition: transform 360ms cubic-bezier(0.65, 0, 0.35, 1),
+                opacity 220ms ease;
+    opacity: 0;
+    pointer-events: none;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 84px 24px 48px;
+    -webkit-overflow-scrolling: touch;
+  }
+  .mobile-drawer[data-open="true"] {
+    transform: translateX(0);
+    opacity: 1;
+    pointer-events: auto;
+  }
+  .mobile-drawer__inner {
+    max-width: 480px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
+  }
+
+  .mobile-drawer__list {
+    list-style: none;
+    margin: 0; padding: 0;
+    border-top: 1px solid rgba(255,255,255,0.08);
+  }
+  .mobile-drawer__item {
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+  }
+  .mobile-drawer__row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 22px 4px;
+    background: transparent;
+    border: 0;
+    color: #fff;
+    text-decoration: none;
+    font-family: var(--font-body);
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0.32em;
+    text-transform: uppercase;
+    cursor: pointer;
+    text-align: left;
+  }
+  .mobile-drawer__chev {
+    font-family: var(--font-mono);
+    font-size: 18px;
+    color: rgba(255,255,255,0.6);
+    transition: color 220ms ease, transform 320ms ease;
+  }
+  .mobile-drawer__item[data-open="true"] .mobile-drawer__chev {
+    color: var(--gold-300);
+  }
+  .mobile-drawer__sub {
+    list-style: none;
+    margin: 0;
+    padding: 0 0 0 4px;
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 360ms ease, padding-bottom 360ms ease;
+  }
+  .mobile-drawer__item[data-open="true"] .mobile-drawer__sub {
+    max-height: 400px;
+    padding-bottom: 18px;
+  }
+  .mobile-drawer__sub a {
+    display: block;
+    padding: 12px 0;
+    font-family: var(--font-body);
+    font-size: 11px;
+    letter-spacing: 0.32em;
+    color: rgba(255,255,255,0.65);
+    text-decoration: none;
+    text-transform: uppercase;
+  }
+
+  .mobile-drawer__lang {
+    display: inline-flex;
+    align-self: flex-start;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 14px;
+    border: 1px solid rgba(255,255,255,0.18);
+    border-radius: 999px;
+    font-family: var(--font-body);
+    font-size: 10px;
+    letter-spacing: 0.32em;
+  }
+  .mobile-drawer__lang button {
+    background: transparent;
+    border: 0;
+    color: #fff;
+    opacity: 0.5;
+    cursor: pointer;
+    font: inherit;
+    letter-spacing: inherit;
+    padding: 2px 4px;
+  }
+  .mobile-drawer__lang button[data-active="true"] { opacity: 1; color: var(--gold-300); }
+  .mobile-drawer__lang span { opacity: 0.4; }
+
+  .mobile-drawer__phones {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .mobile-drawer__phones a {
+    font-family: var(--font-body);
+    font-size: 14px;
+    color: rgba(255,255,255,0.78);
+    text-decoration: none;
+    letter-spacing: 0.04em;
+  }
+
+  .mobile-drawer__cta {
+    align-self: stretch;
+    justify-content: space-between;
+    min-height: 52px;
+    border-radius: 999px;
+    padding: 14px 24px;
+  }
+
+  .mobile-drawer__social {
+    list-style: none;
+    margin: 0; padding: 16px 0 0 0;
+    display: flex;
+    gap: 14px;
+    border-top: 1px solid rgba(255,255,255,0.08);
+  }
+  .mobile-drawer__social a {
+    display: inline-flex;
+    align-items: center; justify-content: center;
+    width: 40px; height: 40px;
+    border: 1px solid rgba(255,255,255,0.18);
+    color: rgba(255,255,255,0.78);
+    border-radius: 50%;
+    text-decoration: none;
+  }
+  .mobile-drawer__copy {
+    margin: 0;
+    font-family: var(--font-body);
+    font-size: 10px;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.4);
+  }
+
+  /* ---- HERO PIN ------------------------------------------ */
+  /* Use dvh (dynamic viewport) so the sticky stage stays glued to the visual
+     viewport when the iOS Safari address bar collapses, and the wrap height
+     uses the SAME unit so the sticky math is internally consistent. */
+  .pin-wrap {
+    height: 320dvh !important;
+  }
+  .pin-stage {
+    height: 100dvh;
+    /* Fallback for older browsers */
+    height: 100svh;
+  }
+  @supports (height: 100dvh) {
+    .pin-stage { height: 100dvh; }
+  }
+  /* Make sure the scene container is sized & visible above any stray bg */
+  .scene-host { position: absolute; inset: 0; z-index: 1; }
+  .scene-canvas { display: block !important; }
+  /* Disable mix-blend / hover effects on touch */
+  @media (hover: none) and (pointer: coarse) {
+    .pin-stage { cursor: default; }
+  }
+
+  /* 5-step phase indicator on the left rail. The desktop labels + tick list
+     don't fit at this width, so collapse `.stepper__col` (numbers + names)
+     and keep only the `::before` tick of each item. The 5 items distribute
+     via flex `space-between` on `.stepper`, so they sit at the rail's phase
+     positions; first and last coincide with the tl / bl corner crosses —
+     the "+" marks bookend the journey. The active tick extends right and
+     goes gold to mirror the right rail's progress fill (both rails share
+     the gold accent for "current state"). */
+  .stepper {
+    display: flex !important;
+    left: 16px;
+    top: 74px;
+    bottom: 28px;
+    width: 1px;
+    padding: 0;
+    opacity: 1;
+  }
+  .stepper__item {
+    padding-left: 0;
+    opacity: 1;
+  }
+  .stepper__col { display: none; }
+  .stepper__item::before {
+    left: -4px;
+    width: 8px;
+    background: var(--theme-fg);
+    opacity: 0.32;
+    transition: width 320ms ease, opacity 320ms ease, background-color 320ms ease;
+  }
+  .stepper__item[data-active="true"]::before {
+    width: 16px;
+    background: var(--color-gold-bright);
+    opacity: 1;
+  }
+
+  /* Frame: pull rail inward; tighten corner crosses.
+     Both vertical rails (.frame__v left, .rail right) are clipped to the
+     corner-cross column (top: 74px → bottom: 28px) so the four "+" marks
+     cap the composition instead of decorating a full-height line. */
+  .frame__v { left: 16px; top: 74px; bottom: 28px; opacity: 0.18; }
+  .frame__cross { width: 8px; height: 8px; opacity: 0.6; }
+  .frame__cross--tl { top: 70px;    left: 12px; }
+  .frame__cross--tr { top: 70px;    right: 12px; }
+  .frame__cross--bl { bottom: 24px; left: 12px; }
+  .frame__cross--br { display: block; bottom: 24px; right: 12px; }
+
+  /* Progress rail repurposed on mobile: mirrors .frame__v on the right
+     edge, capped by the tr / br crosses. Background uses an inline
+     translucent fg (not `opacity:`) so the gold .rail__fill child can read
+     at full saturation against the hairline. Labels ("PROGRESO" / "00%")
+     would saturate the narrow viewport — the gold fill alone is
+     self-explanatory once it starts filling on scroll. */
+  .rail {
+    display: block !important;
+    left: auto;
+    right: 16px;
+    top: 74px;
+    bottom: 28px;
+    height: auto;
+    width: 1px;
+    transform: none;
+    background: color-mix(in srgb, var(--theme-fg) 18%, transparent);
+  }
+  .rail__label,
+  .rail__pct { display: none; }
+
+  /* Edition badge — symmetric inset (left: 36px clears the bl cross + left
+     rail; right: 36px clears the br cross + right rail). */
+  .edition-badge {
+    bottom: 14px;
+    right: 36px;
+    left: 36px;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    font-size: 9px;
+    letter-spacing: 0.28em;
+  }
+
+  /* Phase content — stacked, centered, top third of viewport */
+  .phase-layer {
+    align-items: flex-start;
+    padding-top: 90px;
+  }
+  .phase-content {
+    padding: 0 16px;
+    max-width: 100%;
+    justify-self: center !important;
+    text-align: center !important;
+    margin: 0 !important;
+  }
+  .phase-content .phase-eyebrow { justify-content: center !important; }
+  .phase-title {
+    font-size: clamp(28px, 8vw, 44px);
+    line-height: 1.02;
+    margin-bottom: 16px;
+  }
+  .phase-sub {
+    font-size: 14px;
+    line-height: 1.5;
+    max-width: 36ch;
+    margin: 0 auto 18px;
+  }
+  .phase-bilingual { font-size: 10px; letter-spacing: 0.28em; }
+
+  /* Mobile beam: viewport is narrow so the desktop 16% column shrinks to
+     ~60px — invisibly thin. Widen the shaft (and the broader haze) so the
+     volumetric light reads dramatically against the dark phase 01
+     backdrop. The beam still anchors to --angel-x (≈50% on mobile since
+     the model sits centered). */
+  .hero-vignette-01 { --beam-w: 34%; --haze-w: 64%; }
+
+  /* Scroll hint */
+  .scroll-hint {
+    bottom: 18px;
+    font-size: 8px;
+    letter-spacing: 0.36em;
+  }
+  .scroll-hint__line { height: 28px; }
+
+  /* ---- EDITIONS GRID ------------------------------------- */
+  .editions-section {
+    padding: 64px 16px 80px;
+  }
+  .editions-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 18px;
+    margin-bottom: 40px;
+  }
+  .editions-header__title { font-size: clamp(34px, 8vw, 48px); max-width: 16ch; }
+  .editions-header__meta {
+    text-align: left;
+    max-width: none;
+    letter-spacing: 0.28em;
+    line-height: 1.6;
+  }
+  .editions-grid {
+    grid-template-columns: 1fr;
+    gap: 36px;
+  }
+  .edition-card__title { font-size: 22px; }
+
+  /* ---- MANIFESTO ----------------------------------------- */
+  .manifesto { padding: 80px 16px; }
+  .manifesto__quote {
+    font-size: clamp(26px, 7vw, 38px);
+    max-width: 22ch;
+  }
+
+  /* ---- FOOTER MINI --------------------------------------- */
+  .footer-mini {
+    padding: 40px 16px 28px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 18px;
+    text-align: left;
+  }
+  .footer-mini__links {
+    flex-wrap: wrap;
+    gap: 16px 22px;
+  }
+
+  /* ---- POST-HERO SECTIONS (Sections 2-7) ----------------- */
+  .Section { padding: 64px 0; }
+  .Container { padding: 0 16px; }
+
+  /* Section 2 — Video */
+  .VideoSection__eyebrow {
+    font-size: 9px;
+    letter-spacing: 0.28em;
+    margin-bottom: 18px;
+  }
+  .VideoSection__line { flex-basis: 24px; }
+  .MediaPlayer { aspect-ratio: 4 / 5; }
+  .PlayButton {
+    bottom: 16px; right: 16px;
+    width: 56px; height: 56px;
+    padding: 0;
+    border-radius: 50%;
+    gap: 0;
+    background: rgba(5,22,19,0.65);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+  .PlayButton__label { display: none; }
+  .PlayButton svg { margin-left: 3px; }
+  .MediaPlayer__caption {
+    font-size: 13px;
+    line-height: 1.5;
+    margin-top: 14px;
+  }
+  .Lightbox { padding: 0; }
+  .Lightbox__inner {
+    width: 100%;
+    height: 100svh;
+    max-width: none;
+    aspect-ratio: auto;
+  }
+  .Lightbox__overlay { padding: 20px 16px 28px; }
+  .Lightbox__title { font-size: 12px; letter-spacing: 0.32em; }
+  .Lightbox__sub   { font-size: 10px; }
+  .Lightbox__close { top: 14px; right: 14px; width: 40px; height: 40px; }
+
+  /* Section 3 — Instagram grid */
+  .SectionHead { margin-bottom: 32px; gap: 12px; }
+  .SectionHead__title { font-size: clamp(34px, 9vw, 52px); }
+  .SectionHead__meta { font-size: 10px; letter-spacing: 0.28em; align-items: flex-start; }
+  .InstaGrid {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+  .InstaCard:nth-child(3) { grid-column: auto; }
+  .InstaCard__media { aspect-ratio: auto !important; }
+  .InstaCard__media img { aspect-ratio: 1 / 1; object-fit: cover; }
+  .InstaCard__caption { font-size: 14px; line-height: 1.4; }
+  .InstaCard__text {
+    -webkit-line-clamp: unset;
+    overflow: visible;
+    max-width: none;
+  }
+
+  /* Section 4 — Brand statement (full-bleed) */
+  .FullMediaHeadline {
+    min-height: 100svh;
+    padding: 80px 0 64px;
+    align-items: stretch;
+  }
+  .FullMediaHeadline__overlay {
+    background:
+      linear-gradient(180deg, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0.65) 100%),
+      rgba(0,0,0,0.10);
+  }
+  .FullMediaHeadline__bg { object-position: center; }
+  .FullMediaHeadline__content {
+    padding: 0 16px;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    align-items: stretch;
+  }
+  .brand-wordmark {
+    align-self: flex-start;
+    font-size: 22px;
+    margin-bottom: auto;
+    margin-top: 8px;
+  }
+  .display-headline {
+    font-size: clamp(28px, 7.5vw, 40px);
+    line-height: 1.1;
+    margin: 32px 0 28px;
+    max-width: 100%;
+    text-wrap: pretty;
+  }
+  .FullMediaHeadline__content .Button {
+    align-self: center;
+    justify-content: center;
+    max-width: 80%;
+    width: 80%;
+    min-height: 48px;
+    border-radius: 999px;
+    background: #fff;
+    color: #0A2620;
+    border-color: #fff;
+    margin-top: 8px;
+  }
+  .FullMediaHeadline__content .Button .Button__arrow { color: #0A2620; }
+  .FullMediaHeadline__content .Button:hover {
+    background: #0A2620;
+    color: #fff;
+    border-color: #0A2620;
+  }
+
+  /* Section 5 — Newsletter */
+  .NewsletterBanner { min-height: 0; padding: 0; }
+  .NewsletterBanner__content {
+    padding: 64px 0;
+    background: linear-gradient(180deg, rgba(5,22,19,0.65) 0%, rgba(5,22,19,0.92) 100%);
+  }
+  .NewsletterBanner__bg::after {
+    content: "";
+    position: absolute; inset: 0;
+    background: rgba(0,0,0,0.4);
+  }
+  .NewsletterBanner__title { font-size: clamp(30px, 8vw, 44px); margin-bottom: 12px; }
+  .NewsletterBanner__sub { font-size: 14px; margin-bottom: 28px; }
+  .NewsletterForm__row {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+  .NewsletterForm__row .Button {
+    min-height: 48px;
+    width: 100%;
+    justify-content: center;
+  }
+  .floating-label input { height: 52px; font-size: 15px; }
+  .checkbox { font-size: 11px; }
+
+  /* Section 6 — Outro wordmark */
+  section[data-section="outro"] {}
+  .OutroWordmark {
+    height: 40svh;
+    min-height: 0;
+  }
+  .OutroWordmark__text {
+    font-size: clamp(60px, 18vw, 96px);
+    white-space: nowrap;
+  }
+
+  /* Section 7 — Footer (fully expanded, single column) */
+  .Footer { padding: 56px 0 28px; }
+  .Footer__cols {
+    grid-template-columns: 1fr;
+    gap: 0;
+    margin-bottom: 32px;
+  }
+  .Footer__col {
+    padding: 20px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+  }
+  /* Override the existing accordion behavior — show every column expanded */
+  .Footer__col ul {
+    max-height: none !important;
+    overflow: visible !important;
+    margin-top: 16px !important;
+  }
+  .Footer__col h4 {
+    cursor: default;
+    pointer-events: none;
+    font-size: 11px;
+    margin-bottom: 0;
+  }
+  .Footer__chev { display: none !important; }
+  .Footer__col--contact .Button {
+    display: inline-flex !important;
+    width: 100%;
+    justify-content: center;
+    min-height: 48px;
+    border-radius: 999px;
+    margin-top: 18px;
+  }
+  .Footer__bottom {
+    flex-direction: column;
+    align-items: center;
+    gap: 18px;
+    text-align: center;
+  }
+  .Footer__social { justify-content: center; }
+  .Footer__copy { font-size: 9px; letter-spacing: 0.28em; }
+
+  /* Hide Tweaks panel on phones — too narrow to be useful */
+  .tweaks-panel,
+  .TweaksPanel {
+    display: none !important;
+  }
+}
+
+/* Reduced motion: kill grain animation & ken-burns on mobile */
+@media (prefers-reduced-motion: reduce) and (max-width: 767px) {
+  .grain { animation: none; }
+  .FullMediaHeadline__bg { animation: none; }
+  .scroll-hint__line { animation: none; }
+}
+
+/* ===========================================================
+   ALMA (phase 04) day-mode UI recoloring — section 4 ONLY
+   -----------------------------------------------------------
+   The ALMA day temple background is a bright cream/stone hall
+   in sunlight. The default light foreground (--theme-fg ≈ white
+   during the hero) reads invisible against that brightness, so
+   every text/divider element layered over the temple needs to
+   recolor to a dark contrast tone.
+
+   Driver: pendant.jsx publishes `--alma-day-mix` on documentElement
+   each frame, equal to `phase04Proximity * (1 - almaNightF)`:
+     - any other phase     → 0  (UI unchanged, original colors)
+     - ALMA night peak     → 0  (orb-protagonist, dark temple, original colors)
+     - ALMA day peak       → 1  (bright temple, dark UI)
+     - mid cross-fade      → 0.x (linear blend, matches bg opacity tween)
+
+   `color-mix(in srgb, dark X%, original)` interpolates per-pixel
+   without needing CSS transitions, so the recoloring is locked
+   1:1 with the scene's day/night beat and the temple cross-fade.
+
+   IMPORTANT: only elements that overlay the hero pin during ALMA
+   are listed here. Post-hero sections (editions grid, video,
+   newsletter, footer) are NOT visible at progress≈0.70, so they
+   stay untouched. =========================================== */
+:root {
+  --alma-day-mix: 0;
+  --alma-day-fg: #0F1714;          /* near-black green, sits well against cream */
+  --alma-day-fg-soft: #2A3A33;     /* slightly lifted for hairlines / dividers */
+}
+
+/* Brand-typed elements that sit over the bright temple marble (navbar at
+   the top, rail/badge at the bottom) — they cross-fade toward the page's
+   own light foreground in night, dark in day. */
+.nav__brand,
+.nav__link,
+.nav__lang,
+.nav__lang button,
+.nav__icon-btn,
+.rail__label,
+.rail__pct,
+.edition-badge {
+  color: color-mix(in srgb,
+    var(--alma-day-fg) calc(var(--alma-day-mix, 0) * 100%),
+    var(--theme-fg));
+}
+
+/* ALMA phase title + sub — they sit at the TOP of the viewport, overlapping
+   the upper wings. Two failure modes were spotted in QA:
+     (a) The default theme-fg in ALMA lerps to a whitish mid-tone that
+         disappears against the bright cream temple at the day peak.
+     (b) The .accent gold span has very low contrast against cream marble.
+   Both colors cross-fade with --alma-day-mix:
+     - night (mix=0): pure white text + brand gold accent + soft dark halo
+     - day   (mix=1): near-black text + deep amber accent + soft WHITE halo
+   `color-mix` interpolates per-pixel from a numeric mix value, so the
+   recoloring is locked 1:1 with the day/night cross-fade (no transitions
+   needed). The halo does NOT fade to transparent in day: a dark glyph over
+   the bright temple still gets lost where it crosses the gold wings and the
+   sun-shaft (mixed mid-tones), so the shadow cross-fades from a dark halo
+   (night, separates white text from the dark temple) to a soft white halo
+   (day, separates dark text from the gold feathers + bright shaft). Blur
+   radii are identical at both ends so the NIGHT look is byte-unchanged. */
+.phase-content--alma .phase-title,
+.phase-content--alma .phase-sub {
+  color: color-mix(in srgb,
+    var(--alma-day-fg) calc(var(--alma-day-mix, 0) * 100%),
+    #FFFFFF);
+}
+/* The sub keeps its day halo: it's small (15px) and thin (weight 300),
+   so it still needs the soft white separation where it crosses the gold
+   wings / sun-shaft. Night (mix=0) resolves to the dark legibility halo. */
+.phase-content--alma .phase-sub {
+  text-shadow:
+    0 1px 8px color-mix(in srgb,
+      rgba(255, 255, 255, 0.9) calc(var(--alma-day-mix, 0) * 100%),
+      rgba(0, 0, 0, 0.55)),
+    0 0 22px color-mix(in srgb,
+      rgba(255, 255, 255, 0.6) calc(var(--alma-day-mix, 0) * 100%),
+      rgba(0, 0, 0, 0.32));
+}
+/* Title ("Guarda la luz." in day): the DAY white halo is removed — it
+   fades to transparent as the day mix climbs, leaving clean near-black
+   type on the bright cream temple (the big 66px display clears AA on the
+   temple without a halo). Night (mix=0) keeps its dark legibility halo
+   byte-unchanged, so "La devuelve en la oscuridad." is untouched. */
+.phase-content--alma .phase-title {
+  text-shadow:
+    0 1px 8px color-mix(in srgb,
+      transparent calc(var(--alma-day-mix, 0) * 100%),
+      rgba(0, 0, 0, 0.55)),
+    0 0 22px color-mix(in srgb,
+      transparent calc(var(--alma-day-mix, 0) * 100%),
+      rgba(0, 0, 0, 0.32));
+}
+/* The sub is the worst-hit: small (15px), thin (weight 300) and the base
+   `.phase-sub` rule drops it to opacity 0.72 — fine over the dark night
+   temple, but in day that 28% transparency bleeds the bright background
+   through the dark glyphs and washes them out. Ramp opacity back to full
+   as the day mix climbs; night stays at the subtle 0.72. */
+.phase-content--alma .phase-sub {
+  opacity: calc(0.72 + var(--alma-day-mix, 0) * 0.28);
+}
+/* The SOUL eyebrow label was never in the day-recolor set, so it stayed
+   light-on-cream and vanished at the day peak (same failure as the sub).
+   Cross-fade it to dark and lift its opacity a touch — the dark-on-cream
+   contrast alone carries legibility, so no halo is needed. At night
+   (mix=0) every term resolves to the original look: --theme-fg, opacity
+   0.5 — byte-unchanged. */
+.phase-content--alma .phase-bilingual {
+  color: color-mix(in srgb,
+    var(--alma-day-fg) calc(var(--alma-day-mix, 0) * 100%),
+    var(--theme-fg));
+  opacity: calc(0.5 + var(--alma-day-mix, 0) * 0.3);
+}
+.phase-content--alma .phase-title .accent {
+  color: color-mix(in srgb,
+    #5C3A1A calc(var(--alma-day-mix, 0) * 100%),
+    var(--color-gold-bright));
+}
+/* Night title accent ("la oscuridad") — phosphor glow override. The
+   canonical brand glow (--phosphor-400 = #7DFFB2) matches the orb's
+   night emissive, so the words read as if THEY were emitting light too.
+   Two text-shadow layers stack a soft inner and a wider outer halo at
+   low alpha (faint by design — the user wants "bien sutil, bien tenue").
+   Higher specificity than the cross-fade rule above (same 0,3,0 but
+   later in the cascade), so this wins for the night-only title. The
+   day title accent stays on its amber/gold cross-fade untouched. */
+.phase-content--alma .phase-title--alma-night .accent {
+  color: var(--color-phosphor, #7DFFB2);
+  text-shadow:
+    0 0 6px rgba(125, 255, 178, 0.384),
+    0 0 16px rgba(125, 255, 178, 0.216);
+}
+
+/* Hairlines / dividers (rail line, lang toggle border).
+   Mix toward a softer dark so they read as lines, not bold strokes. */
+.rail {
+  background-color: color-mix(in srgb,
+    var(--alma-day-fg-soft) calc(var(--alma-day-mix, 0) * 55%),
+    var(--theme-fg-hairline));
+}
+.nav__lang {
+  border-color: color-mix(in srgb,
+    var(--alma-day-fg-soft) calc(var(--alma-day-mix, 0) * 60%),
+    var(--theme-fg-hairline));
+  background: color-mix(in srgb,
+    var(--alma-day-fg) calc(var(--alma-day-mix, 0) * 10%),
+    color-mix(in srgb, var(--theme-fg) 12%, transparent));
+}
+.nav__lang::before {
+  border-color: color-mix(in srgb,
+    var(--alma-day-fg-soft) calc(var(--alma-day-mix, 0) * 60%),
+    var(--theme-fg-hairline));
+  background: color-mix(in srgb,
+    var(--alma-day-fg) calc(var(--alma-day-mix, 0) * 16%),
+    color-mix(in srgb, var(--theme-fg) 18%, transparent));
+}
+
+/* ===========================================================
+   Section 7 — Footer (newsletter + footer)
+   Byte-perfect port of the example's Footer.jsx (inline styles
+   → classes; identical values, tokens & icons). Mobile rules
+   added for safety (the source uses fixed desktop grids).
+   =========================================================== */
+.SiteFooter {
+  position: relative;
+  padding: 120px 0 32px;
+  background: var(--color-bg-deep);
+  overflow: hidden;
+}
+.SiteFooter__halo {
+  position: absolute;
+  top: 30%; left: 70%;
+  width: 800px; height: 800px;
+  transform: translate(-50%, -50%);
+  background: radial-gradient(circle, rgba(125, 255, 178, 0.10) 0%, rgba(125, 255, 178, 0.04) 25%, rgba(125, 255, 178, 0) 70%);
+  filter: blur(12px);
+  pointer-events: none;
+  z-index: 0;
+}
+.SiteFooter__inner { position: relative; z-index: 2; }
+
+/* — Newsletter (email capture) — */
+.FootNews {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 64px;
+  align-items: center;
+  padding-bottom: 80px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+.FootNews__eyebrow {
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: var(--color-gold-bright);
+  margin-bottom: 18px;
+}
+.FootNews__title {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-weight: 300;
+  font-size: 56px;
+  line-height: 1.05;
+  letter-spacing: -0.015em;
+  color: #fff;
+  margin: 0 0 16px;
+}
+.FootNews__body {
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.6;
+  font-weight: 300;
+  color: rgba(255, 255, 255, 0.7);
+  margin: 0;
+}
+.FootForm { display: flex; flex-direction: column; gap: 12px; }
+.FootForm__row {
+  display: flex;
+  padding: 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+}
+.FootForm__row:focus-within {
+  border-color: var(--color-gold-bright);
+  box-shadow: 0 0 0 1px var(--color-gold-bright);
+}
+.FootForm__input {
+  flex: 1;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  padding: 12px 20px;
+  color: #fff;
+  font-family: var(--font-body);
+  font-size: 14px;
+}
+.FootForm__input::placeholder { color: rgba(255, 255, 255, 0.5); }
+.FootForm__submit {
+  padding: 12px 24px;
+  border-radius: 999px;
+  border: 0;
+  background: linear-gradient(180deg, #E9D7B1, #C9A66B);
+  color: #0A2620;
+  font-family: var(--font-body);
+  font-weight: 500;
+  font-size: 13px;
+  cursor: pointer;
+}
+.FootForm__discreet {
+  font-family: var(--font-body);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+/* — Lower (brand + columns) — */
+.FootLower {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1fr;
+  gap: 48px;
+  padding: 64px 0 48px;
+}
+.FootBrand { display: flex; flex-direction: column; gap: 16px; }
+.FootBrand__name {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: 42px;
+  color: var(--color-gold-bright);
+}
+.FootBrand__tag {
+  font-family: var(--font-body);
+  font-size: 10px;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: var(--color-text-tertiary);
+}
+.FootBrand__body {
+  font-family: var(--font-body);
+  font-size: 13px;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.6);
+  max-width: 320px;
+}
+.FootSocials { display: flex; gap: 14px; margin-top: 8px; }
+.FootSocial {
+  width: 38px; height: 38px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.06);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255, 255, 255, 0.8);
+  border: 0;
+  cursor: pointer;
+  transition: background-color 0.3s var(--ease-standard), color 0.3s var(--ease-standard);
+}
+.FootSocial:hover { background: rgba(255, 255, 255, 0.12); color: #fff; }
+.FootCol__title {
+  font-family: var(--font-body);
+  font-size: 11px;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--color-gold-bright);
+  margin-bottom: 18px;
+}
+.FootCol__list { display: flex; flex-direction: column; gap: 12px; }
+.FootCol__link {
+  font-family: var(--font-body);
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.7);
+  cursor: pointer;
+  transition: color 0.3s var(--ease-standard);
+}
+.FootCol__link:hover { color: var(--color-gold-bright); }
+
+/* — Copyright bar — */
+.FootCopy {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 28px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+.FootCopy__text {
+  font-family: var(--font-body);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: var(--color-text-muted);
+}
+.FootCopy__name {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: 18px;
+  color: var(--color-gold-bright);
+}
+
+@media (max-width: 767px) {
+  .SiteFooter { padding: 72px 0 28px; }
+  .SiteFooter__halo { width: 520px; height: 520px; }
+  .FootNews { grid-template-columns: 1fr; gap: 28px; padding-bottom: 48px; }
+  .FootNews__title { font-size: 34px; }
+  .FootLower { grid-template-columns: 1fr 1fr; gap: 36px 24px; padding: 48px 0 36px; }
+  .FootBrand { grid-column: 1 / -1; }
+  .FootBrand__name { font-size: 34px; }
+  .FootCopy { flex-direction: column; gap: 14px; align-items: flex-start; }
+}

@@ -45,7 +45,7 @@ function SectionVideoHero({ lang }) {
   }, []);
 
   // Máxima calidad en desktop/tablet (1080p), liviano en móvil (720p).
-  const src = isNarrow ? 'assets/video/main-film-720.mp4' : 'assets/video/main-film.mp4';
+  const src = ELYXIE_ASSET(isNarrow ? 'assets/video/main-film-720.mp4' : 'assets/video/main-film.mp4');
 
   // Autoplay sólo mientras el filme está a la vista; pausa al salir para no
   // decodificar un 1080p fuera de pantalla. Muted es obligatorio para que el
@@ -102,7 +102,7 @@ function SectionVideoHero({ lang }) {
             className="MediaPlayer__video"
             playsInline muted loop
             preload="metadata"
-            poster="assets/photography/main-film-poster-1440.jpg"
+            poster={ELYXIE_ASSET('assets/photography/main-film-poster-1440.jpg')}
           >
             <source src={src} type="video/mp4"/>
           </video>
@@ -293,6 +293,38 @@ function SectionVitrina({ lang }) {
   const [chain, setChain]   = useS('ella');
   const [view, setView]     = useS('dije');
   const active = VITRINA_FINISHES.find((f) => f.id === finish);
+  const [buying, setBuying] = useS(false);
+
+  // Buy-now: inside the Shopify theme, add the selected acabado×cadena variant
+  // to the cart (Ajax API — same-origin, no token, locale-aware root) and go to
+  // checkout. On the standalone (Vercel) page window.Shopify/__ELYXIE are absent,
+  // so the anchor keeps its #contact fallback (we don't preventDefault).
+  const handleBuy = (e) => {
+    const root  = (typeof window !== 'undefined') && window.Shopify && window.Shopify.routes && window.Shopify.routes.root;
+    const map   = (typeof window !== 'undefined') && window.__ELYXIE && window.__ELYXIE.variants;
+    const entry = map && map[finish + '|' + chain];
+    if (entry && entry.available === false) { // sold out → concierge "avísame"
+      e.preventDefault();
+      window.location.href = 'mailto:mkt@elyxie.com?subject=' + encodeURIComponent('Avísame · El Ángel ' + finish);
+      return;
+    }
+    if (!root || !entry) return; // not in the theme → let <a href="#contact"> behave
+    e.preventDefault();
+    if (buying) return;
+    setBuying(true);
+    fetch(root + 'cart/add.js', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ items: [{ id: entry.id, quantity: 1 }] }),
+    })
+      .then((r) => { if (!r.ok) throw new Error('add'); window.location.href = root + 'checkout'; })
+      .catch(() => { setBuying(false); window.location.href = root + 'cart'; });
+  };
+
+  // Live price from Shopify when in the theme; static label fallback on Vercel.
+  const vinfo = (typeof window !== 'undefined') && window.__ELYXIE && window.__ELYXIE.variants && window.__ELYXIE.variants[finish + '|' + chain];
+  const priceLabel = (vinfo && vinfo.price) || active.price;
+  const soldOut = !!(vinfo && vinfo.available === false);
 
   const t = lang === 'es' ? {
     eyebrow: 'LA PIEZA · METAL Y CADENA',
@@ -335,7 +367,7 @@ function SectionVitrina({ lang }) {
                 layers are already in the DOM). */}
             {VITRINA_VIEWS.map((v) => VITRINA_FINISHES.map((f) => VITRINA_CHAINS.map((c) => {
               const on = v.id === view && f.id === finish && c.id === chain;
-              const base = `assets/ecommerce/${v.prefix}-${f.id}-${c.id}`;
+              const base = ELYXIE_ASSET(`assets/ecommerce/${v.prefix}-${f.id}-${c.id}`);
               const isDefault = v.id === 'dije' && f.id === 'plata' && c.id === 'ella';
               const alt = on
                 ? (v.id === 'cadena' ? t.chainAlt(active[lang].name, chain) : t.pieceAlt(active[lang].name, chain))
@@ -372,7 +404,7 @@ function SectionVitrina({ lang }) {
           <div className="Vitrina__thumbs" role="radiogroup" aria-label={t.viewsLabel}>
             {VITRINA_VIEWS.map((v) => {
               const on = v.id === view;
-              const tbase = `assets/ecommerce/${v.prefix}-${finish}-${chain}`;
+              const tbase = ELYXIE_ASSET(`assets/ecommerce/${v.prefix}-${finish}-${chain}`);
               return (
                 <button
                   key={v.id}
@@ -461,12 +493,14 @@ function SectionVitrina({ lang }) {
 
           {/* Price for the active metal + edition meta, then the custody CTA. */}
           <p className="Vitrina__price">
-            <span className="Vitrina__priceNum" key={finish}>{active.price}</span>
+            <span className="Vitrina__priceNum" key={finish}>{priceLabel}</span>
             <span className="Vitrina__meta">{t.meta}</span>
           </p>
           <div className="Vitrina__foot">
-            <a className="Button Button--primary Vitrina__cta" href="#contact">
-              {t.cta}
+            <a className="Button Button--primary Vitrina__cta" href="#contact"
+               onClick={handleBuy}
+               style={buying ? { pointerEvents: 'none', opacity: 0.7 } : undefined}>
+              {buying ? (lang === 'es' ? 'Creando checkout…' : 'Creating checkout…') : (soldOut ? (lang === 'es' ? 'Avísame' : 'Notify me') : t.cta)}
               <span className="Button__arrow">→</span>
             </a>
           </div>
@@ -527,7 +561,7 @@ function SectionCertificate({ lang }) {
             </div>
             <div className="Cert__sealCol">
               <div className="Cert__label">{t.seal}</div>
-              <img className="Cert__sealImg" src="assets/elyxie-mark.svg" alt="" aria-hidden/>
+              <img className="Cert__sealImg" src={ELYXIE_ASSET('assets/elyxie-mark.svg')} alt="" aria-hidden/>
             </div>
           </div>
         </div>
@@ -593,8 +627,9 @@ function SectionInstagramGrid({ lang }) {
 
         <ul className="InstaGrid">
           {INSTA.map((p, i) => {
-            const webp = `${p.base}.webp`;
-            const webp480 = `${p.base}-480.webp`;
+            const ebase = ELYXIE_ASSET(p.base);
+            const webp = `${ebase}.webp`;
+            const webp480 = `${ebase}-480.webp`;
             const date = lang === 'es' ? p.dateEs : p.dateEn;
             return (
             <li key={i} className="InstaCard">
@@ -606,7 +641,7 @@ function SectionInstagramGrid({ lang }) {
                       srcSet={`${webp480} 480w, ${webp} 720w`}
                       sizes="(max-width: 767px) 100vw, (max-width: 1024px) 50vw, 33vw"
                     />
-                    <img src={`${p.base}.jpg`} alt="" loading="lazy" decoding="async"/>
+                    <img src={`${ebase}.jpg`} alt="" loading="lazy" decoding="async"/>
                   </picture>
                   <span className="InstaCard__badge" aria-hidden>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -724,11 +759,13 @@ function Footer({ lang }) {
               <a className="FootSocial" href="#contact" aria-label="Email"><FootMailIcon/></a>
             </div>
           </div>
-          {t.columns.map((col) => (
-            <div key={col.title}>
+          {(((typeof window !== 'undefined') && window.__ELYXIE && window.__ELYXIE.footerColumns && window.__ELYXIE.footerColumns[lang]) || t.columns.map((c) => ({ title: c.title, links: c.links.map((l) => ({ label: l, url: '' })) }))).map((col, ci) => (
+            <div key={col.title + ci}>
               <div className="FootCol__title">{col.title}</div>
               <div className="FootCol__list">
-                {col.links.map((l) => <span key={l} className="FootCol__link">{l}</span>)}
+                {col.links.map((l, li) => l.url
+                  ? <a key={l.label + li} className="FootCol__link" href={l.url}>{l.label}</a>
+                  : <span key={l.label + li} className="FootCol__link">{l.label}</span>)}
               </div>
             </div>
           ))}

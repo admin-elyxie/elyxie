@@ -1,0 +1,33 @@
+{%- comment -%}
+  Header · Navegación — emits the nav links the app's top nav reads
+  (window.__ELYXIE.nav). Links come from Shopify menus (ES + EN); edit them in
+  Online Store → Navegación. Selecting this section scrolls to top.
+{%- endcomment -%}
+<div data-elyxie-target="top" hidden></div>
+<script type="application/json" data-elyxie="header">
+{
+  "nav": {
+    "es": [
+      {%- assign menu = section.settings.menu_es -%}{%- assign f = true -%}
+      {%- for l in menu.links -%}{%- unless f -%},{%- endunless -%}{%- assign f = false -%}
+        { "label": {{ l.title | json }}, "url": {{ l.url | json }} }
+      {%- endfor -%}
+    ],
+    "en": [
+      {%- assign menu = section.settings.menu_en -%}{%- assign f = true -%}
+      {%- for l in menu.links -%}{%- unless f -%},{%- endunless -%}{%- assign f = false -%}
+        { "label": {{ l.title | json }}, "url": {{ l.url | json }} }
+      {%- endfor -%}
+    ]
+  }
+}
+</script>
+{% schema %}
+{
+  "name": "Header · Navegación",
+  "settings": [
+    { "type": "link_list", "id": "menu_es", "label": "Menú (ES)", "info": "Edita los enlaces en Online Store → Navegación" },
+    { "type": "link_list", "id": "menu_en", "label": "Menú (EN)" }
+  ]
+}
+{% endschema %}

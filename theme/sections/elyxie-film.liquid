@@ -1,0 +1,16 @@
+{%- comment -%}
+  El Film — phase marker for the cinematography section. The film itself is hosted
+  on the Files API (see layout `files`) and rendered by the app.
+{%- endcomment -%}
+<div data-elyxie-target='[data-section="hero-video"]' hidden></div>
+{% schema %}
+{
+  "name": "El Film · Cinematografía",
+  "settings": [
+    {
+      "type": "paragraph",
+      "content": "El film (main-film) se sirve desde Files API y lo renderiza el app. Para reemplazarlo, sube uno nuevo a Files y actualiza la URL en el layout."
+    }
+  ]
+}
+{% endschema %}

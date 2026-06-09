@@ -1,0 +1,14 @@
+{
+  "type": "header",
+  "name": "Header",
+  "sections": {
+    "elyxie-header": {
+      "type": "elyxie-header",
+      "settings": {
+        "menu_es": "elyxie-header-es",
+        "menu_en": "elyxie-header-en"
+      }
+    }
+  },
+  "order": ["elyxie-header"]
+}
