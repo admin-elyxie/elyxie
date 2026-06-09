@@ -1179,7 +1179,27 @@ function ElyxieTweaks({ tweaks, setTweak }) {
 //  App
 // ===========================================================
 function App() {
-  const [lang, setLang] = useState('es');
+  // Initial language is driven by the Shopify-served locale (window.__ELYXIE.locale),
+  // so the home reflects what Shopify serves (/ = es, /en = en, editor preview, geo default).
+  // Falls back to 'es' off-Shopify (Vercel) — non-regression.
+  const [lang, setLang] = useState(() => {
+    try {
+      const l = ((typeof window !== 'undefined' && window.__ELYXIE && window.__ELYXIE.locale) || '').toLowerCase();
+      return l.indexOf('en') === 0 ? 'en' : 'es';
+    } catch (e) { return 'es'; }
+  });
+  // The ES/EN toggle switches the REAL Shopify locale (navigates to the localized URL)
+  // and records the explicit choice so the geolocation auto-default won't override it.
+  // Off-Shopify it degrades to the old client-side swap.
+  const chooseLang = (target) => {
+    try { localStorage.setItem('elyxie_lang_choice', target); } catch (e) {}
+    try {
+      if (typeof window === 'undefined' || !window.__ELYXIE) { setLang(target); return; }
+      const p = window.location.pathname.replace(/^\/en(\/|$)/, '/');
+      const url = target === 'en' ? ('/en' + (p === '/' ? '/' : p)) : p;
+      window.location.assign(url + window.location.search);
+    } catch (e) { setLang(target); }
+  };
   const [tweaks, setTweak] = useTweaks(TWEAK_DEFAULTS);
   const pendantRef = useRef(null);
 
@@ -1240,7 +1260,7 @@ function App() {
 
   return (
     <>
-      <Nav lang={lang} setLang={setLang} />
+      <Nav lang={lang} setLang={chooseLang} />
       <main>
         <h1 className="sr-only">
           {lang === 'es'

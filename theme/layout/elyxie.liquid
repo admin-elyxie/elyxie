@@ -24,6 +24,8 @@
   {{ 'styles.css' | asset_url | stylesheet_tag }}
 
   {{ content_for_header }}
+  {%- comment -%} Default por geolocalización (IP): US/no-hispano → /en, antes de pintar. {%- endcomment -%}
+  {% render 'elyxie-lang-geo' %}
 
   {%- comment -%} Inline splash — same as the standalone one-pager. {%- endcomment -%}
   <style>

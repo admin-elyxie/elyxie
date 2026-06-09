@@ -12,11 +12,33 @@
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&display=swap"/>
   <link rel="stylesheet" href="https://api.fontshare.com/v2/css?f[]=satoshi@300,400,500&display=swap"/>
   {{ 'colors_and_type.css' | asset_url | stylesheet_tag }}
+
+  {%- comment -%} Native Shopify cart drawer — machinery + elyxie re-skin (elyxie-cart.css). {%- endcomment -%}
+  {{ 'component-cart-items.css' | asset_url | stylesheet_tag }}
+  {{ 'component-cart-drawer.css' | asset_url | stylesheet_tag }}
+  {{ 'component-cart.css' | asset_url | stylesheet_tag }}
+  {{ 'component-totals.css' | asset_url | stylesheet_tag }}
+  {{ 'component-price.css' | asset_url | stylesheet_tag }}
+  {{ 'component-discounts.css' | asset_url | stylesheet_tag }}
+  {{ 'elyxie-cart.css' | asset_url | stylesheet_tag }}
+  <script src="{{ 'constants.js' | asset_url }}" defer="defer"></script>
+  <script src="{{ 'pubsub.js' | asset_url }}" defer="defer"></script>
+  <script src="{{ 'global.js' | asset_url }}" defer="defer"></script>
+
   {{ content_for_header }}
+  {%- comment -%} Default por geolocalización (IP): US/no-hispano → /en, antes de pintar. {%- endcomment -%}
+  {% render 'elyxie-lang-geo' %}
   <style>
     :root { --ep-bg: #0A2620; --ep-void: #051613; --ep-ink: #FFFFFF; --ep-champ: #E9D7B1; --ep-gold: #C9A66B; --ep-emerald: #0A2620;
             --ep-serif: "Cormorant Garamond","EB Garamond",Georgia,serif; --ep-sans: "Satoshi","Inter",system-ui,sans-serif; }
+    /* Safe defaults for the Dawn cart CSS tokens that appear inside calc() (base.css
+       isn't loaded here, so an undefined token would void the whole declaration). */
+    :root { --font-body-scale: 1; --font-heading-scale: 1; --border-radius: 0; --border-width: 0; --image-padding: 0; }
     * { box-sizing: border-box; }
+    /* Dawn's cart CSS is authored on the 1rem = 10px convention; match it so the
+       reused component-cart-*.css renders at the intended scale. elyxie's own
+       styles are all px/em, so this is inert for them. */
+    html { font-size: 62.5%; }
     html, body { margin: 0; }
     body.epage {
       background:
@@ -67,8 +89,13 @@
   </style>
 </head>
 <body class="epage" data-theme="dark">
-  {%- assign nav = linklists['elyxie-header-es'] -%}
-  {%- assign foot = linklists['elyxie-footer-es'] -%}
+  {%- if request.locale.iso_code == 'en' -%}
+    {%- assign nav = linklists['elyxie-header-en'] -%}
+    {%- assign foot = linklists['elyxie-footer-en'] -%}
+  {%- else -%}
+    {%- assign nav = linklists['elyxie-header-es'] -%}
+    {%- assign foot = linklists['elyxie-footer-es'] -%}
+  {%- endif -%}
   <header class="epage-nav">
     <a href="{{ routes.root_url }}" class="epage-mark" aria-label="elyxie"></a>
     <div class="epage-nav__right">
@@ -83,9 +110,25 @@
         {%- if _iso == 'es' -%}{%- assign lang_es = language -%}{%- elsif _iso == 'en' -%}{%- assign lang_en = language -%}{%- endif -%}
       {%- endfor -%}
       {%- form 'localization', class: 'epage-lang' -%}
-        {%- if lang_es -%}<button type="submit" name="locale_code" value="{{ lang_es.iso_code }}" class="epage-lang__btn" data-lang="es" data-active="{% if cur_iso == 'es' %}true{% else %}false{% endif %}" aria-label="Español">ES</button>{%- endif -%}
-        {%- if lang_en -%}<button type="submit" name="locale_code" value="{{ lang_en.iso_code }}" class="epage-lang__btn" data-lang="en" data-active="{% if cur_iso == 'en' %}true{% else %}false{% endif %}" aria-label="English">EN</button>{%- endif -%}
+        {%- if lang_es -%}<button type="submit" name="locale_code" value="{{ lang_es.iso_code }}" class="epage-lang__btn" data-lang="es" data-active="{% if cur_iso == 'es' %}true{% else %}false{% endif %}" aria-label="Español" onclick="try{localStorage.setItem('elyxie_lang_choice','es')}catch(e){}">ES</button>{%- endif -%}
+        {%- if lang_en -%}<button type="submit" name="locale_code" value="{{ lang_en.iso_code }}" class="epage-lang__btn" data-lang="en" data-active="{% if cur_iso == 'en' %}true{% else %}false{% endif %}" aria-label="English" onclick="try{localStorage.setItem('elyxie_lang_choice','en')}catch(e){}">EN</button>{%- endif -%}
       {%- endform -%}
+      {%- comment -%} Carrito — abre el cart drawer nativo (cart-drawer.js engancha #cart-icon-bubble).
+        Markup inline (igual que el header Dawn); cart-icon-bubble solo existe como sección
+        para la Section Rendering API, que reemplaza este innerHTML al actualizar el carrito. {%- endcomment -%}
+      <a href="{{ routes.cart_url }}" id="cart-icon-bubble" class="epage-cart" aria-label="{{ 'templates.cart.cart' | t }}">
+        {%- if cart == empty -%}
+          <span class="svg-wrapper">{{ 'icon-cart-empty.svg' | inline_asset_content }}</span>
+        {%- else -%}
+          <span class="svg-wrapper">{{ 'icon-cart.svg' | inline_asset_content }}</span>
+        {%- endif -%}
+        {%- if cart != empty -%}
+          <div class="cart-count-bubble">
+            {%- if cart.item_count < 100 -%}<span aria-hidden="true">{{ cart.item_count }}</span>{%- endif -%}
+            <span class="visually-hidden">{{ 'sections.header.cart_count' | t: count: cart.item_count }}</span>
+          </div>
+        {%- endif -%}
+      </a>
     </div>
   </header>
 
@@ -102,7 +145,36 @@
         {%- for l in col.links -%}<a href="{{ l.url }}">{{ l.title }}</a>{%- endfor -%}
       </div>
     {%- endfor -%}
-    <div class="epage-copy">© {{ 'now' | date: '%Y' }} elyxie · Agua sagrada de la Laguna Negra de Huancabamba</div>
+    <div class="epage-copy">© {{ 'now' | date: '%Y' }} elyxie · {% if request.locale.iso_code == 'en' %}Sacred water from the Black Lagoon of Huancabamba{% else %}Agua sagrada de la Laguna Negra de Huancabamba{% endif %}</div>
   </footer>
+
+  {%- comment -%}
+    Cart AJAX bootstrap (mirrors theme.liquid) + native cart drawer, re-skinned
+    by elyxie-cart.css. cart.js + quantity-popover.js are emitted by the snippet;
+    product-form.js / cart-drawer.js are added after so they run in order.
+  {%- endcomment -%}
+  <script>
+    window.shopUrl = '{{ request.origin }}';
+    window.routes = {
+      cart_add_url: '{{ routes.cart_add_url }}',
+      cart_change_url: '{{ routes.cart_change_url }}',
+      cart_update_url: '{{ routes.cart_update_url }}',
+      cart_url: '{{ routes.cart_url }}',
+    };
+    window.cartStrings = {
+      error: `{{ 'sections.cart.cart_error' | t }}`,
+      quantityError: `{{ 'sections.cart.cart_quantity_error_html' | t: quantity: '[quantity]' }}`,
+    };
+    window.variantStrings = {
+      addToCart: `{{ 'products.product.add_to_cart' | t }}`,
+      soldOut: `{{ 'products.product.sold_out' | t }}`,
+      unavailable: `{{ 'products.product.unavailable' | t }}`,
+      unavailable_with_option: `{{ 'products.product.value_unavailable' | t: option_value: '[value]' }}`,
+    };
+    window.accessibilityStrings = {};
+  </script>
+  {%- render 'cart-drawer' -%}
+  <script src="{{ 'product-form.js' | asset_url }}" defer="defer"></script>
+  <script src="{{ 'cart-drawer.js' | asset_url }}" defer="defer"></script>
 </body>
 </html>

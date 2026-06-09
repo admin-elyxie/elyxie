@@ -7,10 +7,12 @@
 {%- assign tparts = product.title | split: '—' -%}
 {%- assign tname = tparts[0] | strip -%}
 {%- assign tfinish = tparts[1] | strip | default: '' -%}
+{%- comment -%} detección por SKU (…-ELLA / …-EL), independiente del idioma (la variante se traduce) {%- endcomment -%}
 {%- for v in product.variants -%}
-  {%- if v.title contains 'ella' -%}{%- assign v_ella = v -%}{%- else -%}{%- assign v_el = v -%}{%- endif -%}
+  {%- if v.sku contains 'ELLA' -%}{%- assign v_ella = v -%}{%- else -%}{%- assign v_el = v -%}{%- endif -%}
 {%- endfor -%}
 {%- assign v_default = v_ella | default: product.variants.first -%}
+{%- assign is_en = false -%}{%- if request.locale.iso_code == 'en' -%}{%- assign is_en = true -%}{%- endif -%}
 
 <style>
   .eprod { padding: clamp(8px,2vw,32px) clamp(20px,5vw,64px) clamp(56px,7vw,112px); }
@@ -64,9 +66,13 @@
     font-family: var(--ep-sans); font-size: 11px; font-weight: 500; letter-spacing: 0.32em; text-transform: uppercase;
     box-shadow: 0 0 30px rgba(233,215,177,0.25); transition: box-shadow 240ms ease, opacity 220ms ease; }
   .eprod-buy:hover { box-shadow: 0 0 60px rgba(233,215,177,0.35), 0 0 120px rgba(233,215,177,0.18); }
-  .eprod-buy[data-busy] { pointer-events: none; opacity: 0.7; }
-  .eprod-buy span { transition: transform 220ms cubic-bezier(0.2,0,0,1); }
-  .eprod-buy:hover span { transform: translateX(5px); }
+  .eprod-form { display: block; }
+  .eprod-buy[data-busy], .eprod-buy.loading, .eprod-buy[aria-disabled="true"] { pointer-events: none; opacity: 0.7; }
+  .eprod-buy[disabled] { pointer-events: none; opacity: 0.5; }
+  .eprod-buy .loading__spinner { display: none; }
+  .eprod-buy__arrow { display: inline-block; transition: transform 220ms cubic-bezier(0.2,0,0,1); }
+  .eprod-buy:hover .eprod-buy__arrow { transform: translateX(5px); }
+  .eprod-buy__err { margin-top: 14px; color: #E5A3A3; font-size: 12px; letter-spacing: 0.04em; }
   @media (max-width: 860px){ .eprod__wrap { grid-template-columns: 1fr; } .eprod__chains { grid-template-columns: 1fr; } }
 
   /* ── Historia editorial (descripción larga del producto) ──────────────────
@@ -159,25 +165,25 @@
   <div class="eprod__wrap">
     <div class="eprod__media">
       <div class="eprod__panel">
-        <span class="eprod__chip">EDICIÓN LIMITADA · N.º 01 / 100</span>
+        <span class="eprod__chip">{% if is_en %}LIMITED EDITION · No. 01 / 100{% else %}EDICIÓN LIMITADA · N.º 01 / 100{% endif %}</span>
         <img class="eprod-img" src="{{ v_default.image | default: product.featured_image | image_url: width: 1200 }}" alt="{{ product.title | escape }}" width="600" height="600"/>
       </div>
       {%- if product.variants.size > 1 -%}
       <div class="eprod__thumbs">
-        {%- if v_ella -%}<button type="button" class="eprod__thumb" data-thumb="{{ v_ella.id }}" aria-label="Para ella" data-on><img src="{{ v_ella.image | image_url: width: 160 }}" alt="" width="76" height="76"/></button>{%- endif -%}
-        {%- if v_el -%}<button type="button" class="eprod__thumb" data-thumb="{{ v_el.id }}" aria-label="Para él"><img src="{{ v_el.image | image_url: width: 160 }}" alt="" width="76" height="76"/></button>{%- endif -%}
+        {%- if v_ella -%}<button type="button" class="eprod__thumb" data-thumb="{{ v_ella.id }}" aria-label="{% if is_en %}For her{% else %}Para ella{% endif %}" data-on><img src="{{ v_ella.image | image_url: width: 160 }}" alt="" width="76" height="76"/></button>{%- endif -%}
+        {%- if v_el -%}<button type="button" class="eprod__thumb" data-thumb="{{ v_el.id }}" aria-label="{% if is_en %}For him{% else %}Para él{% endif %}"><img src="{{ v_el.image | image_url: width: 160 }}" alt="" width="76" height="76"/></button>{%- endif -%}
       </div>
       {%- endif -%}
     </div>
 
     <div class="eprod__info">
-      <div class="eprod__eyebrow">LA PIEZA{% if tfinish != blank %} · {{ tfinish | upcase }}{% endif %}</div>
+      <div class="eprod__eyebrow">{% if is_en %}THE PIECE{% else %}LA PIEZA{% endif %}{% if tfinish != blank %} · {{ tfinish | upcase }}{% endif %}</div>
       <h1 class="eprod__title">{{ tname }}{% if tfinish != blank %} <em>{{ tfinish }}</em>{% endif %}</h1>
-      <div class="eprod__desc">Un santuario que se lleva puesto. Agua viva de la Laguna Negra, suspendida en cristal soplado.</div>
+      <div class="eprod__desc">{% if is_en %}A sanctuary you wear. Living water from the Black Lagoon, suspended in blown glass.{% else %}Un santuario que se lleva puesto. Agua viva de la Laguna Negra, suspendida en cristal soplado.{% endif %}</div>
 
       {%- if product.variants.size > 1 -%}
-      <div class="eprod__chainLabel">CADENA · PARA QUIÉN ES</div>
-      <div class="eprod__chains" role="radiogroup" aria-label="Cadena">
+      <div class="eprod__chainLabel">{% if is_en %}CHAIN · WHO IT IS FOR{% else %}CADENA · PARA QUIÉN ES{% endif %}</div>
+      <div class="eprod__chains" role="radiogroup" aria-label="{% if is_en %}Chain{% else %}Cadena{% endif %}">
         {%- if v_ella -%}
         <button type="button" class="eprod__chainOpt" data-variant="{{ v_ella.id }}" role="radio" aria-checked="true" data-on>
           <span class="eprod__chainGlyph" aria-hidden>
@@ -189,8 +195,8 @@
             </svg>
           </span>
           <span class="eprod__chainText">
-            <span class="eprod__chainName">Para ella</span>
-            <span class="eprod__chainSpec">50 cm · Panzer 050 · Ley 925</span>
+            <span class="eprod__chainName">{% if is_en %}For her{% else %}Para ella{% endif %}</span>
+            <span class="eprod__chainSpec">{% if is_en %}50 cm · Panzer 050 · Sterling 925{% else %}50 cm · Panzer 050 · Ley 925{% endif %}</span>
           </span>
         </button>
         {%- endif -%}
@@ -204,19 +210,34 @@
             </svg>
           </span>
           <span class="eprod__chainText">
-            <span class="eprod__chainName">Para él</span>
-            <span class="eprod__chainSpec">65 cm · Panzer 080 · Ley 925</span>
+            <span class="eprod__chainName">{% if is_en %}For him{% else %}Para él{% endif %}</span>
+            <span class="eprod__chainSpec">{% if is_en %}65 cm · Panzer 080 · Sterling 925{% else %}65 cm · Panzer 080 · Ley 925{% endif %}</span>
           </span>
         </button>
         {%- endif -%}
       </div>
-      <div class="eprod__note">La cadena no altera el precio.</div>
+      <div class="eprod__note">{% if is_en %}The chain does not change the price.{% else %}La cadena no altera el precio.{% endif %}</div>
       {%- endif -%}
 
       <div class="eprod__price"><span class="eprod-price">{{ v_default.price | money }}</span></div>
-      <div class="eprod__meta">EDICIÓN LIMITADA · N.º 01 / 100 · HECHA A MANO POR ENCARGO</div>
+      <div class="eprod__meta">{% if is_en %}LIMITED EDITION · No. 01 / 100 · HANDMADE TO ORDER{% else %}EDICIÓN LIMITADA · N.º 01 / 100 · HECHA A MANO POR ENCARGO{% endif %}</div>
 
-      <button type="button" class="eprod-buy">RESERVA TU PIEZA <span>→</span></button>
+      {%- comment -%} Add-to-cart NATIVO: product-form custom element envuelve el form de producto.
+        product-form.js intercepta el submit, añade vía Cart AJAX y abre el cart drawer re-skineado.
+        El selector de cadena de abajo mantiene el input oculto [name=id] sincronizado. {%- endcomment -%}
+      <product-form class="eprod-form" data-section-id="{{ section.id }}">
+        {%- form 'product', product, id: 'eprod-form', class: 'eprod-buyform', novalidate: 'novalidate', data-type: 'add-to-cart-form' -%}
+          <input type="hidden" name="id" value="{{ v_default.id }}" class="eprod-vid">
+          <button type="submit" name="add" class="eprod-buy"{% unless v_default.available %} disabled aria-disabled="true"{% endunless %}>
+            <span>{% if v_default.available %}{% if is_en %}RESERVE YOUR PIECE{% else %}RESERVA TU PIEZA{% endif %}{% else %}{% if is_en %}SOLD OUT{% else %}AGOTADO{% endif %}{% endif %}</span>
+            <span class="eprod-buy__arrow" aria-hidden="true">→</span>
+            {%- render 'loading-spinner' -%}
+          </button>
+          <div class="eprod-buy__err product-form__error-message-wrapper" role="alert" hidden>
+            <span class="product-form__error-message"></span>
+          </div>
+        {%- endform -%}
+      </product-form>
     </div>
   </div>
 
@@ -227,16 +248,15 @@
   </script>
   <script>
     (function () {
-      var root = (window.Shopify && Shopify.routes && Shopify.routes.root) || '/';
       var box = document.querySelector('.eprod'); if (!box) return;
       var variants = JSON.parse(document.getElementById('eprod-variants').textContent);
-      var defaultId = {{ v_default.id | json }};
-      var current = variants.filter(function (v) { return String(v.id) === String(defaultId); })[0] || variants[0];
       var img = box.querySelector('.eprod-img');
       var priceEl = box.querySelector('.eprod-price');
+      var vidInput = box.querySelector('.eprod-vid');
       function select(id) {
         var v = variants.filter(function (x) { return String(x.id) === String(id); })[0];
-        if (!v) return; current = v;
+        if (!v) return;
+        if (vidInput) vidInput.value = v.id;   // sincroniza el <product-form> nativo
         if (priceEl) priceEl.textContent = v.price;
         if (img && v.image) img.src = v.image;
         box.querySelectorAll('[data-variant]').forEach(function (el) {
@@ -250,14 +270,9 @@
       }
       box.querySelectorAll('[data-variant]').forEach(function (el) { el.addEventListener('click', function () { select(el.getAttribute('data-variant')); }); });
       box.querySelectorAll('[data-thumb]').forEach(function (el) { el.addEventListener('click', function () { select(el.getAttribute('data-thumb')); }); });
-      var btn = box.querySelector('.eprod-buy');
-      btn.addEventListener('click', function () {
-        if (!current) return;
-        btn.setAttribute('data-busy', '');
-        fetch(root + 'cart/add.js', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ items: [{ id: current.id, quantity: 1 }] }) })
-          .then(function (r) { if (!r.ok) throw new Error('add'); window.location.href = root + 'checkout'; })
-          .catch(function () { btn.removeAttribute('data-busy'); window.location.href = root + 'cart'; });
-      });
+      // Añadir al carrito + apertura del drawer los maneja product-form.js (el
+      // <product-form> que envuelve el botón). Aquí solo mantenemos el input
+      // oculto [name=id] sincronizado con la cadena elegida.
     })();
   </script>
 </section>

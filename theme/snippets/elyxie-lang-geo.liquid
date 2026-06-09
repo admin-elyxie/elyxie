@@ -1,0 +1,28 @@
+{%- comment -%}
+  Default-language por geolocalización (IP). Primera visita de la sesión, sin
+  elección manual previa y fuera del editor: si el país del visitante NO es
+  hispanohablante, lo manda a /en (inglés). Respeta la elección manual
+  (localStorage 'elyxie_lang_choice', que fijan los toggles ES/EN).
+  Debe ir DESPUÉS de {{ content_for_header }} (ahí Shopify define locale/country/designMode).
+{%- endcomment -%}
+<script>
+  (function () {
+    try {
+      var S = window.Shopify || {};
+      if (S.designMode) return;                            /* no redirigir dentro del editor */
+      var choice = null; try { choice = localStorage.getItem('elyxie_lang_choice'); } catch (e) {}
+      if (choice) return;                                  /* respeta la elección manual */
+      if (sessionStorage.getItem('elyxie_geo')) return;    /* a lo más una vez por sesión */
+      sessionStorage.setItem('elyxie_geo', '1');
+      var current = String(S.locale || 'es').toLowerCase().slice(0, 2);
+      var country = String(S.country || '').toUpperCase();
+      if (!country) return;                                /* sin geolocalización → no tocar */
+      var ES = ['PE','ES','MX','AR','CO','CL','VE','EC','GT','CU','BO','DO','HN','PY','SV','NI','CR','PA','UY','GQ'];
+      var wantEn = ES.indexOf(country) === -1;             /* hispanohablantes → es; resto → en */
+      if (wantEn && current !== 'en') {
+        var p = window.location.pathname.replace(/^\/en(\/|$)/, '/');
+        window.location.replace('/en' + (p === '/' ? '/' : p) + window.location.search);
+      }
+    } catch (e) {}
+  })();
+</script>
