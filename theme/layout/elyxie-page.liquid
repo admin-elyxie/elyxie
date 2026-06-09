@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="{{ request.locale.iso_code }}">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>{{ page_title | default: shop.name }}</title>
+  <link rel="canonical" href="{{ canonical_url }}"/>
+  <link rel="icon" href="{{ 'elyxie-mark.svg' | asset_url }}"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://api.fontshare.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&display=swap"/>
+  <link rel="stylesheet" href="https://api.fontshare.com/v2/css?f[]=satoshi@300,400,500&display=swap"/>
+  {{ 'colors_and_type.css' | asset_url | stylesheet_tag }}
+  {{ content_for_header }}
+  <style>
+    :root { --ep-bg: #0A2620; --ep-void: #051613; --ep-ink: #FFFFFF; --ep-champ: #E9D7B1; --ep-gold: #C9A66B; --ep-emerald: #0A2620;
+            --ep-serif: "Cormorant Garamond","EB Garamond",Georgia,serif; --ep-sans: "Satoshi","Inter",system-ui,sans-serif; }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; }
+    body.epage {
+      background:
+        radial-gradient(ellipse 90% 70% at 50% -10%, rgba(38,96,100,0.28) 0%, rgba(10,38,32,0) 55%),
+        linear-gradient(180deg, #0A2620 0%, #07211B 60%, #051613 100%);
+      color: var(--ep-ink); font-family: var(--ep-sans); font-weight: 400; -webkit-font-smoothing: antialiased;
+      min-height: 100vh; display: flex; flex-direction: column;
+    }
+    .epage-shell { flex: 1 0 auto; }
+    /* ── Nav ── */
+    .epage-nav { display: flex; align-items: center; justify-content: space-between;
+      padding: 28px clamp(20px,5vw,64px); }
+    .epage-mark { display: inline-block; width: 132px; height: 32px; background-color: var(--ep-champ);
+      -webkit-mask: url("{{ 'elyxie-wordmark.svg' | asset_url }}") no-repeat left center / contain;
+              mask: url("{{ 'elyxie-wordmark.svg' | asset_url }}") no-repeat left center / contain; }
+    .epage-nav nav { display: flex; gap: 28px; }
+    .epage-nav a.epage-link { color: rgba(255,255,255,0.72); text-decoration: none; font-size: 11px;
+      letter-spacing: 0.28em; text-transform: uppercase; transition: color 240ms ease; }
+    .epage-nav a.epage-link:hover { color: var(--ep-champ); }
+    @media (max-width: 720px){ .epage-nav nav { display: none; } }
+    /* ── Footer ── */
+    .epage-foot { flex-shrink: 0; border-top: 1px solid rgba(255,255,255,0.08);
+      padding: 56px clamp(20px,5vw,64px) 40px; display: grid; gap: 40px;
+      grid-template-columns: 1.4fr repeat(3, 1fr); align-items: start; }
+    .epage-foot__mark { width: 120px; height: 30px; background-color: var(--ep-champ);
+      -webkit-mask: url("{{ 'elyxie-wordmark.svg' | asset_url }}") no-repeat left center / contain;
+              mask: url("{{ 'elyxie-wordmark.svg' | asset_url }}") no-repeat left center / contain; }
+    .epage-foot__tag { margin-top: 14px; font-size: 11px; letter-spacing: 0.3em; color: rgba(255,255,255,0.5); }
+    .epage-col__t { font-size: 11px; letter-spacing: 0.3em; color: var(--ep-champ); margin-bottom: 16px; }
+    .epage-col a { display: block; color: rgba(255,255,255,0.66); text-decoration: none; font-size: 14px;
+      line-height: 2.1; transition: color 240ms ease; }
+    .epage-col a:hover { color: #fff; }
+    .epage-copy { grid-column: 1 / -1; margin-top: 24px; padding-top: 24px; border-top: 1px solid rgba(255,255,255,0.06);
+      font-size: 11px; letter-spacing: 0.2em; color: rgba(255,255,255,0.4); }
+    @media (max-width: 720px){ .epage-foot { grid-template-columns: 1fr 1fr; } }
+  </style>
+</head>
+<body class="epage" data-theme="dark">
+  {%- assign nav = linklists['elyxie-header-es'] -%}
+  {%- assign foot = linklists['elyxie-footer-es'] -%}
+  <header class="epage-nav">
+    <a href="{{ routes.root_url }}" class="epage-mark" aria-label="elyxie"></a>
+    <nav>
+      {%- for l in nav.links -%}<a class="epage-link" href="{{ l.url }}">{{ l.title }}</a>{%- endfor -%}
+    </nav>
+  </header>
+
+  <div class="epage-shell">{{ content_for_layout }}</div>
+
+  <footer class="epage-foot">
+    <div>
+      <a href="{{ routes.root_url }}" class="epage-foot__mark" aria-label="elyxie"></a>
+      <div class="epage-foot__tag">SACRED WATERS</div>
+    </div>
+    {%- for col in foot.links -%}
+      <div class="epage-col">
+        <div class="epage-col__t">{{ col.title }}</div>
+        {%- for l in col.links -%}<a href="{{ l.url }}">{{ l.title }}</a>{%- endfor -%}
+      </div>
+    {%- endfor -%}
+    <div class="epage-copy">© {{ 'now' | date: '%Y' }} elyxie · Agua sagrada de la Laguna Negra de Huancabamba</div>
+  </footer>
+</body>
+</html>
