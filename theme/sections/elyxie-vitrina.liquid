@@ -10,19 +10,19 @@
     {%- assign vfirst = true -%}
     {%- assign p_plata = section.settings.product_plata | default: all_products['el-angel-plata'] -%}
     {%- for v in p_plata.variants -%}
-      {%- if v.option1 == 'Para él' -%}{%- assign c = 'el' -%}{%- else -%}{%- assign c = 'ella' -%}{%- endif -%}
+      {%- if v.sku contains 'ELLA' -%}{%- assign c = 'ella' -%}{%- else -%}{%- assign c = 'el' -%}{%- endif -%}
       {%- unless vfirst -%},{%- endunless -%}{%- assign vfirst = false -%}
       "plata|{{ c }}": { "id": {{ v.id }}, "price": {{ v.price | money | json }}, "available": {{ v.available }} }
     {%- endfor -%}
     {%- assign p_rodio = section.settings.product_rodio | default: all_products['el-angel-rodio'] -%}
     {%- for v in p_rodio.variants -%}
-      {%- if v.option1 == 'Para él' -%}{%- assign c = 'el' -%}{%- else -%}{%- assign c = 'ella' -%}{%- endif -%}
+      {%- if v.sku contains 'ELLA' -%}{%- assign c = 'ella' -%}{%- else -%}{%- assign c = 'el' -%}{%- endif -%}
       {%- unless vfirst -%},{%- endunless -%}{%- assign vfirst = false -%}
       "rodio|{{ c }}": { "id": {{ v.id }}, "price": {{ v.price | money | json }}, "available": {{ v.available }} }
     {%- endfor -%}
     {%- assign p_oro = section.settings.product_oro | default: all_products['el-angel-oro'] -%}
     {%- for v in p_oro.variants -%}
-      {%- if v.option1 == 'Para él' -%}{%- assign c = 'el' -%}{%- else -%}{%- assign c = 'ella' -%}{%- endif -%}
+      {%- if v.sku contains 'ELLA' -%}{%- assign c = 'ella' -%}{%- else -%}{%- assign c = 'el' -%}{%- endif -%}
       {%- unless vfirst -%},{%- endunless -%}{%- assign vfirst = false -%}
       "oro|{{ c }}": { "id": {{ v.id }}, "price": {{ v.price | money | json }}, "available": {{ v.available }} }
     {%- endfor -%}
