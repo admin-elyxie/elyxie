@@ -17,7 +17,7 @@ const ROOT = __dirname;
 const SOURCES = ['tweaks-panel.jsx', 'pendant.jsx', 'sections.jsx', 'app.jsx'];
 const OUTDIR = path.join(ROOT, 'dist');
 // When the Shopify theme exists, mirror the compiled JS into its (flat) assets
-// dir so `shopify theme dev/push` serves the same bundles the Vercel page uses.
+// dir so `shopify theme dev/push` serves the same bundles the standalone page uses.
 const THEME_ASSETS = path.join(ROOT, 'theme', 'assets');
 
 fs.mkdirSync(OUTDIR, { recursive: true });

@@ -6,7 +6,7 @@ Behavioral principles (Karpathy Skills) live at `~/.claude/CLAUDE.md` and apply 
 
 - React **18.3.1** + Three.js **0.160.0** (loaded via unpkg/esm.sh in `index.html`)
 - esbuild for JSX → `dist/*.js` (no bundler, no framework)
-- Hosted as a static one-pager on Vercel (`vercel.json`)
+- Deployed as a Shopify theme (`theme/`); the root `index.html` + `dist/` one-pager also runs standalone for local dev
 
 ## Build & serve
 

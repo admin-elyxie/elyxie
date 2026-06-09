@@ -1181,7 +1181,7 @@ function ElyxieTweaks({ tweaks, setTweak }) {
 function App() {
   // Initial language is driven by the Shopify-served locale (window.__ELYXIE.locale),
   // so the home reflects what Shopify serves (/ = es, /en = en, editor preview, geo default).
-  // Falls back to 'es' off-Shopify (Vercel) — non-regression.
+  // Falls back to 'es' off-Shopify (standalone) — non-regression.
   const [lang, setLang] = useState(() => {
     try {
       const l = ((typeof window !== 'undefined' && window.__ELYXIE && window.__ELYXIE.locale) || '').toLowerCase();

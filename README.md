@@ -37,4 +37,4 @@ Abre http://localhost:8000.
 
 ## Deploy
 
-Configurado para Vercel como sitio estático (sin build step). El archivo `vercel.json` deja que Vercel sirva los `.jsx` con `Content-Type: text/babel` que requiere el loader in-browser.
+El sitio en vivo es un tema de Shopify (carpeta `theme/`). `node build.js` compila los `.jsx` a `dist/*.js` y los espeja en `theme/assets/`; el tema se publica con el editor de código de Shopify o `shopify theme push`.

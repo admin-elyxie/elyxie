@@ -1,6 +1,5 @@
 .DS_Store
 node_modules/
-.vercel
 .env
 .env.local
 *.log
@@ -8,7 +7,7 @@ node_modules/
 .vscode/
 .claude/
 
-# Local-only model backup (see .vercelignore for context)
+# Local-only model backup
 assets/models/angel.original.glb
 
 # Local-only / repo-recovery artifacts

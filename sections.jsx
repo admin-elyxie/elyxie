@@ -297,7 +297,7 @@ function SectionVitrina({ lang }) {
 
   // Buy-now: inside the Shopify theme, add the selected acabado×cadena variant
   // to the cart (Ajax API — same-origin, no token, locale-aware root) and go to
-  // checkout. On the standalone (Vercel) page window.Shopify/__ELYXIE are absent,
+  // checkout. On the standalone page window.Shopify/__ELYXIE are absent,
   // so the anchor keeps its #contact fallback (we don't preventDefault).
   const handleBuy = (e) => {
     const root  = (typeof window !== 'undefined') && window.Shopify && window.Shopify.routes && window.Shopify.routes.root;
@@ -321,7 +321,7 @@ function SectionVitrina({ lang }) {
       .catch(() => { setBuying(false); window.location.href = root + 'cart'; });
   };
 
-  // Live price from Shopify when in the theme; static label fallback on Vercel.
+  // Live price from Shopify when in the theme; static label fallback when standalone.
   const vinfo = (typeof window !== 'undefined') && window.__ELYXIE && window.__ELYXIE.variants && window.__ELYXIE.variants[finish + '|' + chain];
   const priceLabel = (vinfo && vinfo.price) || active.price;
   const soldOut = !!(vinfo && vinfo.available === false);
