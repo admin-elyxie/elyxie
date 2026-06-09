@@ -1587,12 +1587,38 @@ input:focus-visible,
   opacity: 0.6;
 }
 
+/* ── Film tabs ── */
+.FilmTabs {
+  display: flex; flex-wrap: wrap; gap: 8px;
+  margin-bottom: 22px;
+}
+.FilmTab {
+  padding: 9px 16px;
+  background: transparent;
+  border: 1px solid var(--theme-fg-hairline);
+  border-radius: 999px;
+  font-family: var(--font-body);
+  font-size: 11px; font-weight: 500;
+  letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--theme-fg); opacity: 0.55;
+  cursor: pointer; white-space: nowrap;
+  transition: opacity 220ms ease, background-color 240ms ease, color 240ms ease, border-color 240ms ease;
+}
+.FilmTab:hover { opacity: 0.85; }
+.FilmTab[data-on="true"] {
+  opacity: 1;
+  background: var(--theme-fg);
+  color: var(--theme-bg);
+  border-color: var(--theme-fg);
+}
+
 .MediaPlayer {
   position: relative;
-  margin: 0;
-  aspect-ratio: 16 / 9;
+  margin: 0 auto;            /* centrado; el JS fija width/height al aspect real del video */
+  max-width: 100%;
+  aspect-ratio: 16 / 9;      /* fallback antes de que el JS mida el video */
   overflow: hidden;
-  background: #000;
+  background: #0b0b0c;
   border: 1px solid var(--theme-fg-hairline);
 }
 .MediaPlayer__video {
@@ -1600,10 +1626,22 @@ input:focus-visible,
   object-fit: cover;
   display: block;
 }
+.MediaPlayer:fullscreen { width: 100vw !important; height: 100vh !important; border: 0; background: #000; }
+.MediaPlayer:fullscreen .MediaPlayer__video { object-fit: contain; }
 .MediaPlayer .cc {
   /* Use the same cross color reference but force inverted (we're over an image) */
   color: #fff;
 }
+
+/* ── Controls (sound + fullscreen) ── */
+.MediaPlayer__controls {
+  position: absolute;
+  bottom: 28px; right: 28px;
+  display: flex; align-items: center; gap: 10px;
+}
+.MediaPlayer__controls .PlayButton { position: static; bottom: auto; right: auto; }
+.PlayButton--icon { padding: 14px; }
+.PlayButton--icon svg { flex: 0 0 15px; }
 
 .PlayButton {
   position: absolute;
@@ -3338,19 +3376,20 @@ section[data-section="outro"] {
     margin-bottom: 18px;
   }
   .VideoSection__line { flex-basis: 24px; }
-  .MediaPlayer { aspect-ratio: 4 / 5; }
+  .FilmTabs { gap: 7px; margin-bottom: 16px; }
+  .FilmTab { padding: 8px 13px; font-size: 10px; letter-spacing: 0.10em; }
+  .MediaPlayer__controls { bottom: 14px; right: 14px; gap: 8px; }
   .PlayButton {
-    bottom: 16px; right: 16px;
-    width: 56px; height: 56px;
+    width: 52px; height: 52px;
     padding: 0;
     border-radius: 50%;
-    gap: 0;
+    gap: 0; justify-content: center;
     background: rgba(5,22,19,0.65);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
   }
+  .PlayButton--icon { width: 52px; height: 52px; }
   .PlayButton__label { display: none; }
-  .PlayButton svg { margin-left: 3px; }
   .MediaPlayer__caption {
     font-size: 13px;
     line-height: 1.5;

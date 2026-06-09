@@ -26,14 +26,24 @@ function Container({ children, className = '' }) {
 }
 
 // ===========================================================
-//  Section 2 — Video full-width + Play (opens lightbox)
+//  Section 2 — Films: tabbed player (responsive + fullscreen)
 // ===========================================================
+// Tab 1 "Viaje a la Laguna" = el filme actual (assets/video/main-film*).
+// Tabs 2-4 = videos alojados en Shopify (window.__ELYXIE.films[id] = {src, src720, poster, w, h}).
+const FILMS = [
+  { id: 'viaje',    label: { es: 'Viaje a la Laguna', en: 'Journey to the Lagoon' },
+    caption: { es: 'El filme. Tres minutos en la cordillera, antes de bajar el agua.', en: 'The film. Three minutes in the cordillera, before the water descends.' } },
+  { id: 'missperu', label: { es: 'Miss Perú se protege con Elyxie', en: 'Miss Perú, protected by Elyxie' }, caption: { es: '', en: '' } },
+  { id: 'contodo',  label: { es: 'Elyxie va con todo', en: 'Elyxie goes with everything' }, caption: { es: '', en: '' } },
+  { id: 'historia', label: { es: 'Un poco de historia', en: 'A little history' }, caption: { es: '', en: '' } },
+];
+
 function SectionVideoHero({ lang }) {
   const videoRef = useR(null);
+  const figRef = useR(null);
   const [soundOn, setSoundOn] = useS(false);
+  const [active, setActive] = useS('viaje');
 
-  // Detecta móvil localmente (este componente vive fuera del Hero, que es
-  // quien tiene su propio isNarrow). matchMedia sólo dispara al cruzar 767px.
   const [isNarrow, setIsNarrow] = useS(
     typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches
   );
@@ -44,23 +54,58 @@ function SectionVideoHero({ lang }) {
     return () => mq.removeEventListener('change', onChange);
   }, []);
 
-  // Máxima calidad en desktop/tablet (1080p), liviano en móvil (720p).
-  const src = ELYXIE_ASSET(isNarrow ? 'assets/video/main-film-720.mp4' : 'assets/video/main-film.mp4');
+  const films = (typeof window !== 'undefined' && window.__ELYXIE && window.__ELYXIE.films) || {};
+  const srcFor = (id) => {
+    if (id === 'viaje') return ELYXIE_ASSET(isNarrow ? 'assets/video/main-film-720.mp4' : 'assets/video/main-film.mp4');
+    const f = films[id];
+    if (!f) return null;
+    return (isNarrow && f.src720) ? f.src720 : f.src;
+  };
+  const posterFor = (id) => {
+    if (id === 'viaje') return ELYXIE_ASSET('assets/photography/main-film-poster-1440.jpg');
+    const f = films[id];
+    return (f && f.poster) || undefined;
+  };
+  // Aspect-ratio hint (so the frame is right-sized before metadata loads → no jump)
+  const arFor = (id) => {
+    if (id === 'viaje') return 16 / 9;
+    const f = films[id];
+    return (f && f.w && f.h) ? f.w / f.h : 16 / 9;
+  };
 
-  // Autoplay sólo mientras el filme está a la vista; pausa al salir para no
-  // decodificar un 1080p fuera de pantalla. Muted es obligatorio para que el
-  // navegador permita el autoplay.
+  const activeFilm = FILMS.find((f) => f.id === active) || FILMS[0];
+  const src = srcFor(active);
+
+  // Size the frame to the video's real aspect ratio, capped at ~80vh. Works for
+  // landscape (16:9) and portrait (9:16) alike — no crop, no letterbox.
+  const fit = () => {
+    const v = videoRef.current, fig = figRef.current;
+    if (!fig) return;
+    const ar = (v && v.videoWidth && v.videoHeight) ? v.videoWidth / v.videoHeight : arFor(active);
+    const avail = (fig.parentElement && fig.parentElement.clientWidth) || fig.clientWidth || 0;
+    if (!avail) return;
+    const maxH = Math.min((window.innerHeight || 800) * (isNarrow ? 0.74 : 0.82), 820);
+    let w = avail, h = w / ar;
+    if (h > maxH) { h = maxH; w = h * ar; }
+    fig.style.width = Math.round(w) + 'px';
+    fig.style.height = Math.round(h) + 'px';
+  };
+  useE(() => { fit(); /* eslint-disable-next-line */ }, [active, isNarrow]);
+  useE(() => {
+    const onR = () => fit();
+    window.addEventListener('resize', onR);
+    return () => window.removeEventListener('resize', onR);
+  }, [active, isNarrow]);
+
+  // Autoplay only while in view (muted, so the browser allows it). Pause off-screen.
   useE(() => {
     const v = videoRef.current;
     if (!v) return;
     v.muted = !soundOn;
     const io = new IntersectionObserver(
       ([entry]) => {
-        if (entry.isIntersecting && entry.intersectionRatio >= 0.35) {
-          v.play().catch(() => {});
-        } else {
-          v.pause();
-        }
+        if (entry.isIntersecting && entry.intersectionRatio >= 0.35) v.play().catch(() => {});
+        else v.pause();
       },
       { threshold: [0, 0.35, 0.6] }
     );
@@ -76,16 +121,20 @@ function SectionVideoHero({ lang }) {
     if (next && v.paused) v.play().catch(() => {});
     setSoundOn(next);
   };
-
-  const t = lang === 'es' ? {
-    eyebrow: 'CINEMATOGRAFÍA · LAGUNA NEGRA',
-    caption: 'El filme. Tres minutos en la cordillera, antes de bajar el agua.',
-    sound: soundOn ? 'SILENCIAR' : 'ACTIVAR SONIDO',
-  } : {
-    eyebrow: 'CINEMATOGRAPHY · BLACK LAGOON',
-    caption: 'The film. Three minutes in the cordillera, before the water descends.',
-    sound: soundOn ? 'MUTE' : 'SOUND ON',
+  const goFull = () => {
+    const el = figRef.current, v = videoRef.current;
+    try {
+      if (el && el.requestFullscreen) el.requestFullscreen();
+      else if (el && el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+      else if (v && v.webkitEnterFullscreen) v.webkitEnterFullscreen(); // iOS Safari
+    } catch (e) {}
   };
+  const selectFilm = (id) => { if (id === active) return; setActive(id); setSoundOn(false); };
+
+  const t = lang === 'es'
+    ? { eyebrow: 'CINEMATOGRAFÍA · ELYXIE', sound: soundOn ? 'SILENCIAR' : 'ACTIVAR SONIDO', full: 'PANTALLA COMPLETA' }
+    : { eyebrow: 'CINEMATOGRAPHY · ELYXIE', sound: soundOn ? 'MUTE' : 'SOUND ON', full: 'FULLSCREEN' };
+  const caption = (activeFilm.caption && activeFilm.caption[lang]) || '';
 
   return (
     <section className="Section theme-light" data-theme="light" data-section="hero-video" data-screen-label="02 Video">
@@ -95,43 +144,62 @@ function SectionVideoHero({ lang }) {
           {t.eyebrow}
         </div>
 
-        <figure className="MediaPlayer">
+        <div className="FilmTabs" role="tablist" aria-label="Films">
+          {FILMS.map((f) => (
+            <button
+              key={f.id}
+              role="tab"
+              type="button"
+              aria-selected={active === f.id}
+              data-on={active === f.id ? 'true' : 'false'}
+              className="FilmTab"
+              onClick={() => selectFilm(f.id)}
+            >
+              {f.label[lang]}
+            </button>
+          ))}
+        </div>
+
+        <figure className="MediaPlayer" ref={figRef} style={{ aspectRatio: String(arFor(active)) }}>
           <video
             key={src}
             ref={videoRef}
             className="MediaPlayer__video"
             playsInline muted loop
             preload="metadata"
-            poster={ELYXIE_ASSET('assets/photography/main-film-poster-1440.jpg')}
+            poster={posterFor(active)}
+            onLoadedMetadata={fit}
           >
-            <source src={src} type="video/mp4"/>
+            {src && <source src={src} type="video/mp4"/>}
           </video>
 
-          <button
-            className="PlayButton"
-            onClick={toggleSound}
-            aria-label={t.sound}
-            aria-pressed={soundOn}
-          >
-            {soundOn ? (
-              <svg width="16" height="14" viewBox="0 0 18 16" fill="none" aria-hidden>
-                <path d="M1 5.5H4L8 2V14L4 10.5H1V5.5Z" fill="currentColor"/>
-                <path d="M11 5C12.2 6.2 12.2 9.8 11 11" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
-                <path d="M13.5 3C15.8 5.2 15.8 10.8 13.5 13" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+          <div className="MediaPlayer__controls">
+            <button className="PlayButton" onClick={toggleSound} aria-label={t.sound} aria-pressed={soundOn}>
+              {soundOn ? (
+                <svg width="16" height="14" viewBox="0 0 18 16" fill="none" aria-hidden>
+                  <path d="M1 5.5H4L8 2V14L4 10.5H1V5.5Z" fill="currentColor"/>
+                  <path d="M11 5C12.2 6.2 12.2 9.8 11 11" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+                  <path d="M13.5 3C15.8 5.2 15.8 10.8 13.5 13" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+                </svg>
+              ) : (
+                <svg width="16" height="14" viewBox="0 0 18 16" fill="none" aria-hidden>
+                  <path d="M1 5.5H4L8 2V14L4 10.5H1V5.5Z" fill="currentColor"/>
+                  <path d="M11.5 5.5L16 10.5M16 5.5L11.5 10.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+                </svg>
+              )}
+              <span className="PlayButton__label">{t.sound}</span>
+            </button>
+            <button className="PlayButton PlayButton--icon" onClick={goFull} aria-label={t.full} title={t.full}>
+              <svg width="15" height="15" viewBox="0 0 18 18" fill="none" aria-hidden>
+                <path d="M2 6.5V2.5H6M16 6.5V2.5H12M2 11.5V15.5H6M16 11.5V15.5H12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
-            ) : (
-              <svg width="16" height="14" viewBox="0 0 18 16" fill="none" aria-hidden>
-                <path d="M1 5.5H4L8 2V14L4 10.5H1V5.5Z" fill="currentColor"/>
-                <path d="M11.5 5.5L16 10.5M16 5.5L11.5 10.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
-              </svg>
-            )}
-            <span className="PlayButton__label">{t.sound}</span>
-          </button>
+            </button>
+          </div>
 
           <CornerCrosses />
         </figure>
 
-        <figcaption className="MediaPlayer__caption">{t.caption}</figcaption>
+        {caption && <figcaption className="MediaPlayer__caption">{caption}</figcaption>}
       </Container>
     </section>
   );
