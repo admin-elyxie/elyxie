@@ -52,6 +52,18 @@
     .epage-copy { grid-column: 1 / -1; margin-top: 24px; padding-top: 24px; border-top: 1px solid rgba(255,255,255,0.06);
       font-size: 11px; letter-spacing: 0.2em; color: rgba(255,255,255,0.4); }
     @media (max-width: 720px){ .epage-foot { grid-template-columns: 1fr 1fr; } }
+    /* ── Toggle de idioma ES/EN (espejo del home, ES por defecto) ── */
+    .epage-nav__right { display: flex; align-items: center; gap: clamp(20px,3vw,40px); }
+    .epage-lang { display: inline-flex; align-items: center; padding: 4px; margin: 0;
+      background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.14); border-radius: 999px; }
+    .epage-lang__btn { appearance: none; -webkit-appearance: none; background: transparent; border: 0;
+      cursor: pointer; width: 46px; padding: 7px 0; border-radius: 999px; font-family: var(--ep-sans);
+      font-size: 11px; font-weight: 500; letter-spacing: 0.22em; text-transform: uppercase;
+      color: rgba(255,255,255,0.55); text-align: center; text-indent: 0.22em;
+      transition: color 240ms ease, background 240ms ease; }
+    .epage-lang__btn[data-active="true"] { color: #fff; background: rgba(255,255,255,0.14); }
+    .epage-lang__btn:hover { color: var(--ep-champ); }
+    @media (max-width: 720px){ .epage-nav__right { gap: 14px; } }
   </style>
 </head>
 <body class="epage" data-theme="dark">
@@ -59,9 +71,22 @@
   {%- assign foot = linklists['elyxie-footer-es'] -%}
   <header class="epage-nav">
     <a href="{{ routes.root_url }}" class="epage-mark" aria-label="elyxie"></a>
-    <nav>
-      {%- for l in nav.links -%}<a class="epage-link" href="{{ l.url }}">{{ l.title }}</a>{%- endfor -%}
-    </nav>
+    <div class="epage-nav__right">
+      <nav>
+        {%- for l in nav.links -%}<a class="epage-link" href="{{ l.url }}">{{ l.title }}</a>{%- endfor -%}
+      </nav>
+      {%- comment -%} Toggle ES/EN — refleja el locale real de Shopify (es por defecto); botones lo cambian {%- endcomment -%}
+      {%- assign cur_iso = localization.language.iso_code | downcase -%}
+      {%- assign lang_es = nil -%}{%- assign lang_en = nil -%}
+      {%- for language in localization.available_languages -%}
+        {%- assign _iso = language.iso_code | downcase -%}
+        {%- if _iso == 'es' -%}{%- assign lang_es = language -%}{%- elsif _iso == 'en' -%}{%- assign lang_en = language -%}{%- endif -%}
+      {%- endfor -%}
+      {%- form 'localization', class: 'epage-lang' -%}
+        {%- if lang_es -%}<button type="submit" name="locale_code" value="{{ lang_es.iso_code }}" class="epage-lang__btn" data-lang="es" data-active="{% if cur_iso == 'es' %}true{% else %}false{% endif %}" aria-label="Español">ES</button>{%- endif -%}
+        {%- if lang_en -%}<button type="submit" name="locale_code" value="{{ lang_en.iso_code }}" class="epage-lang__btn" data-lang="en" data-active="{% if cur_iso == 'en' %}true{% else %}false{% endif %}" aria-label="English">EN</button>{%- endif -%}
+      {%- endform -%}
+    </div>
   </header>
 
   <div class="epage-shell">{{ content_for_layout }}</div>
