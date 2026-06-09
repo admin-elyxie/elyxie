@@ -266,6 +266,9 @@
       {{ 'component-discounts.css' | asset_url | stylesheet_tag }}
     {%- endif -%}
 
+    {%- comment -%} elyxie re-skin of the native cart drawer + champagne badge + quick-add. {%- endcomment -%}
+    {{ 'elyxie-cart.css' | asset_url | stylesheet_tag }}
+
     {%- unless settings.type_body_font.system? -%}
       {% comment %}theme-check-disable AssetPreload{% endcomment %}
       <link rel="preload" as="font" href="{{ settings.type_body_font | font_url }}" type="font/woff2" crossorigin>

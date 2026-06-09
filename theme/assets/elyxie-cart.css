@@ -1,0 +1,499 @@
+/* ============================================================================
+   elyxie-cart.css — re-skin of the NATIVE Shopify (Dawn) cart drawer to the
+   elyxie design system (emerald void · champagne · gold pill).
+
+   The structural layout + slide / empty-state mechanics come from Dawn's own
+   component-cart-*.css; this file does three jobs on top of that:
+     1. backfill the handful of base.css utilities the drawer markup needs (the
+        minimal product layout `elyxie-page.liquid` does NOT load base.css);
+     2. remap the cart's color tokens to elyxie values so the native CSS paints
+        emerald/champagne for free;
+     3. paint the elyxie skin (fonts, pill CTAs, hairlines, badge) on top.
+
+   Everything is scoped to the cart (`cart-drawer`, `.epage-cart`, `.quick-add`)
+   so it can never leak into the rest of the page. Loaded LAST on both
+   layout/elyxie-page.liquid (product) and layout/theme.liquid (Dawn pages) so
+   it always wins over the component CSS.
+
+   NOTE: sizes are in `rem` (Dawn's 1rem = 10px convention). Both layouts that
+   load this set the root to 62.5%, so rem resolves identically everywhere.
+   ========================================================================== */
+
+/* ── 1 · base.css utility backfill ───────────────────────────────────────────
+   Identical to Dawn's definitions, so redefining them on the Dawn pages (where
+   base.css already provides them) is a harmless no-op. */
+.visually-hidden {
+  position: absolute !important;
+  overflow: hidden;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  clip: rect(0 0 0 0);
+  word-wrap: normal !important;
+}
+.hidden {
+  display: none !important;
+}
+.overflow-hidden {
+  overflow: hidden;
+}
+.list-unstyled {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* ── 2 · token remap — feed the native cart CSS elyxie colours ────────────── */
+cart-drawer {
+  --color-foreground: 255, 255, 255; /* text + hairlines */
+  --color-background: 10, 38, 32; /* #0A2620 */
+  --color-button: 233, 215, 177; /* champagne */
+  --color-button-text: 10, 38, 32;
+  --color-base-text: 255, 255, 255;
+  --color-base-accent-1: 233, 215, 177;
+  --duration-default: 0.3s;
+  --duration-short: 0.1s;
+  --duration-long: 0.5s;
+}
+
+/* elyxie local palette — self-contained (the --ep-* vars are absent on Dawn
+   pages, so we do not depend on them here) */
+cart-drawer,
+.epage-cart,
+.quick-add {
+  --ec-void: #051613;
+  --ec-bg: #0a2620;
+  --ec-panel: #0e2e26;
+  --ec-ink: #ffffff;
+  --ec-champ: #e9d7b1;
+  --ec-gold: #c9a66b;
+  --ec-hair: rgba(255, 255, 255, 0.1);
+  --ec-hair-champ: rgba(233, 215, 177, 0.18);
+  --ec-serif: "Cormorant Garamond", "EB Garamond", Georgia, serif;
+  --ec-sans: "Satoshi", "Inter", system-ui, sans-serif;
+}
+
+/* svg sizing backfill (base.css normally handles this) */
+cart-drawer .svg-wrapper,
+.epage-cart .svg-wrapper {
+  display: inline-flex;
+}
+cart-drawer .svg-wrapper svg,
+.epage-cart .svg-wrapper svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* ── 3 · skin ─────────────────────────────────────────────────────────────── */
+
+/* backdrop scrim (native uses a 50% white veil — make it the emerald void) */
+cart-drawer.drawer {
+  background-color: rgba(5, 22, 19, 0.62);
+}
+
+/* the sliding panel */
+cart-drawer .drawer__inner {
+  background:
+    radial-gradient(ellipse 120% 60% at 50% -10%, rgba(38, 96, 100, 0.22) 0%, rgba(10, 38, 32, 0) 60%),
+    linear-gradient(180deg, #0a2620 0%, #07211b 55%, #051613 100%);
+  color: var(--ec-ink);
+  border: 0;
+  border-left: 1px solid var(--ec-hair-champ);
+  box-shadow: -24px 0 70px rgba(5, 22, 19, 0.6);
+  padding: 0 2.4rem;
+  font-family: var(--ec-sans);
+}
+
+/* header */
+cart-drawer .drawer__header {
+  padding: 2.4rem 0 1.6rem;
+}
+cart-drawer .drawer__heading {
+  margin: 0;
+  font-family: var(--ec-serif);
+  font-weight: 400;
+  font-size: 2.8rem;
+  letter-spacing: 0.01em;
+  color: var(--ec-ink);
+}
+cart-drawer .drawer__close {
+  color: var(--ec-ink);
+  transition: color 0.2s ease;
+}
+cart-drawer .drawer__close:hover {
+  color: var(--ec-champ);
+}
+
+/* column headings */
+cart-drawer .cart-items th {
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--ec-hair);
+  font-family: var(--ec-sans);
+  font-size: 1rem;
+  font-weight: 500;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+/* line item */
+cart-drawer .cart-item__image {
+  border-radius: 1rem;
+  border: 1px solid var(--ec-hair);
+}
+cart-drawer .cart-item__name {
+  font-family: var(--ec-serif);
+  font-weight: 500;
+  font-size: 1.9rem;
+  line-height: 1.2;
+  color: var(--ec-ink);
+  text-decoration: none;
+}
+cart-drawer .cart-item__name:hover {
+  color: var(--ec-champ);
+}
+cart-drawer .product-option {
+  font-family: var(--ec-sans);
+  font-size: 1.2rem;
+  color: rgba(255, 255, 255, 0.55);
+}
+cart-drawer .product-option dt {
+  display: inline;
+  color: rgba(255, 255, 255, 0.4);
+}
+cart-drawer .product-option dd {
+  display: inline;
+  margin: 0;
+}
+cart-drawer .cart-item__price-wrapper .price,
+cart-drawer .cart-item__final-price,
+cart-drawer .cart-item__totals .price {
+  font-family: var(--ec-sans);
+  font-size: 1.4rem;
+  color: var(--ec-ink);
+}
+cart-drawer .cart-item__old-price {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+/* quantity stepper — fully self-contained (base.css absent on product page) */
+cart-drawer .quantity {
+  display: inline-flex;
+  align-items: center;
+  height: 3.6rem;
+  border: 1px solid var(--ec-hair);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.03);
+}
+cart-drawer .quantity:focus-within {
+  border-color: var(--ec-hair-champ);
+}
+cart-drawer .quantity__button {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 3.4rem;
+  height: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 0;
+  color: var(--ec-champ);
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+cart-drawer .quantity__button:hover {
+  color: var(--ec-ink);
+}
+cart-drawer .quantity__button .svg-wrapper {
+  width: 1rem;
+  height: 1rem;
+}
+cart-drawer .quantity__input {
+  width: 3rem;
+  padding: 0;
+  text-align: center;
+  background: transparent;
+  border: 0;
+  color: var(--ec-ink);
+  font-family: var(--ec-sans);
+  font-size: 1.4rem;
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+cart-drawer .quantity__input::-webkit-outer-spin-button,
+cart-drawer .quantity__input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* remove button */
+cart-drawer .cart-remove-button {
+  display: inline-flex;
+  margin-left: 0.6rem;
+}
+cart-drawer .cart-remove-button > button {
+  -webkit-appearance: none;
+  appearance: none;
+  min-width: auto;
+  padding: 0.8rem;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  color: rgba(255, 255, 255, 0.45);
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+cart-drawer .cart-remove-button > button:hover {
+  color: var(--ec-champ);
+  background: transparent;
+}
+cart-drawer .cart-remove-button .svg-wrapper {
+  width: 1.6rem;
+  height: 1.6rem;
+}
+
+/* tertiary buttons (popover info etc.) */
+cart-drawer .button--tertiary {
+  background: transparent;
+  border: 0;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+/* footer / totals */
+cart-drawer .drawer__footer {
+  padding: 2rem 0 2.4rem;
+  border-top: 1px solid var(--ec-hair);
+}
+cart-drawer .totals__total {
+  margin: 0;
+  font-family: var(--ec-sans);
+  font-size: 1.1rem;
+  font-weight: 500;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.6);
+}
+cart-drawer .totals__total-value {
+  margin: 0;
+  font-family: var(--ec-serif);
+  font-size: 2.4rem;
+  color: var(--ec-ink);
+}
+cart-drawer .tax-note {
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 1.1rem;
+}
+
+/* primary CTA — gold-gradient pill */
+cart-drawer .cart__checkout-button.button,
+cart-drawer #CartDrawer-Checkout {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 5.4rem;
+  padding: 1.6rem 2.4rem;
+  border: 0;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #e9d7b1, #c9a66b);
+  color: #0a2620;
+  font-family: var(--ec-sans);
+  font-size: 1.1rem;
+  font-weight: 600;
+  letter-spacing: 0.26em;
+  text-transform: uppercase;
+  box-shadow: 0 0 30px rgba(233, 215, 177, 0.22);
+  cursor: pointer;
+  transition: box-shadow 0.24s ease, opacity 0.2s ease;
+}
+cart-drawer .cart__checkout-button.button::before,
+cart-drawer .cart__checkout-button.button::after {
+  content: none;
+}
+cart-drawer .cart__checkout-button.button:hover:not([disabled]) {
+  box-shadow: 0 0 60px rgba(233, 215, 177, 0.32), 0 0 120px rgba(233, 215, 177, 0.16);
+}
+cart-drawer .cart__checkout-button[disabled] {
+  opacity: 0.45;
+  cursor: default;
+  box-shadow: none;
+}
+
+/* empty state */
+cart-drawer .drawer__inner-empty {
+  padding: 0 2.4rem;
+}
+cart-drawer .cart-drawer__empty-content {
+  text-align: center;
+}
+cart-drawer .cart__empty-text {
+  font-family: var(--ec-serif);
+  font-weight: 400;
+  font-size: 2.6rem;
+  color: var(--ec-ink);
+  text-align: center;
+}
+/* "Continue shopping" — cream pill */
+cart-drawer .drawer__inner-empty .button {
+  display: inline-block;
+  margin-top: 0.8rem;
+  padding: 1.5rem 3rem;
+  border: 0;
+  border-radius: 999px;
+  background: var(--ec-champ);
+  color: #0a2620;
+  font-family: var(--ec-sans);
+  font-size: 1.1rem;
+  font-weight: 600;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  text-decoration: none;
+  transition: box-shadow 0.24s ease;
+}
+cart-drawer .drawer__inner-empty .button::before,
+cart-drawer .drawer__inner-empty .button::after {
+  content: none;
+}
+cart-drawer .drawer__inner-empty .button:hover {
+  box-shadow: 0 0 40px rgba(233, 215, 177, 0.3);
+}
+cart-drawer .cart__login-title {
+  margin-top: 2.4rem;
+  font-family: var(--ec-serif);
+  color: var(--ec-ink);
+}
+cart-drawer .cart__login-paragraph {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 1.3rem;
+}
+cart-drawer .cart__login-paragraph a {
+  color: var(--ec-champ);
+  text-decoration: underline;
+}
+
+/* discounts + line errors */
+cart-drawer .discounts__discount {
+  color: var(--ec-champ);
+  font-size: 1.2rem;
+}
+cart-drawer .cart-item__error-text {
+  color: #e5a3a3;
+  font-size: 1.2rem;
+}
+
+/* scrollbar */
+cart-drawer cart-drawer-items::-webkit-scrollbar-thumb {
+  background-color: rgba(233, 215, 177, 0.45);
+}
+
+/* per-item loading spinner (qty change / remove) — self-contained so it still
+   animates on the product layout, where base.css's spinner CSS is absent */
+cart-drawer .loading__spinner {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 1.8rem;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  z-index: 1;
+}
+cart-drawer .loading__spinner .spinner {
+  width: 1.8rem;
+  animation: ec-rotator 1.4s linear infinite;
+}
+cart-drawer .loading__spinner .path {
+  stroke: var(--ec-champ);
+  stroke-dasharray: 280;
+  stroke-dashoffset: 0;
+  transform-origin: center;
+  animation: ec-dash 1.4s ease-in-out infinite;
+}
+@keyframes ec-rotator {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(270deg); }
+}
+@keyframes ec-dash {
+  0% { stroke-dashoffset: 280; }
+  50% { stroke-dashoffset: 75; transform: rotate(135deg); }
+  100% { stroke-dashoffset: 280; transform: rotate(450deg); }
+}
+
+/* ── 4 · header cart icon (elyxie product layout) ─────────────────────────── */
+.epage-cart {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.4rem;
+  height: 2.4rem;
+  color: rgba(255, 255, 255, 0.72);
+  text-decoration: none;
+  cursor: pointer;
+  transition: color 0.24s ease;
+}
+.epage-cart:hover {
+  color: var(--ec-champ);
+}
+.epage-cart:focus-visible {
+  outline: 2px solid var(--ec-champ);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+.epage-cart .svg-wrapper {
+  width: 2.2rem;
+  height: 2.2rem;
+}
+.epage-cart .cart-count-bubble {
+  position: absolute;
+  bottom: -0.6rem;
+  right: -0.8rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.8rem;
+  height: 1.8rem;
+  padding: 0 0.5rem;
+}
+
+/* champagne badge — the count bubble only ever lives inside a cart icon
+   (#cart-icon-bubble, on both the elyxie and Dawn headers). Scoped to that id so
+   it can't touch anything else; loaded after base.css so it wins the cascade. */
+#cart-icon-bubble .cart-count-bubble {
+  border-radius: 999px;
+  background-color: #e9d7b1;
+  border: 0;
+}
+#cart-icon-bubble .cart-count-bubble,
+#cart-icon-bubble .cart-count-bubble span {
+  color: #0a2620;
+  font-family: "Satoshi", "Inter", system-ui, sans-serif;
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1;
+}
+
+/* ── 5 · quick-add button on Dawn collection cards ────────────────────────── */
+.quick-add__submit.button {
+  border-radius: 999px;
+  background: transparent;
+  border: 1px solid var(--ec-hair-champ);
+  color: var(--ec-champ);
+  font-family: var(--ec-sans);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  transition: background 0.24s ease, color 0.24s ease;
+}
+.quick-add__submit.button::before,
+.quick-add__submit.button::after {
+  content: none; /* kill Dawn's pseudo-border so only the elyxie outline shows */
+}
+.quick-add__submit.button:hover:not([disabled]) {
+  background: var(--ec-champ);
+  color: #0a2620;
+}
