@@ -68,6 +68,91 @@
   .eprod-buy span { transition: transform 220ms cubic-bezier(0.2,0,0,1); }
   .eprod-buy:hover span { transform: translateX(5px); }
   @media (max-width: 860px){ .eprod__wrap { grid-template-columns: 1fr; } .eprod__chains { grid-template-columns: 1fr; } }
+
+  /* ── Historia editorial (descripción larga del producto) ──────────────────
+     Dirección "Editorial Minimal — revista de lujo" (workflow diseño+juez):
+     champagne con cuentagotas, jerarquía por tamaño/peso, centrado estrecho.
+     Injertos: ficha = registro de catálogo (hairlines indep. del fondo);
+     hilo champagne de apertura que cose con el hero; rombo del hr sin halo. */
+  .estory {
+    --es-measure: 760px; --es-measure-wide: 940px;
+    --es-ink: #FFFFFF; --es-body: rgba(255,255,255,0.76); --es-body-soft: rgba(255,255,255,0.62);
+    --es-champ: var(--ep-champ); --es-gold: var(--ep-gold);
+    --es-hair: rgba(255,255,255,0.10); --es-hair-faint: rgba(255,255,255,0.07);
+    --es-serif: var(--ep-serif); --es-sans: var(--ep-sans);
+    position: relative; width: 100%;
+    padding: clamp(80px,12vw,176px) 24px clamp(72px,11vw,148px);
+    color: var(--es-body); font-family: var(--es-sans);
+    font-size: clamp(16px, 1.05vw + 13px, 18px); line-height: 1.72;
+    -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
+  /* hilo champagne de apertura — cose la historia con el hero de arriba */
+  .estory::before { content: ""; position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+    width: clamp(120px,22vw,280px); height: 1px;
+    background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--ep-champ) 55%, transparent), transparent); }
+  .estory-inner { max-width: var(--es-measure); margin: 0 auto; }
+  .estory-inner > * { margin: 0; }
+  .estory-inner > * + * { margin-top: clamp(20px,2.4vw,30px); }
+  .estory p { max-width: 68ch; margin-left: auto; margin-right: auto; color: var(--es-body); font-weight: 400; letter-spacing: 0.002em; }
+  .estory strong { color: rgba(255,255,255,0.92); font-weight: 600; }
+  .estory-title { font-family: var(--es-serif); font-weight: 300; font-size: clamp(40px,6vw,78px); line-height: 1.02; letter-spacing: -0.02em; text-align: center; color: var(--es-ink); max-width: 16ch; margin-left: auto; margin-right: auto; }
+  .estory-sub { font-family: var(--es-serif); font-style: italic; font-weight: 400; font-size: clamp(20px,2.6vw,30px); line-height: 1.25; letter-spacing: 0.005em; text-align: center; color: var(--es-champ); opacity: 0.82; margin-top: clamp(14px,1.6vw,20px) !important; }
+  .estory-sub + p { margin-top: clamp(40px,5vw,68px) !important; }
+  .estory-accent { max-width: 24ch; margin: clamp(40px,5vw,64px) auto !important; font-family: var(--es-serif); font-style: italic; font-weight: 400; font-size: clamp(24px,3.4vw,38px); line-height: 1.28; letter-spacing: -0.005em; text-align: center; color: rgba(255,255,255,0.90); text-wrap: balance; }
+  .estory h3 { max-width: 32ch; margin-left: auto; margin-right: auto; margin-top: clamp(48px,6vw,88px) !important; margin-bottom: clamp(2px,0.6vw,6px); font-family: var(--es-sans); font-weight: 500; font-size: clamp(11px, 0.5vw + 9px, 12.5px); line-height: 1.6; letter-spacing: 0.28em; text-transform: uppercase; text-align: center; color: var(--es-champ); }
+  .estory h3 + p { margin-top: clamp(12px,1.4vw,18px) !important; text-align: center; }
+  .estory hr { position: relative; width: min(100%, 420px); height: 1px; border: 0; margin: clamp(56px,7vw,104px) auto !important; background: linear-gradient(90deg, transparent, var(--es-hair) 22%, var(--es-hair) 78%, transparent); overflow: visible; }
+  .estory hr::before { content: ""; position: absolute; top: 50%; left: 50%; width: 5px; height: 5px; transform: translate(-50%,-50%) rotate(45deg); background: var(--es-champ); opacity: 0.55; }
+  .estory-chapters { list-style: none; counter-reset: estory-ch; max-width: var(--es-measure-wide); margin-left: auto; margin-right: auto; padding: 0; }
+  .estory-chapters > li { counter-increment: estory-ch; position: relative; padding-left: clamp(78px,11vw,132px); min-height: clamp(64px,8vw,96px); }
+  .estory-chapters > li + li { margin-top: clamp(48px,6vw,84px); padding-top: clamp(48px,6vw,84px); border-top: 1px solid var(--es-hair-faint); }
+  .estory-chapters > li::before { content: counter(estory-ch, decimal-leading-zero); position: absolute; left: 0; top: -0.12em; font-family: var(--es-serif); font-weight: 300; font-size: clamp(54px,8vw,104px); line-height: 1; letter-spacing: -0.03em; color: rgba(233,215,177,0.22); font-feature-settings: "tnum" 1; pointer-events: none; }
+  .estory-chapters h4 { margin: 0 0 clamp(14px,1.6vw,20px); font-family: var(--es-serif); font-weight: 400; font-size: clamp(25px,3vw,38px); line-height: 1.16; letter-spacing: -0.01em; color: var(--es-ink); text-wrap: balance; }
+  .estory-chapters > li > p { max-width: 64ch; margin: 0; text-align: left; }
+  .estory-chapters ul { list-style: none; margin: clamp(20px,2.4vw,30px) 0 0; padding: 0; }
+  .estory-chapters ul li { position: relative; padding-left: 26px; max-width: 62ch; color: var(--es-body); }
+  .estory-chapters ul li + li { margin-top: clamp(12px,1.4vw,18px); }
+  .estory-chapters ul li::before { content: ""; position: absolute; left: 2px; top: 0.82em; width: 4px; height: 4px; transform: rotate(45deg); background: rgba(233,215,177,0.55); }
+  .estory-chapters ul em { font-style: normal; font-weight: 500; letter-spacing: 0.01em; color: var(--es-champ); }
+  .estory-detail-h { margin-bottom: clamp(28px,3.4vw,44px) !important; }
+  /* Ficha técnica — registro de catálogo (injerto Dir. 3): hairlines independientes del fondo */
+  .estory-spec { max-width: 720px; margin: 0 auto; padding: 0; border-top: 1px solid var(--es-hair); }
+  .estory-spec > div { display: grid; grid-template-columns: minmax(140px,0.42fr) 1fr; gap: clamp(16px,3vw,40px); align-items: baseline; padding: clamp(16px,2vw,22px) clamp(4px,1vw,14px); border-bottom: 1px solid var(--es-hair); }
+  .estory-spec dt { margin: 0; font-family: var(--es-sans); font-weight: 500; font-size: clamp(10px,0.9vw,11.5px); letter-spacing: 0.22em; text-transform: uppercase; color: var(--es-champ); line-height: 1.55; }
+  .estory-spec dd { margin: 0; font-family: var(--es-serif); font-weight: 400; font-size: clamp(17px,1.7vw,21px); line-height: 1.45; letter-spacing: 0.004em; color: rgba(255,255,255,0.9); }
+  .estory blockquote { position: relative; max-width: 30ch; margin: clamp(64px,9vw,128px) auto !important; padding: clamp(8px,1.4vw,16px) 0 clamp(8px,1.4vw,16px) clamp(28px,4vw,52px); border-left: 1px solid rgba(233,215,177,0.40); font-family: var(--es-serif); font-style: italic; font-weight: 400; font-size: clamp(26px,3.8vw,44px); line-height: 1.30; letter-spacing: -0.01em; color: rgba(255,255,255,0.88); text-wrap: pretty; }
+  .estory blockquote::before { content: "\201C"; position: absolute; left: clamp(14px,2vw,28px); top: -0.42em; font-family: var(--es-serif); font-style: normal; font-size: clamp(64px,9vw,128px); line-height: 1; color: rgba(233,215,177,0.16); pointer-events: none; user-select: none; }
+  .estory-close { max-width: 38ch; margin: clamp(56px,7vw,104px) auto 0 !important; font-family: var(--es-sans); font-weight: 400; font-size: clamp(15px, 1vw + 12px, 17px); line-height: 1.7; letter-spacing: 0.06em; text-align: center; color: var(--es-body-soft); }
+  @media (max-width: 720px){
+    .estory { padding: clamp(64px,16vw,96px) 22px clamp(56px,14vw,80px); font-size: 16px; line-height: 1.68; }
+    .estory-inner > * + * { margin-top: 18px; }
+    .estory p { max-width: none; }
+    .estory-title { font-size: clamp(34px,11vw,52px); max-width: 18ch; }
+    .estory-sub { font-size: clamp(19px,5.4vw,25px); }
+    .estory-accent { font-size: clamp(22px,6.4vw,30px); max-width: 22ch; }
+    .estory h3 { margin-top: 44px !important; max-width: none; }
+    .estory hr { margin: 48px auto !important; width: 100%; }
+    .estory-chapters > li { padding-left: 0; padding-top: 0; min-height: 0; }
+    .estory-chapters > li + li { margin-top: 40px; padding-top: 40px; }
+    .estory-chapters > li::before { position: static; display: block; font-size: clamp(46px,16vw,64px); margin-bottom: 4px; }
+    .estory-chapters h4 { font-size: clamp(22px,6.4vw,30px); }
+    .estory-chapters > li > p, .estory-chapters ul li { max-width: none; }
+    .estory-spec > div { grid-template-columns: 1fr; gap: 6px; padding: 16px 2px; }
+    .estory-spec dt { letter-spacing: 0.2em; }
+    .estory-spec dd { font-size: 18px; }
+    .estory blockquote { font-size: clamp(23px,7vw,32px); padding-left: 22px; max-width: none; margin: 64px auto !important; }
+    .estory blockquote::before { font-size: clamp(56px,18vw,80px); }
+    .estory-close { max-width: none; }
+  }
+  @media (max-width: 480px){
+    .estory { padding: 56px 18px 52px; }
+    .estory-title { font-size: clamp(30px,12vw,42px); }
+    .estory-sub { font-size: 19px; }
+    .estory-accent { font-size: 22px; }
+    .estory h3 { letter-spacing: 0.24em; }
+    .estory-chapters > li::before { font-size: 44px; }
+    .estory-chapters h4 { font-size: 23px; }
+    .estory blockquote { font-size: 23px; }
+  }
 </style>
 
 <section class="eprod">
@@ -88,7 +173,7 @@
     <div class="eprod__info">
       <div class="eprod__eyebrow">LA PIEZA{% if tfinish != blank %} · {{ tfinish | upcase }}{% endif %}</div>
       <h1 class="eprod__title">{{ tname }}{% if tfinish != blank %} <em>{{ tfinish }}</em>{% endif %}</h1>
-      <div class="eprod__desc">{{ product.description }}</div>
+      <div class="eprod__desc">Un santuario que se lleva puesto. Agua viva de la Laguna Negra, suspendida en cristal soplado.</div>
 
       {%- if product.variants.size > 1 -%}
       <div class="eprod__chainLabel">CADENA · PARA QUIÉN ES</div>
@@ -175,6 +260,10 @@
       });
     })();
   </script>
+</section>
+
+<section class="estory">
+  <div class="estory-inner">{{ product.description }}</div>
 </section>
 
 {% schema %}
