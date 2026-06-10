@@ -820,18 +820,26 @@
     <div class="story-scene__pin">
       <div class="story-scene__media">
         <picture>
-          <source media="(max-width: 600px)" sizes="100vw"
-            srcset="{{ 'story-paramo-bg-480.webp' | asset_url }} 480w, {{ 'story-paramo-bg-960.webp' | asset_url }} 960w">
+          {%- comment -%} Móvil: recorte VERTICAL 1:2.17 (art-directed desde el
+            upscale 4K). En object-fit cover sobre viewport vertical manda la
+            ALTURA: un candidato landscape de 960w (536 de alto) se estiraba
+            ~3× en un iPhone DPR 3 (1170×2532+ físicos). {%- endcomment -%}
+          <source media="(max-width: 600px)" sizes="100vw" width="1290" height="2800"
+            srcset="{{ 'story-paramo-bg-m-640.webp' | asset_url }} 640w, {{ 'story-paramo-bg-m-960.webp' | asset_url }} 960w, {{ 'story-paramo-bg-m-1290.webp' | asset_url }} 1290w">
           <img
             src="{{ 'story-paramo-bg-960.webp' | asset_url }}"
-            srcset="{{ 'story-paramo-bg-480.webp' | asset_url }} 480w, {{ 'story-paramo-bg-960.webp' | asset_url }} 960w, {{ 'story-paramo-bg-1440.webp' | asset_url }} 1440w"
+            srcset="{{ 'story-paramo-bg-480.webp' | asset_url }} 480w, {{ 'story-paramo-bg-960.webp' | asset_url }} 960w, {{ 'story-paramo-bg-1440.webp' | asset_url }} 1440w, {{ 'story-paramo-bg-2048.webp' | asset_url }} 2048w, {{ 'story-paramo-bg-2752.webp' | asset_url }} 2752w"
             sizes="100vw" width="960" height="536" fetchpriority="high" decoding="async"
             alt="{% if is_en %}Low mist over the páramo of Las Huaringas, in Huancabamba{% else %}Niebla baja sobre el páramo de las Huaringas, en Huancabamba{% endif %}">
         </picture>
+        {%- comment -%} Sin atributo poster: el <picture> de debajo ES el póster
+          por diseño (un video sin src pinta transparente) — y como el <img>
+          móvil ahora es vertical, un poster landscape flashearía desencajado
+          al decodificar. -m: 1080×2336 recortado del upscale 4K (el master
+          origen es 1440×1786 nativo; la antigua -720 se estiraba ~2.8×). {%- endcomment -%}
         <video class="story-video" muted playsinline loop preload="none" aria-hidden="true"
-          poster="{{ 'story-paramo-bg-960.webp' | asset_url }}"
           data-src="{{ 'origen-bg.mp4' | asset_url }}"
-          data-src-720="{{ 'origen-bg-720.mp4' | asset_url }}"></video>
+          data-src-m="{{ 'origen-bg-m.mp4' | asset_url }}"></video>
       </div>
       <div class="story-scene__scrim" aria-hidden="true"></div>
       {{ s1_beats }}
@@ -847,12 +855,11 @@
       <div class="story-scene__media">
         <picture>
           {%- comment -%} -m-*: recorte vertical art-directed para móvil {%- endcomment -%}
-          <source media="(max-width: 600px)"
-            srcset="{{ 'story-encanto-bg-m-480.webp' | asset_url }} 480w, {{ 'story-encanto-bg-m-960.webp' | asset_url }} 960w"
-            sizes="100vw">
+          <source media="(max-width: 600px)" sizes="100vw" width="1268" height="2752"
+            srcset="{{ 'story-encanto-bg-m-640.webp' | asset_url }} 640w, {{ 'story-encanto-bg-m-960.webp' | asset_url }} 960w, {{ 'story-encanto-bg-m-1268.webp' | asset_url }} 1268w">
           <img
             src="{{ 'story-encanto-bg-960.webp' | asset_url }}"
-            srcset="{{ 'story-encanto-bg-480.webp' | asset_url }} 480w, {{ 'story-encanto-bg-960.webp' | asset_url }} 960w, {{ 'story-encanto-bg-1440.webp' | asset_url }} 1440w"
+            srcset="{{ 'story-encanto-bg-480.webp' | asset_url }} 480w, {{ 'story-encanto-bg-960.webp' | asset_url }} 960w, {{ 'story-encanto-bg-1440.webp' | asset_url }} 1440w, {{ 'story-encanto-bg-2048.webp' | asset_url }} 2048w, {{ 'story-encanto-bg-2752.webp' | asset_url }} 2752w"
             sizes="100vw" width="960" height="536" loading="lazy" decoding="async"
             alt="{% if is_en %}The dark, still surface of the Black Lagoon{% else %}La superficie oscura y quieta de la Laguna Negra{% endif %}">
         </picture>
@@ -873,27 +880,28 @@
     <div class="story-scene__pin">
       <div class="story-scene__media">
         <picture>
-          <source media="(max-width: 600px)" sizes="100vw"
-            srcset="{{ 'laguna-negra-bg-640.webp' | asset_url }} 640w, {{ 'laguna-negra-bg.webp' | asset_url }} 928w">
+          <source media="(max-width: 600px)" sizes="100vw" width="1290" height="2800"
+            srcset="{{ 'laguna-negra-bg-m-640.webp' | asset_url }} 640w, {{ 'laguna-negra-bg-m-960.webp' | asset_url }} 960w, {{ 'laguna-negra-bg-m-1290.webp' | asset_url }} 1290w">
           <img
             src="{{ 'laguna-negra-bg.webp' | asset_url }}"
-            srcset="{{ 'laguna-negra-bg-640.webp' | asset_url }} 640w, {{ 'laguna-negra-bg.webp' | asset_url }} 928w"
+            srcset="{{ 'laguna-negra-bg-640.webp' | asset_url }} 640w, {{ 'laguna-negra-bg.webp' | asset_url }} 928w, {{ 'laguna-negra-bg-960.webp' | asset_url }} 960w, {{ 'laguna-negra-bg-1440.webp' | asset_url }} 1440w, {{ 'laguna-negra-bg-2048.webp' | asset_url }} 2048w"
             sizes="100vw" width="928" height="1131" loading="lazy" decoding="async"
             alt="{% if is_en %}The Black Lagoon at night, under a closed sky{% else %}La Laguna Negra de noche, bajo un cielo cerrado{% endif %}">
         </picture>
+        {%- comment -%} Sin poster (ver escena 1). -m: 1080×2336 del upscale 4K
+          (master tribu 1440×1440 cuadrado). {%- endcomment -%}
         <video class="story-video" muted playsinline loop preload="none" aria-hidden="true"
-          poster="{{ 'laguna-negra-bg.webp' | asset_url }}"
           data-src="{{ 'tribu-bg.mp4' | asset_url }}"
-          data-src-720="{{ 'tribu-bg-720.mp4' | asset_url }}"></video>
+          data-src-m="{{ 'tribu-bg-m.mp4' | asset_url }}"></video>
       </div>
       <div class="story-scene__scrim" aria-hidden="true"></div>
       <div class="story-scene__media-b">
         <picture>
-          <source media="(max-width: 600px)" sizes="100vw"
-            srcset="{{ 'story-amanecer-bg-480.webp' | asset_url }} 480w, {{ 'story-amanecer-bg-960.webp' | asset_url }} 960w">
+          <source media="(max-width: 600px)" sizes="100vw" width="1290" height="2800"
+            srcset="{{ 'story-amanecer-bg-m-640.webp' | asset_url }} 640w, {{ 'story-amanecer-bg-m-960.webp' | asset_url }} 960w, {{ 'story-amanecer-bg-m-1290.webp' | asset_url }} 1290w">
           <img
             src="{{ 'story-amanecer-bg-960.webp' | asset_url }}"
-            srcset="{{ 'story-amanecer-bg-480.webp' | asset_url }} 480w, {{ 'story-amanecer-bg-960.webp' | asset_url }} 960w, {{ 'story-amanecer-bg-1440.webp' | asset_url }} 1440w"
+            srcset="{{ 'story-amanecer-bg-480.webp' | asset_url }} 480w, {{ 'story-amanecer-bg-960.webp' | asset_url }} 960w, {{ 'story-amanecer-bg-1440.webp' | asset_url }} 1440w, {{ 'story-amanecer-bg-2048.webp' | asset_url }} 2048w, {{ 'story-amanecer-bg-2752.webp' | asset_url }} 2752w"
             sizes="100vw" width="960" height="536" loading="lazy" decoding="async"
             alt="{% if is_en %}First light of dawn over the páramo{% else %}Primera luz del amanecer sobre el páramo{% endif %}">
         </picture>
@@ -934,11 +942,11 @@
     <div class="story-scene__pin">
       <div class="story-scene__media">
         <picture>
-          <source media="(max-width: 600px)" sizes="100vw"
-            srcset="{{ 'story-custodios-bg-480.webp' | asset_url }} 480w, {{ 'story-custodios-bg-960.webp' | asset_url }} 960w">
+          <source media="(max-width: 600px)" sizes="100vw" width="1290" height="2800"
+            srcset="{{ 'story-custodios-bg-m-640.webp' | asset_url }} 640w, {{ 'story-custodios-bg-m-960.webp' | asset_url }} 960w, {{ 'story-custodios-bg-m-1290.webp' | asset_url }} 1290w">
           <img
             src="{{ 'story-custodios-bg-960.webp' | asset_url }}"
-            srcset="{{ 'story-custodios-bg-480.webp' | asset_url }} 480w, {{ 'story-custodios-bg-960.webp' | asset_url }} 960w, {{ 'story-custodios-bg-1440.webp' | asset_url }} 1440w"
+            srcset="{{ 'story-custodios-bg-480.webp' | asset_url }} 480w, {{ 'story-custodios-bg-960.webp' | asset_url }} 960w, {{ 'story-custodios-bg-1440.webp' | asset_url }} 1440w, {{ 'story-custodios-bg-2048.webp' | asset_url }} 2048w, {{ 'story-custodios-bg-2752.webp' | asset_url }} 2752w"
             sizes="100vw" width="960" height="536" loading="lazy" decoding="async"
             alt="{% if is_en %}The communities who keep watch over the Huaringas territory{% else %}Las comunidades que custodian el territorio de las Huaringas{% endif %}">
         </picture>

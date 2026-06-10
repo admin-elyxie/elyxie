@@ -348,8 +348,10 @@
       for (let i = 0; i < entries.length; i++) {
         if (!entries[i].isIntersecting) continue;
         const vid = entries[i].target;
-        const src720 = vid.getAttribute('data-src-720');
-        vid.src = (isMobile && src720) ? src720 : vid.getAttribute('data-src');
+        // data-src-m: variante MÓVIL (recorte vertical 1080×2336 del upscale
+        // 4K) — ya no es "la de 720p", es la de mayor densidad por px visible.
+        const srcM = vid.getAttribute('data-src-m');
+        vid.src = (isMobile && srcM) ? srcM : vid.getAttribute('data-src');
         vid.load();
         loadIO.unobserve(vid);
       }
