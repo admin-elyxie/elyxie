@@ -1,0 +1,970 @@
+{%- comment -%}
+  Story ELYXIE — /pages/story (template page.story.json, layout elyxie-page).
+  Scrollytelling cinematográfico de la Laguna Negra de Huancabamba: 5 escenas
+  pinned + glosario + créditos. Todo el copy es server-rendered y bilingüe
+  (ES lidera; EN vía request.locale). La página más cargada de atmósfera del
+  sitio Y la que mejor degrada: sin JS o con reduced-motion se lee como un
+  documento apilado completo.
+
+  ── MAPA DE ESCENAS ──────────────────────────────────────────────────────────
+  #  handle    tema bg (from → to)      fg (from → to)      ramp        beats
+  1  paramo    #0A2620 → #051613        #FFF → #FFF         0.75,1      3 (apertura / fichas / prosa+leyenda)
+  2  encanto   #051613 → #020807        #FFF → #FFF         0.75,1      3 (dualidad / cita Polia / pago)
+  3  mesa      #020807 → #F6F2E8        #FFF → #0A2620      0.66,0.92   4 (mesa / artes / florecimiento / amanecer)
+  4  seguro    #F6F2E8 → #0A2620        #0A2620 → #FFF      0,0.25      3 (seguro / mamayacu / puente elyxie) + ángel 3D
+  5  viva      #0A2620 → #051613        #FFF → #FFF         0.75,1      3 (agua que baja / custodios / cierre+CTA)
+  Cada theme-from = theme-to de la escena anterior → el fondo nunca salta.
+  La escena 3 "amanece": data-ramp tardío 0.66→0.92 vira el fondo a crema
+  mientras .story-scene__media-b (foto del amanecer) cross-fadea con el MISMO k.
+  La escena 4 deshace el amanecer temprano (ramp 0→0.25) para que el ángel de
+  oro viva sobre esmeralda casi toda su duración.
+
+  ── CONTRATO con story-scroll.js / story-angel.js (assets/) ─────────────────
+  Los dos scripts ya existen y leen este DOM. NO renombrar nada de esto:
+  · #elyxie-story            raíz; lleva class="story" (flag armed vive aquí)
+                             y data-glb="{{ 'angel.glb' | asset_url }}" (story-angel).
+  · .story-scene[data-scene="<handle>"] con data-theme-from/-to, data-fg-from/-to
+    (hex) y data-ramp="a,b" — el motor interpola y escribe --story-bg/--story-fg
+    en <html>. Por eso los defaults van como FALLBACK de var() y nunca como
+    declaración en .story (una custom prop declarada en .story ganaría a la
+    inline de documentElement y congelaría el tema).
+  · .story-beat[data-beat="tIn,tOut"] — trapezoide de visibilidad en progreso
+    de escena (rampas 0.07). El JS escribe opacity y transform INLINE: el CSS
+    armed solo da el estado inicial (opacity 0, translateY 28px) y jamás anima
+    estas dos props. tIn=-0.5 en el primer beat = visible desde que la escena
+    asoma; tOut>1 en el último = se va con el pin, sin fundirse antes.
+  · .story-counter[data-counter="3957"][data-sep="."] — el markup YA contiene
+    el valor final formateado (no-JS lo lee tal cual); el motor lo re-anima.
+  · .story-scene__media (parallax inline translate3d+scale del motor) y
+    .story-scene__media-b (opacity = k del ramp; solo escena 3).
+  · .story-rail con .story-rail__fill (scaleY inline) y [data-for="<handle>"]
+    (.is-active). El motor añade .story-rail--on; sin JS el rail no existe.
+  · [data-reveal] → el motor añade .is-in (IntersectionObserver, una vez).
+  · .story-angel-mount dentro de [data-scene="seguro"]: story-angel.js inyecta
+    su <canvas> y añade .is-3d cuando el primer frame real está en pantalla;
+    este CSS hace el cross-fade foto↔canvas (600ms). Si WebGL/red fallan, la
+    foto se queda — ese ES el camino de degradación, no un error.
+  · .story-video[data-src] (lazy): video ambiental en las escenas 1 (origen-bg)
+    y 3 (tribu-bg). SOLO existe bajo armed; la imagen de debajo es LCP, poster
+    y fallback (no-JS / reduced / red lenta). El motor asigna src a una pantalla
+    de distancia (IO 100%, 720p en móvil) y hace play/pause al 25% visible.
+  · El importmap de three@0.160.0 va al final de la sección: es inerte hasta
+    que story-angel.js inyecta su primer import (mismo patrón que elyxie.liquid).
+
+  ── POR QUÉ "ARMED" ──────────────────────────────────────────────────────────
+  El layout cinematográfico (alturas --len, pin sticky, beats absolutos en
+  opacity 0) SOLO se aplica bajo .story--armed. Sin esa clase la página es un
+  documento apilado legible: media como banda de 62svh, beats en flujo, todo
+  visible. Un <script> inline mínimo arma la clase ANTES del primer paint
+  (si no hay prefers-reduced-motion), así no hay FOUC del layout apilado.
+  story-scroll.js la re-confirma (o la RETIRA bajo reduced-motion) y el bloque
+  @media (prefers-reduced-motion) refuerza el apilado aunque la clase quedara.
+
+  ── MEDIA / PIPELINE ─────────────────────────────────────────────────────────
+  Fotos en assets/ como story-*-bg-{480,960,1440}.webp (cwebp/sharp, mismas
+  anchuras que assets/photography del one-pager). Inventario usado:
+    paramo → story-paramo-bg-* + video origen-bg(.mp4/-720) — el agua naciendo
+    encanto → story-encanto-bg-* (+ -m-* recorte vertical móvil)
+    mesa (noche) → laguna-negra-bg(.webp/-640) + video tribu-bg(.mp4/-720), el
+      rito nocturno del home; no existe story-mesa-bg y el scrim va fuerte
+    mesa (amanecer, media-b) → story-amanecer-bg-*
+    seguro (fallback del 3D) → story-angel-still-*   viva → story-custodios-bg-*
+  SEO: pagetitle/metadesc aprobados viven en el admin de la página (el layout
+  emite page_title/page_description); una sección no puede escribir <head>.
+  Cita de Polia: verbatim del dossier de investigación («La mesa curanderil y
+  la cosmología andina», Anthropologica 8, 1990, PUCP), con recorte legítimo
+  marcado […]; el EN es traducción fiel señalada como tal en la atribución.
+  .Button--primary: la clase canónica del design system vive en el CSS del
+  one-pager (styles.css.liquid), que elyxie-page NO carga (solo carga
+  colors_and_type.css, que define los tokens pero no la clase). Se re-declara
+  aquí scoped a .story con la receta oro idéntica.
+{%- endcomment -%}
+{%- assign is_en = false -%}
+{%- if request.locale.iso_code == 'en' -%}{%- assign is_en = true -%}{%- endif -%}
+
+{%- comment -%} CTA → PDP del Ángel de oro; si el handle no existe aún, catálogo. {%- endcomment -%}
+{%- assign cta_product = all_products['el-angel-oro'] -%}
+{%- assign cta_url = cta_product.url | default: routes.all_products_collection_url -%}
+
+<style>
+  /* ═══════════════════════════════════════════════════════════════════════
+     1 · TOKENS + OVERRIDES DE BODY
+     --story-bg/--story-fg los escribe story-scroll.js en <html> (inline).
+     Los defaults (#0A2620 / #FFFFFF) van SIEMPRE como fallback de var() —
+     ver contrato en la cabecera. html{font-size:62.5%} en el layout → px,
+     nunca rem, en todo este archivo.
+     ═══════════════════════════════════════════════════════════════════════ */
+  .story {
+    --story-pad-x: clamp(24px, 7vw, 120px);
+    /* hairlines y mutados derivados del fg vivo: siguen el viraje a crema */
+    position: relative;
+    font-family: var(--ep-sans);
+    color: var(--story-fg, #FFFFFF);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  /* La nav del layout flota SOBRE la escena 1 (el fondo lo pinta .story__bg).
+     :has() — en navegadores sin soporte (Safari ≤15.3) la nav queda en flujo
+     y la historia empieza un poco más abajo: degradación aceptable. */
+  body.epage:has(#elyxie-story) { background: #051613; }
+  body.epage:has(#elyxie-story) .epage-nav { position: absolute; top: 0; left: 0; right: 0; z-index: 40; }
+
+  /* ═══════════════════════════════════════════════════════════════════════
+     2 · FONDO · GRANO · RAIL
+     ═══════════════════════════════════════════════════════════════════════ */
+  /* Lienzo de tema: fijo, detrás de todo el contenido del story. Pintamos
+     aquí (y no en body) para que el motor anime UNA capa dedicada.
+     z-index -1 (no 0): el footer del layout (.epage-foot) y la nav sin :has()
+     son contenido en flujo SIN posicionar, y un fixed con z-index 0 pinta
+     encima de todo lo no posicionado del stacking context raíz — los enterraría
+     (visibles solo como lienzo, enlaces no clicables). Ni .story ni body crean
+     stacking context, así que el -1 lo manda detrás de TODO el flujo pero
+     sigue por encima del background del body. */
+  .story__bg { position: fixed; inset: 0; z-index: -1;
+    background: var(--story-bg, #0A2620); }
+
+  /* Grano de película — receta del one-pager (styles.css raíz): una sola capa
+     feTurbulence, steps(4) sobre 4s para no repintar el viewport cada ~200ms,
+     y capa de compositor propia (will-change) para vivir fuera del main thread.
+     Opacidad rebajada a 0.05: aquí el grano es atmósfera, no protagonista. */
+  .story-grain { position: fixed; inset: -10%; z-index: 30; pointer-events: none;
+    mix-blend-mode: overlay; opacity: 0.05;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 240 240'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.92' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 1.1 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+    background-size: 240px 240px; background-repeat: repeat;
+    animation: story-grain-shift 4s steps(4) infinite;
+    will-change: transform; transform: translateZ(0); }
+  @keyframes story-grain-shift {
+    0%   { transform: translate3d(0, 0, 0); }
+    25%  { transform: translate3d(-2%, -1%, 0); }
+    50%  { transform: translate3d(1%, 1%, 0); }
+    75%  { transform: translate3d(-1%, 2%, 0); }
+    100% { transform: translate3d(0, 0, 0); }
+  }
+
+  /* Rail derecho: hairline + 5 rombos. Solo existe cuando el motor lo
+     enciende (.story-rail--on); puramente decorativo (pointer-events none,
+     aria-hidden en el markup). El fill (scaleY) lo escribe el motor inline. */
+  .story-rail { position: fixed; right: 28px; top: 50%; transform: translateY(-50%);
+    z-index: 31; display: none; flex-direction: column; align-items: center;
+    gap: 22px; pointer-events: none; }
+  .story-rail--on { display: flex; }
+  .story-rail__track { position: absolute; top: -26px; bottom: -26px; left: 50%;
+    width: 1px; margin-left: -0.5px;
+    background: color-mix(in srgb, var(--story-fg, #FFFFFF) 14%, transparent); }
+  .story-rail__fill { position: absolute; inset: 0; transform: scaleY(0);
+    transform-origin: top center;
+    background: color-mix(in srgb, var(--ep-champ) 75%, transparent); }
+  .story-rail__dot { position: relative; z-index: 1; width: 7px; height: 7px;
+    transform: rotate(45deg); background: var(--story-bg, #0A2620);
+    border: 1px solid color-mix(in srgb, var(--story-fg, #FFFFFF) 35%, transparent);
+    transition: background 400ms ease, border-color 400ms ease, box-shadow 400ms ease; }
+  .story-rail__dot.is-active { background: var(--ep-champ); border-color: var(--ep-champ);
+    box-shadow: 0 0 12px rgba(233, 215, 177, 0.55); }
+  @media (max-width: 900px) { .story-rail { display: none !important; } }
+
+  /* ═══════════════════════════════════════════════════════════════════════
+     3 · ESCENA — BASE APILADA (sin JS / reduced-motion) Y ARMED
+     Default = documento legible: media como banda, beats en flujo, todo
+     visible. .story--armed superpone el layout cinematográfico encima.
+     ═══════════════════════════════════════════════════════════════════════ */
+  .story-scene { position: relative; z-index: 1; }
+  .story-scene__pin { position: relative; }
+
+  /* media como banda estática (apilado); vh primero = fallback de svh */
+  .story-scene__media, .story-scene__media-b { position: relative;
+    height: 62vh; height: 62svh; overflow: hidden; }
+  .story-scene__media picture, .story-scene__media-b picture { display: block;
+    width: 100%; height: 100%; }
+  .story-scene__media img, .story-scene__media-b img { display: block;
+    width: 100%; height: 100%; object-fit: cover; }
+  .story-scene__scrim { display: none; }
+
+  /* beats en flujo, con aire editorial */
+  .story-beat { padding: clamp(44px, 7vw, 80px) var(--story-pad-x); }
+
+  /* ── ARMED: alturas --len, pin sticky, beats absolutos ─────────────────── */
+  /* height en vh como fallback de svh (Safari <15.4); --len por escena via
+     style="--len: N" en el <section>. El progreso del motor recorre
+     (len−1)·100vh de scroll por escena. */
+  .story--armed .story-scene { height: calc(var(--len, 4) * 100vh);
+    height: calc(var(--len, 4) * 100svh); }
+  .story--armed .story-scene__pin { position: sticky; top: 0; height: 100vh;
+    height: 100svh; overflow: hidden; }
+
+  /* media a pantalla completa; el motor escribe transform (parallax ±3.5% con
+     scale 1.08 de colchón) inline — aquí solo damos el frame inicial. */
+  .story--armed .story-scene__media { position: absolute; inset: 0; z-index: 1;
+    height: auto; transform: scale(1.08); }
+  .story--armed .story-scene__scrim { display: block; position: absolute; inset: 0;
+    z-index: 2; pointer-events: none; }
+  .story--armed .story-scene__media-b { position: absolute; inset: 0; z-index: 3;
+    height: auto; opacity: 0; }
+
+  /* Beat armed: overlay del pin entero (inset 0) con su contenido centrado por
+     flex — NO con transform (el motor pisa transform inline cada frame). */
+  .story--armed .story-beat { position: absolute; inset: 0; z-index: 4;
+    display: flex; flex-direction: column; justify-content: center;
+    padding: 0 var(--story-pad-x); opacity: 0; transform: translate3d(0, 28px, 0);
+    visibility: hidden; pointer-events: none; }
+  /* Los CTA siguen siendo clicables dentro del beat (el beat en sí no) —
+     PERO solo cuando el beat se ve: el motor escribe visibility inline junto
+     a opacity, y el visibility:hidden de arriba (estado inicial) evita que
+     un CTA a opacity 0 sea clicable/tabulable siendo invisible. */
+  .story-beat .Button--primary, .story-beat .story-microcta { pointer-events: auto; }
+
+  /* ═══════════════════════════════════════════════════════════════════════
+     4 · TIPOGRAFÍA DE BEATS
+     ═══════════════════════════════════════════════════════════════════════ */
+  .story-eyebrow { margin: 0 0 20px; font-family: var(--ep-sans); font-size: 11px;
+    font-weight: 500; letter-spacing: 0.32em; text-transform: uppercase;
+    color: var(--ep-champ); }
+  .story-title { margin: 0; max-width: 720px; font-family: var(--ep-serif);
+    font-style: italic; font-weight: 300;
+    font-size: clamp(38px, 6.2vw, 84px); line-height: 1.05; letter-spacing: -0.01em;
+    color: var(--story-fg, #FFFFFF); text-wrap: balance; }
+  .story-accent { color: var(--ep-champ); font-style: inherit; }
+  .story-sub { margin: 22px 0 0; max-width: 520px; font-family: var(--ep-sans);
+    font-weight: 300; font-size: clamp(16px, 1.3vw, 18px); line-height: 1.65;
+    color: color-mix(in srgb, var(--story-fg, #FFFFFF) 72%, transparent); }
+  .story-prose { margin: 0; max-width: 560px; font-family: var(--ep-sans);
+    font-weight: 300; font-size: 17px; line-height: 1.75;
+    color: color-mix(in srgb, var(--story-fg, #FFFFFF) 72%, transparent); }
+  /* Drop cap — SOLO la prosa del beat 3 de la escena 1 ("Al páramo no se
+     llega…"). Cormorant champán; line-height corto para que la cap no
+     empuje la segunda línea. */
+  .story-prose--cap::first-letter { float: left; font-family: var(--ep-serif);
+    font-style: italic; font-weight: 300; font-size: 58px; line-height: 0.8;
+    padding: 8px 14px 0 0; color: var(--ep-champ); }
+  /* Línea del amanecer (escena 3, beat 4): un solo verso serif, más aire. */
+  .story-line { margin: 0; max-width: 640px; font-family: var(--ep-serif);
+    font-style: italic; font-weight: 300; font-size: clamp(28px, 3.6vw, 46px);
+    line-height: 1.25; color: var(--story-fg, #FFFFFF); text-wrap: balance; }
+  /* Leyenda-clave (escena 1, pie): apilada va en flujo; armed baja al pie. */
+  .story-legend { margin: 28px 0 0; font-family: var(--ep-sans); font-size: 10px;
+    font-weight: 400; letter-spacing: 0.16em;
+    /* 60% (no 45%): a 10px sobre fotos con scrim, 45% rozaba 4.3:1 (AA pide
+       4.5:1 en texto pequeño); 60% mantiene la jerarquía de mutados. */
+    color: color-mix(in srgb, var(--story-fg, #FFFFFF) 60%, transparent); }
+  .story--armed .story-legend { position: absolute; bottom: 28px;
+    left: var(--story-pad-x); right: var(--story-pad-x); margin: 0; }
+
+  /* Micro-CTA (escena 4 · puente a la pieza) */
+  .story-microcta { display: inline-flex; align-items: center; gap: 10px;
+    margin-top: 30px; align-self: flex-start; font-family: var(--ep-sans);
+    font-size: 11px; font-weight: 500; letter-spacing: 0.28em; text-transform: uppercase;
+    color: var(--ep-champ); text-decoration: none;
+    border-bottom: 1px solid rgba(233, 215, 177, 0.4);
+    padding-bottom: 6px; transition: color 240ms ease, border-color 240ms ease; }
+  .story-microcta svg { transition: transform 240ms cubic-bezier(0.2, 0, 0, 1); }
+  .story-microcta:hover { color: var(--story-fg, #FFFFFF); border-color: var(--ep-champ); }
+  .story-microcta:hover svg { transform: translateX(5px); }
+  .story-microcta:focus-visible, .story .Button--primary:focus-visible {
+    outline: 2px solid var(--ep-champ); outline-offset: 4px; }
+
+  /* CTA oro — receta canónica del design system, re-declarada aquí porque
+     elyxie-page no carga styles.css.liquid (ver cabecera). */
+  .story .Button--primary { display: inline-block; margin-top: 34px;
+    align-self: flex-start; padding: 18px 44px; border: 0; border-radius: 0;
+    background: linear-gradient(180deg, #E9D7B1, #C9A66B); color: #0A2620;
+    font-family: var(--ep-sans); font-size: 11px; font-weight: 600;
+    letter-spacing: 0.28em; text-transform: uppercase; text-decoration: none;
+    box-shadow: 0 0 30px rgba(233, 215, 177, 0.25);
+    transition: box-shadow 360ms cubic-bezier(0.2, 0, 0, 1); }
+  .story .Button--primary:hover { box-shadow: 0 0 60px rgba(233, 215, 177, 0.35),
+    0 0 120px rgba(233, 215, 177, 0.18); }
+
+  /* ═══════════════════════════════════════════════════════════════════════
+     5 · FICHAS · MYTH · COUNTER
+     ═══════════════════════════════════════════════════════════════════════ */
+  .story-facts { display: flex; align-items: stretch; margin: 0; }
+  .story-fact { padding: 0 clamp(26px, 3.4vw, 48px); border-left: 1px solid
+    color-mix(in srgb, var(--story-fg, #FFFFFF) 14%, transparent); }
+  .story-fact:first-child { padding-left: 0; border-left: 0; }
+  .story-fact__num { display: flex; align-items: baseline; gap: 9px; margin: 0;
+    font-family: var(--ep-serif); font-weight: 300;
+    font-size: clamp(40px, 4.5vw, 60px); line-height: 1;
+    color: var(--story-fg, #FFFFFF);
+    /* tabular para que el conteo del motor no haga bailar la caja */
+    font-variant-numeric: tabular-nums; }
+  .story-fact__unit { font-family: var(--ep-sans); font-weight: 300; font-size: 14px;
+    letter-spacing: 0.04em;
+    color: color-mix(in srgb, var(--story-fg, #FFFFFF) 55%, transparent); }
+  .story-fact__label { margin: 14px 0 0; font-family: var(--ep-sans); font-size: 10px;
+    font-weight: 500; letter-spacing: 0.3em; text-transform: uppercase;
+    color: color-mix(in srgb, var(--story-fg, #FFFFFF) 50%, transparent); }
+  /* marcador "—" = dato documentado (ver leyenda-clave de la escena 1) */
+  .story-fact__label::before { content: "— "; letter-spacing: 0; }
+
+  /* dato documentado en línea (escena 2 · beat 3) */
+  .story-factline { margin: 22px 0 0; max-width: 560px; font-family: var(--ep-sans);
+    font-weight: 300; font-size: 14px; line-height: 1.7;
+    color: color-mix(in srgb, var(--story-fg, #FFFFFF) 55%, transparent); }
+  .story-factline::before { content: "— "; }
+
+  /* Tradición viva: serif italic champán, rombo ◆ delante. El rombo es un
+     ::before inline-block (cuadrado rotado 45°), no el carácter ◆ — así la
+     forma es idéntica en todas las plataformas. */
+  .story-myth { margin: 0; max-width: 640px; font-family: var(--ep-serif);
+    font-style: italic; font-weight: 300; font-size: clamp(20px, 2.2vw, 26px);
+    line-height: 1.5;
+    color: color-mix(in srgb, var(--ep-champ) 80%, var(--story-fg, #FFFFFF)); }
+  .story-myth::before { content: ""; display: inline-block; width: 7px; height: 7px;
+    transform: rotate(45deg); background: var(--ep-champ); opacity: 0.85;
+    margin-right: 14px; vertical-align: middle; }
+  /* La cita de Polia: más grande, más lenta. Texto inline directo en el
+     blockquote (no <p>). SIN rombo: la leyenda-clave de la escena 1 define
+     ◆ = relato vivo y — = dato documentado, y esta cita es material documentado
+     (verbatim, con atribución formal y listada como fuente en los créditos) —
+     el <cite> ya hace de cue documental. */
+  .story-myth--quote { max-width: 760px; font-size: clamp(24px, 3vw, 34px);
+    line-height: 1.4; }
+  .story-myth--quote::before { display: none; }
+  .story-myth__attr { display: block; margin-top: 18px; font-family: var(--ep-sans);
+    font-style: normal; font-size: 11px; font-weight: 500; letter-spacing: 0.28em;
+    text-transform: uppercase;
+    color: color-mix(in srgb, var(--story-fg, #FFFFFF) 50%, transparent); }
+
+  .story-counter { font-variant-numeric: tabular-nums; }
+
+  /* ═══════════════════════════════════════════════════════════════════════
+     6 · MEDIA + SCRIMS
+     ═══════════════════════════════════════════════════════════════════════ */
+  /* Scrim de legibilidad: gradiente vertical (pie más oscuro, donde aterriza
+     el texto en móvil) + radial sutil del lado del texto (izquierda). Solo
+     existe bajo armed — la banda apilada no lleva texto encima. */
+  .story-scene__scrim { background:
+    linear-gradient(180deg, rgba(2, 8, 7, 0) 30%, rgba(2, 8, 7, 0.52) 100%),
+    radial-gradient(ellipse 72% 64% at 16% 52%, rgba(2, 8, 7, 0.42), transparent 70%); }
+  /* Video ambiental (escenas 1 y 3): SOLO existe bajo armed. La imagen de
+     debajo es el LCP, el fallback (no-JS / reduced / fallo de red) y también
+     el poster del propio video — mismo asset, así el hueco antes del primer
+     frame decodificado es literalmente invisible. Vive DENTRO de
+     .story-scene__media (hereda el parallax del contenedor) y pinta encima
+     del <picture> por orden de documento (media crea stacking context por su
+     transform). */
+  .story-video { display: none; }
+  .story--armed .story-video { display: block; position: absolute; inset: 0;
+    width: 100%; height: 100%; object-fit: cover; }
+
+  /* El amanecer no se ensucia con el scrim oscuro: media-b va POR ENCIMA del
+     scrim (z 3 > 2) y trae su propio velo claro para el texto oscuro. */
+  .story--armed .story-scene__media-b::after { content: ""; position: absolute;
+    inset: 0; background:
+    linear-gradient(180deg, rgba(246, 242, 232, 0) 38%, rgba(246, 242, 232, 0.38) 100%),
+    radial-gradient(ellipse 70% 60% at 18% 55%, rgba(246, 242, 232, 0.3), transparent 70%); }
+
+  /* ═══════════════════════════════════════════════════════════════════════
+     7 · ESCENA 4 — EL ÁNGEL (texto izq · pieza der)
+     ═══════════════════════════════════════════════════════════════════════ */
+  /* Apilado: la pieza es una banda contenida sobre el vacío. */
+  .story-angel-mount { position: relative; height: 62vh; height: 62svh;
+    overflow: hidden; }
+  /* Halo fósforo muy sutil detrás del ángel — la "luz guardada". */
+  .story-angel-mount::before { content: ""; position: absolute; inset: 0;
+    background: radial-gradient(closest-side, rgba(125, 255, 178, 0.07), transparent 70%);
+    pointer-events: none; }
+  .story-angel-mount picture { position: absolute; inset: 0; display: block;
+    transition: opacity 600ms ease; }
+  .story-angel-mount img { width: 100%; height: 100%; object-fit: contain; }
+  /* story-angel.js inyecta el canvas con position/inset/width/height inline;
+     la opacity y su transición son responsabilidad de este CSS. */
+  .story-angel-mount canvas { position: absolute; inset: 0; width: 100%;
+    height: 100%; opacity: 0; transition: opacity 600ms ease; }
+  .story-angel-mount.is-3d canvas { opacity: 1; }
+  .story-angel-mount.is-3d picture { opacity: 0; }
+
+  /* Armed desktop: el ángel ocupa la mitad derecha del pin; el texto cede
+     ese espacio vía padding (el beat sigue siendo inset 0). */
+  .story--armed .story-scene[data-scene="seguro"] .story-angel-mount {
+    position: absolute; top: 0; right: 0; bottom: 0; left: 50%; height: auto;
+    z-index: 2; }
+  .story--armed .story-scene[data-scene="seguro"] .story-beat {
+    padding-right: calc(50% + clamp(24px, 4vw, 64px)); }
+
+  /* ═══════════════════════════════════════════════════════════════════════
+     8 · GLOSARIO
+     ═══════════════════════════════════════════════════════════════════════ */
+  .story-gloss { position: relative; z-index: 1; max-width: 1160px; margin: 0 auto;
+    padding: clamp(100px, 14vw, 140px) var(--story-pad-x); }
+  .story-gloss__title { margin: 18px 0 0; font-family: var(--ep-serif);
+    font-style: italic; font-weight: 300; font-size: clamp(34px, 4.6vw, 60px);
+    line-height: 1.05; letter-spacing: -0.01em; color: var(--story-fg, #FFFFFF); }
+  .story-gloss__intro { margin: 18px 0 0; max-width: 520px; font-family: var(--ep-sans);
+    font-weight: 300; font-size: 16px; line-height: 1.65;
+    color: color-mix(in srgb, var(--story-fg, #FFFFFF) 60%, transparent); }
+  .story-gloss__list { display: grid; grid-template-columns: 1fr 1fr;
+    gap: 48px 64px; margin: clamp(48px, 6vw, 72px) 0 0; }
+  .story-gloss__list dt { margin: 0; font-family: var(--ep-serif); font-weight: 400;
+    font-size: 24px; line-height: 1.2; color: var(--ep-champ); }
+  .story-gloss__list dd { margin: 8px 0 0; font-family: var(--ep-sans);
+    font-weight: 300; font-size: 15px; line-height: 1.7;
+    color: color-mix(in srgb, var(--story-fg, #FFFFFF) 62%, transparent); }
+  /* Reveal escalonado: opacity 0 SOLO bajo armed (sin JS todo visible).
+     El motor añade .is-in una sola vez por elemento. */
+  .story--armed [data-reveal] { opacity: 0; transform: translateY(18px);
+    transition: opacity 700ms cubic-bezier(0.4, 0, 0.2, 1) calc(var(--i, 0) * 70ms),
+                transform 700ms cubic-bezier(0.4, 0, 0.2, 1) calc(var(--i, 0) * 70ms); }
+  .story--armed [data-reveal].is-in { opacity: 1; transform: none; }
+
+  /* ═══════════════════════════════════════════════════════════════════════
+     9 · CRÉDITOS
+     ═══════════════════════════════════════════════════════════════════════ */
+  .story-credits { position: relative; z-index: 1; max-width: 620px; margin: 0 auto;
+    padding: 0 24px clamp(120px, 16vw, 200px); text-align: center;
+    font-family: var(--ep-sans); font-weight: 400; font-size: 12px;
+    letter-spacing: 0.18em; line-height: 2.2;
+    /* 60% por contraste AA (ver .story-legend) */
+    color: color-mix(in srgb, var(--story-fg, #FFFFFF) 60%, transparent); }
+  .story-credits::before { content: ""; display: block; width: min(100%, 420px);
+    height: 1px; margin: 0 auto clamp(44px, 6vw, 68px);
+    background: linear-gradient(90deg, transparent,
+      color-mix(in srgb, var(--story-fg, #FFFFFF) 16%, transparent) 22%,
+      color-mix(in srgb, var(--story-fg, #FFFFFF) 16%, transparent) 78%, transparent); }
+  .story-credits p { margin: 0; }
+  .story-credits__final { margin-top: 40px !important; font-family: var(--ep-serif);
+    font-style: italic; font-weight: 300; font-size: 20px; line-height: 1.5;
+    letter-spacing: 0;
+    color: color-mix(in srgb, var(--ep-champ) 80%, var(--story-fg, #FFFFFF)); }
+
+  /* ═══════════════════════════════════════════════════════════════════════
+     10 · RESPONSIVE
+     ═══════════════════════════════════════════════════════════════════════ */
+  @media (max-width: 900px) {
+    /* Escena 4: ángel arriba (~55svh), texto en el tramo inferior. */
+    .story--armed .story-scene[data-scene="seguro"] .story-angel-mount {
+      left: 0; right: 0; bottom: auto; height: 55vh; height: 55svh; }
+    .story--armed .story-scene[data-scene="seguro"] .story-beat {
+      padding-right: var(--story-pad-x); justify-content: flex-end;
+      padding-bottom: 9vh; padding-bottom: 9svh; }
+  }
+  /* 767px: el mismo corte que usa story-scroll.js (mobileMQ) — si difirieran,
+     en la franja intermedia el motor aplicaría parallax móvil sobre layout
+     desktop. */
+  @media (max-width: 767px) {
+    /* Texto al tercio inferior, donde el scrim ya oscureció la foto. */
+    .story--armed .story-beat { justify-content: flex-end;
+      padding-bottom: 12vh; padding-bottom: 12svh; }
+    .story--armed .story-legend { bottom: 20px; }
+    /* Fichas en columna, hairlines horizontales. */
+    .story-facts { flex-direction: column; }
+    .story-fact { padding: 18px 0; border-left: 0; border-top: 1px solid
+      color-mix(in srgb, var(--story-fg, #FFFFFF) 14%, transparent); }
+    .story-fact:first-child { padding-top: 0; border-top: 0; }
+    .story-gloss__list { grid-template-columns: 1fr; gap: 36px; }
+  }
+  @media (max-width: 480px) {
+    .story { --story-pad-x: 20px; }
+    .story-prose { font-size: 16px; }
+    .story-myth--quote { font-size: 22px; }
+    .story--armed .story-beat { padding-bottom: 10vh; padding-bottom: 10svh; }
+    .story-credits { font-size: 11px; }
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════════
+     11 · REDUCED MOTION — refuerza el layout apilado aunque .story--armed
+     hubiera quedado puesta (el inline armer y story-scroll.js ya lo evitan;
+     esto es el cinturón además de los tirantes). !important porque pisa
+     posibles estilos inline de un motor que alcanzó a correr.
+     ═══════════════════════════════════════════════════════════════════════ */
+  @media (prefers-reduced-motion: reduce) {
+    .story--armed .story-scene { height: auto; }
+    .story--armed .story-scene__pin { position: relative; height: auto; overflow: visible; }
+    .story--armed .story-scene__media, .story--armed .story-scene__media-b {
+      position: relative; inset: auto; height: 62vh; height: 62svh;
+      opacity: 1 !important; transform: none !important; }
+    .story--armed .story-scene__media-b::after { display: none; }
+    .story--armed .story-scene__scrim { display: none; }
+    .story--armed .story-beat { position: relative; inset: auto; display: block;
+      padding: clamp(44px, 7vw, 80px) var(--story-pad-x);
+      opacity: 1 !important; transform: none !important;
+      visibility: visible !important; pointer-events: auto; }
+    .story--armed .story-legend { position: static; margin: 28px 0 0; }
+    .story--armed .story-scene[data-scene="seguro"] .story-angel-mount {
+      position: relative; inset: auto; left: auto; height: 62vh; height: 62svh; }
+    .story--armed [data-reveal] { transition: none; opacity: 1; transform: none; }
+    .story-grain { animation: none; }
+    /* bajo reduced el motor jamás asigna src; esto cubre el caso borde de
+       una clase armed huérfana */
+    .story-video { display: none !important; }
+    .story-rail { display: none !important; }
+    .story-microcta svg, .story-microcta, .story .Button--primary,
+    .story-angel-mount picture, .story-angel-mount canvas,
+    .story-rail__dot { transition: none; }
+  }
+</style>
+
+{%- comment -%} ════════════════ ESCENA 01 · PARAMO — beats ════════════════ {%- endcomment -%}
+{%- if is_en -%}
+{%- capture s1_beats -%}
+<div class="story-beat" data-beat="-0.5,0.34">
+  <p class="story-eyebrow">01 · THE PÁRAMO</p>
+  <h1 class="story-title">High in the páramo sleeps the <em class="story-accent">Black Lagoon</em></h1>
+  <p class="story-sub">Las Huaringas, Huancabamba, Piura. A highland of mist where water is born cold, dark and still.</p>
+</div>
+<div class="story-beat" data-beat="0.34,0.64">
+  <div class="story-facts">
+    <div class="story-fact">
+      <p class="story-fact__num"><span class="story-counter story-fact__value" data-counter="3957" data-sep=",">3,957</span><span class="story-fact__unit">m a.s.l.</span></p>
+      <p class="story-fact__label">Altitude</p>
+    </div>
+    <div class="story-fact">
+      <p class="story-fact__num"><span class="story-fact__value">5–7</span><span class="story-fact__unit">°C</span></p>
+      <p class="story-fact__label">Water temperature</p>
+    </div>
+    <div class="story-fact">
+      <p class="story-fact__num"><span class="story-fact__value">3.50</span><span class="story-fact__unit">m</span></p>
+      <p class="story-fact__label">Maximum depth</p>
+    </div>
+  </div>
+</div>
+<div class="story-beat" data-beat="0.64,1.5">
+  <p class="story-prose story-prose--cap">You do not arrive at the páramo: you enter it. Mist closes the horizon and the wind lowers its voice. This is the space of silence. Here, water does not run. It waits.</p>
+  <p class="story-legend">◆ living tradition · — documented fact</p>
+</div>
+{%- endcapture -%}
+{%- else -%}
+{%- capture s1_beats -%}
+<div class="story-beat" data-beat="-0.5,0.34">
+  <p class="story-eyebrow">01 · EL PÁRAMO</p>
+  <h1 class="story-title">En el páramo duerme la <em class="story-accent">Laguna Negra</em></h1>
+  <p class="story-sub">Las Huaringas, Huancabamba, Piura. Una tierra alta de niebla donde el agua nace fría, oscura y quieta.</p>
+</div>
+<div class="story-beat" data-beat="0.34,0.64">
+  <div class="story-facts">
+    <div class="story-fact">
+      <p class="story-fact__num"><span class="story-counter story-fact__value" data-counter="3957" data-sep=".">3.957</span><span class="story-fact__unit">m s. n. m.</span></p>
+      <p class="story-fact__label">Altitud</p>
+    </div>
+    <div class="story-fact">
+      <p class="story-fact__num"><span class="story-fact__value">5–7</span><span class="story-fact__unit">°C</span></p>
+      <p class="story-fact__label">Temperatura del agua</p>
+    </div>
+    <div class="story-fact">
+      <p class="story-fact__num"><span class="story-fact__value">3,50</span><span class="story-fact__unit">m</span></p>
+      <p class="story-fact__label">Profundidad máxima</p>
+    </div>
+  </div>
+</div>
+<div class="story-beat" data-beat="0.64,1.5">
+  <p class="story-prose story-prose--cap">Al páramo no se llega: se entra. La niebla borra el horizonte y el viento baja la voz. Es el espacio del silencio. El agua, aquí, no corre. Espera.</p>
+  <p class="story-legend">◆ relato vivo · — dato documentado</p>
+</div>
+{%- endcapture -%}
+{%- endif -%}
+
+{%- comment -%} ════════════════ ESCENA 02 · ENCANTO — beats ════════════════ {%- endcomment -%}
+{%- if is_en -%}
+{%- capture s2_beats -%}
+<div class="story-beat" data-beat="-0.5,0.34">
+  <p class="story-eyebrow">02 · THE ENCANTO</p>
+  <h2 class="story-title">The Negra releases. The Shimbe <em class="story-accent">restores</em>.</h2>
+  <p class="story-sub">Tradition holds that the Negra unburdens what harms, and the Shimbe — the White — bestows what protects. Two waters, one rite.</p>
+</div>
+<div class="story-beat" data-beat="0.34,0.67">
+  <blockquote class="story-myth story-myth--quote">“Night, in the Andes, is the time when the past returns: the ‘encantos’ awaken […] To evoke the ‘encantos’, to establish visionary contact with them, is only possible when the doors of their world open — and this happens at night.”<cite class="story-myth__attr">MARIO POLIA · “LA MESA CURANDERIL Y LA COSMOLOGÍA ANDINA”, ANTHROPOLOGICA 8, 1990 — TRANSLATED FROM THE SPANISH</cite></blockquote>
+</div>
+<div class="story-beat" data-beat="0.67,1.5">
+  <p class="story-myth">It is said the lagoon tests those who come: it asks for its pago — its offering — and forgives no one who takes from its shores.</p>
+  <p class="story-factline">The records describe continual pagos made to the lagoon, “so that it does not grow angry.”</p>
+</div>
+{%- endcapture -%}
+{%- else -%}
+{%- capture s2_beats -%}
+<div class="story-beat" data-beat="-0.5,0.34">
+  <p class="story-eyebrow">02 · EL ENCANTO</p>
+  <h2 class="story-title">La Negra descarga. La Shimbe <em class="story-accent">carga</em>.</h2>
+  <p class="story-sub">La tradición cuenta que la Negra descarga el mal y la Shimbe —la Blanca— carga el bien. Dos aguas, un solo rito.</p>
+</div>
+<div class="story-beat" data-beat="0.34,0.67">
+  <blockquote class="story-myth story-myth--quote">«La noche, en los Andes, es el tiempo en que el pasado vuelve: los 'encantos' se despiertan […] Evocar los 'encantos', establecer contacto visionario con ellos, sólo es posible cuando las puertas de su mundo se abren, y esto acontece en la noche.»<cite class="story-myth__attr">MARIO POLIA · «LA MESA CURANDERIL Y LA COSMOLOGÍA ANDINA», ANTHROPOLOGICA 8, 1990</cite></blockquote>
+</div>
+<div class="story-beat" data-beat="0.67,1.5">
+  <p class="story-myth">Se cuenta que la laguna prueba a quien llega: pide su pago y no perdona al que se lleva algo de sus orillas.</p>
+  <p class="story-factline">Los registros describen pagos continuos a la laguna, «para que no se enoje».</p>
+</div>
+{%- endcapture -%}
+{%- endif -%}
+
+{%- comment -%} ════════════════ ESCENA 03 · MESA — beats ════════════════ {%- endcomment -%}
+{%- if is_en -%}
+{%- capture s3_beats -%}
+<div class="story-beat" data-beat="-0.5,0.27">
+  <p class="story-eyebrow">03 · THE MESA</p>
+  <h2 class="story-title">The night the <em class="story-accent">mesa</em> opens</h2>
+  <p class="story-sub">The rite begins around eleven at night and is lifted at six. Tuesdays and Fridays, usually.</p>
+</div>
+<div class="story-beat" data-beat="0.27,0.52">
+  <p class="story-prose">On the ground, the maestro lays out his artes: colonial swords, chonta-wood staffs, shells, perfumes, chunganas — seed rattles. Each object has its place and its task. The mesa is not an altar: it is a map of power, set by hand.</p>
+</div>
+<div class="story-beat" data-beat="0.52,0.76">
+  <p class="story-prose">San Pedro — huachuma — is taken: a teacher plant with more than 3,000 years of ritual use. Then comes the bath in the lagoon’s freezing water. Tradition calls it florecer — to flower: to open, the way the cactus opens its flower at night.</p>
+</div>
+<div class="story-beat" data-beat="0.76,1.5">
+  <p class="story-line">With the first light, the mesa is lifted.</p>
+</div>
+{%- endcapture -%}
+{%- else -%}
+{%- capture s3_beats -%}
+<div class="story-beat" data-beat="-0.5,0.27">
+  <p class="story-eyebrow">03 · LA MESA</p>
+  <h2 class="story-title">La noche en que se abre la <em class="story-accent">mesa</em></h2>
+  <p class="story-sub">El rito comienza hacia las once de la noche y se levanta a las seis. Martes y viernes, habitualmente.</p>
+</div>
+<div class="story-beat" data-beat="0.27,0.52">
+  <p class="story-prose">Sobre la tierra, el maestro tiende sus artes: espadas coloniales, varas de chonta, conchas, perfumes, chunganas. Cada objeto tiene su lugar y su tarea. La mesa no es un altar: es un mapa del poder, ordenado a mano.</p>
+</div>
+<div class="story-beat" data-beat="0.52,0.76">
+  <p class="story-prose">Se bebe San Pedro —huachuma—, planta maestra con más de 3.000 años de uso ritual. Después, el baño en el agua helada de la laguna. La tradición lo llama florecer: abrirse, como se abre de noche la flor del cactus.</p>
+</div>
+<div class="story-beat" data-beat="0.76,1.5">
+  <p class="story-line">Con los primeros rayos, la mesa se levanta.</p>
+</div>
+{%- endcapture -%}
+{%- endif -%}
+
+{%- comment -%} ════════════════ ESCENA 04 · SEGURO — beats ════════════════ {%- endcomment -%}
+{%- if is_en -%}
+{%- capture s4_beats -%}
+<div class="story-beat" data-beat="-0.5,0.36">
+  <p class="story-eyebrow">04 · THE SEGURO</p>
+  <h2 class="story-title">A bottle that holds what <em class="story-accent">protects</em></h2>
+  <p class="story-sub">The maestro prepares it by hand: plants from Las Huaringas, coins, hair, perfumes. An amulet of protection, carried close.</p>
+</div>
+<div class="story-beat" data-beat="0.36,0.68">
+  <p class="story-prose">At the heart of the seguro goes the mamayacu, the mother-water. Each lagoon keeps its own; the records — from Polia to the UNESCO dossier — name the Negra's as the most powerful.</p>
+</div>
+<div class="story-beat" data-beat="0.68,1.5">
+  <p class="story-prose">Every elyxie piece guards water from the Black Lagoon inside its crystal sphere. It promises nothing: it accompanies. A contemporary seguro, made with the same care given to everything that matters.</p>
+  <a class="story-microcta" href="{{ cta_url }}">The Angel of the Black Lagoon
+    <svg width="13" height="9" viewBox="0 0 13 9" fill="none" aria-hidden="true"><path d="M1 4.5h10M7.5 1L11 4.5 7.5 8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
+</div>
+{%- endcapture -%}
+{%- else -%}
+{%- capture s4_beats -%}
+<div class="story-beat" data-beat="-0.5,0.36">
+  <p class="story-eyebrow">04 · EL SEGURO</p>
+  <h2 class="story-title">Un frasco que guarda lo que <em class="story-accent">protege</em></h2>
+  <p class="story-sub">El maestro lo prepara a mano: plantas de las Huaringas, monedas, cabello, perfumes. Un amuleto de protección para llevar consigo.</p>
+</div>
+<div class="story-beat" data-beat="0.36,0.68">
+  <p class="story-prose">En el corazón del seguro va el mamayacu, el agua-madre. Cada laguna guarda la suya; los registros —de Polia al expediente de la UNESCO— señalan la de la Negra como la más poderosa.</p>
+</div>
+<div class="story-beat" data-beat="0.68,1.5">
+  <p class="story-prose">Cada pieza de elyxie custodia agua de la Laguna Negra en su esfera de cristal. No promete nada: acompaña. Un seguro contemporáneo, preparado con el mismo cuidado con que se prepara todo lo que importa.</p>
+  <a class="story-microcta" href="{{ cta_url }}">El Ángel de la Laguna Negra
+    <svg width="13" height="9" viewBox="0 0 13 9" fill="none" aria-hidden="true"><path d="M1 4.5h10M7.5 1L11 4.5 7.5 8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
+</div>
+{%- endcapture -%}
+{%- endif -%}
+
+{%- comment -%} ════════════════ ESCENA 05 · VIVA — beats ════════════════ {%- endcomment -%}
+{%- if is_en -%}
+{%- capture s5_beats -%}
+<div class="story-beat" data-beat="-0.5,0.34">
+  <p class="story-eyebrow">05 · THE LIVING LAGOON</p>
+  <h2 class="story-title">The water that descends to give <em class="story-accent">life</em></h2>
+  <p class="story-sub">The páramo works like a sponge. Here the Quiroz and the Huancabamba are born: water for millions across northern Peru.</p>
+</div>
+<div class="story-beat" data-beat="0.34,0.66">
+  <p class="story-prose">The communities and maestros of Huancabamba keep watch over this land. Today they back a Regional Conservation Area of 16,300 hectares, still underway: refuge of the spectacled bear and the Andean tapir.</p>
+  <div class="story-facts" style="margin-top: 34px;">
+    <div class="story-fact">
+      <p class="story-fact__num"><span class="story-counter story-fact__value" data-counter="16300" data-sep=",">16,300</span><span class="story-fact__unit">hectares</span></p>
+      <p class="story-fact__label">Regional Conservation Area, in progress</p>
+    </div>
+  </div>
+</div>
+<div class="story-beat" data-beat="0.66,1.6">
+  <p class="story-prose">The lagoon is still up there, quiet, keeping its water. A small measure of that stillness now lives inside a crystal sphere, close to the chest of whoever wears it.</p>
+  <a class="Button--primary" href="{{ cta_url }}">Discover the piece</a>
+</div>
+{%- endcapture -%}
+{%- else -%}
+{%- capture s5_beats -%}
+<div class="story-beat" data-beat="-0.5,0.34">
+  <p class="story-eyebrow">05 · LA LAGUNA VIVA</p>
+  <h2 class="story-title">El agua que baja a dar <em class="story-accent">vida</em></h2>
+  <p class="story-sub">El páramo trabaja como una esponja. De aquí nacen el Quiroz y el Huancabamba: agua para millones en el norte del Perú.</p>
+</div>
+<div class="story-beat" data-beat="0.34,0.66">
+  <p class="story-prose">Las comunidades y los maestros de Huancabamba custodian el territorio. Hoy respaldan un Área de Conservación Regional de 16.300 hectáreas, aún en proceso: refugio del oso de anteojos y del tapir andino.</p>
+  <div class="story-facts" style="margin-top: 34px;">
+    <div class="story-fact">
+      <p class="story-fact__num"><span class="story-counter story-fact__value" data-counter="16300" data-sep=".">16.300</span><span class="story-fact__unit">hectáreas</span></p>
+      <p class="story-fact__label">Área de Conservación Regional, en proceso</p>
+    </div>
+  </div>
+</div>
+<div class="story-beat" data-beat="0.66,1.6">
+  <p class="story-prose">La laguna sigue allá arriba, quieta, guardando su agua. Una parte mínima de esa quietud vive ahora en una esfera de cristal, junto al pecho de quien la lleva.</p>
+  <a class="Button--primary" href="{{ cta_url }}">Conocer la pieza</a>
+</div>
+{%- endcapture -%}
+{%- endif -%}
+
+{%- comment -%} ════════════════ GLOSARIO ════════════════ {%- endcomment -%}
+{%- if is_en -%}
+{%- capture gloss_html -%}
+<p class="story-eyebrow">GLOSSARY</p>
+<h2 class="story-gloss__title">The words of the water</h2>
+<p class="story-gloss__intro">Eleven words to enter the world of Las Huaringas.</p>
+<dl class="story-gloss__list">
+  <div data-reveal style="--i:0"><dt>encanto</dt><dd>The spirit dwelling in a place of power — lagoon, mountain, cave — and the enchantment it produces. Las Huaringas are lagoons of encanto.</dd></div>
+  <div data-reveal style="--i:1"><dt>mesa</dt><dd>The maestro's array of ritual objects, and the night ceremony in which they are laid out and worked. It opens at night and is lifted at dawn.</dd></div>
+  <div data-reveal style="--i:2"><dt>florecimiento</dt><dd>Rite of opening and good fortune. To florecer is to bloom like the night flower of the San Pedro, after the bath in freezing water.</dd></div>
+  <div data-reveal style="--i:3"><dt>seguro</dt><dd>An amulet bottle prepared by the maestro: plants from Las Huaringas, coins, hair, perfumes. Protection carried on the person.</dd></div>
+  <div data-reveal style="--i:4"><dt>mamayacu</dt><dd>The mother-water of a lagoon: its concentrated essence. Tradition names that of the Black Lagoon the most powerful.</dd></div>
+  <div data-reveal style="--i:5"><dt>páramo</dt><dd>A cold, mist-bound high-Andean ecosystem. It works like a sponge: holding water and releasing it slowly toward the valleys.</dd></div>
+  <div data-reveal style="--i:6"><dt>apu</dt><dd>Lord or guardian spirit of a mountain in Andean tradition. It is addressed with respect, and given offerings.</dd></div>
+  <div data-reveal style="--i:7"><dt>cocha</dt><dd>From the Quechua qucha: lagoon. The living word with which the Andean world names its still waters.</dd></div>
+  <div data-reveal style="--i:8"><dt>huachuma</dt><dd>The ancestral name of the San Pedro cactus, a teacher plant with more than 3,000 years of ritual use in the Andes.</dd></div>
+  <div data-reveal style="--i:9"><dt>limpia</dt><dd>Cleansing rite: the maestro passes his artes over the body to draw away what harms, as tradition holds.</dd></div>
+  <div data-reveal style="--i:10"><dt>pago</dt><dd>An offering to the lagoon or the mountain. Given before asking. The records describe it as constant, “so that it does not grow angry.”</dd></div>
+</dl>
+{%- endcapture -%}
+{%- else -%}
+{%- capture gloss_html -%}
+<p class="story-eyebrow">GLOSARIO</p>
+<h2 class="story-gloss__title">Las palabras del agua</h2>
+<p class="story-gloss__intro">Once palabras para entrar al mundo de las Huaringas.</p>
+<dl class="story-gloss__list">
+  <div data-reveal style="--i:0"><dt>encanto</dt><dd>Espíritu que habita un lugar de poder —laguna, cerro, cueva— y el encantamiento que produce. Las Huaringas son lagunas de encanto.</dd></div>
+  <div data-reveal style="--i:1"><dt>mesa</dt><dd>El conjunto de objetos rituales del maestro y la ceremonia nocturna en que se ordenan y trabajan. Se abre de noche y se levanta al amanecer.</dd></div>
+  <div data-reveal style="--i:2"><dt>florecimiento</dt><dd>Rito de apertura y buena fortuna. Florecer: abrirse como la flor nocturna del San Pedro, tras el baño en el agua helada.</dd></div>
+  <div data-reveal style="--i:3"><dt>seguro</dt><dd>Botella-amuleto preparada por el maestro: plantas de las Huaringas, monedas, cabello, perfumes. Protección que se lleva consigo.</dd></div>
+  <div data-reveal style="--i:4"><dt>mamayacu</dt><dd>El agua-madre de una laguna: su esencia concentrada. La tradición señala el de la Laguna Negra como el más poderoso.</dd></div>
+  <div data-reveal style="--i:5"><dt>páramo</dt><dd>Ecosistema andino de altura, frío y de niebla. Funciona como esponja: retiene el agua y la libera lentamente hacia los valles.</dd></div>
+  <div data-reveal style="--i:6"><dt>apu</dt><dd>Señor o espíritu tutelar de una montaña en la tradición andina. Se le habla con respeto y se le ofrenda.</dd></div>
+  <div data-reveal style="--i:7"><dt>cocha</dt><dd>Del quechua qucha: laguna. La palabra viva con la que el mundo andino nombra sus aguas quietas.</dd></div>
+  <div data-reveal style="--i:8"><dt>huachuma</dt><dd>Nombre ancestral del cactus San Pedro, planta maestra con más de 3.000 años de uso ritual en los Andes.</dd></div>
+  <div data-reveal style="--i:9"><dt>limpia</dt><dd>Rito de limpieza: el maestro recorre el cuerpo con sus artes para retirar lo que daña, según la tradición.</dd></div>
+  <div data-reveal style="--i:10"><dt>pago</dt><dd>Ofrenda a la laguna o al cerro. Se da antes de pedir. Los registros lo describen continuo, «para que no se enoje».</dd></div>
+</dl>
+{%- endcapture -%}
+{%- endif -%}
+
+{%- comment -%} ════════════════ CRÉDITOS ════════════════ {%- endcomment -%}
+{%- if is_en -%}
+{%- capture credits_html -%}
+<p>To the maestros and the people of Huancabamba, keepers of Las Huaringas.</p>
+<p>To the Asociación de Maestros Curanderos.</p>
+<p>Sources: Mario Polia, Anthropologica 8, 1990.</p>
+<p>Ministry of Culture of Peru · UNESCO Tentative List, 2019.</p>
+<p>Northern curanderismo has been Cultural Heritage of the Nation since 2022.</p>
+<p>This land is entered with permission and named with respect.</p>
+<p class="story-credits__final">elyxie guards the smallest part of this story. The rest remains on the mountain.</p>
+<a class="Button--primary" href="{{ cta_url }}">Discover the piece</a>
+{%- endcapture -%}
+{%- else -%}
+{%- capture credits_html -%}
+<p>A los maestros y al pueblo de Huancabamba, custodios de las Huaringas.</p>
+<p>A la Asociación de Maestros Curanderos.</p>
+<p>Fuentes: Mario Polia, Anthropologica 8, 1990.</p>
+<p>Ministerio de Cultura del Perú · Lista Indicativa UNESCO, 2019.</p>
+<p>El curanderismo norteño es Patrimonio Cultural de la Nación desde 2022.</p>
+<p>Este territorio se visita con permiso y se nombra con respeto.</p>
+<p class="story-credits__final">elyxie custodia una parte mínima de esta historia. El resto sigue en la montaña.</p>
+<a class="Button--primary" href="{{ cta_url }}">Conocer la pieza</a>
+{%- endcapture -%}
+{%- endif -%}
+
+<div id="elyxie-story" class="story" data-glb="{{ 'angel.glb' | asset_url }}">
+  <script>
+    /* Armado PRE-PAINT: este inline corre mientras el parser aún está dentro
+       del div (el elemento ya existe en el DOM), o sea ANTES del primer paint.
+       Sin esto, el layout apilado (fallback) parpadearía un frame hasta que el
+       story-scroll.js diferido armara la clase. Reduced-motion nunca se arma. */
+    if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      document.getElementById('elyxie-story').classList.add('story--armed');
+    }
+  </script>
+
+  <div class="story__bg" aria-hidden="true"></div>
+  <div class="story-grain" aria-hidden="true"></div>
+
+  {%- comment -%} Rail de escenas — decorativo puro; el motor lo enciende. {%- endcomment -%}
+  <div class="story-rail" aria-hidden="true">
+    <span class="story-rail__track"><span class="story-rail__fill"></span></span>
+    <span class="story-rail__dot" data-for="paramo"></span>
+    <span class="story-rail__dot" data-for="encanto"></span>
+    <span class="story-rail__dot" data-for="mesa"></span>
+    <span class="story-rail__dot" data-for="seguro"></span>
+    <span class="story-rail__dot" data-for="viva"></span>
+  </div>
+
+  {%- comment -%} ══ ESCENA 01 · PARAMO ══ {%- endcomment -%}
+  <section class="story-scene" data-scene="paramo"
+    data-theme-from="#0A2620" data-theme-to="#051613"
+    data-fg-from="#FFFFFF" data-fg-to="#FFFFFF"
+    data-ramp="0.75,1" style="--len: 4">
+    <div class="story-scene__pin">
+      <div class="story-scene__media">
+        <picture>
+          <source media="(max-width: 600px)" sizes="100vw"
+            srcset="{{ 'story-paramo-bg-480.webp' | asset_url }} 480w, {{ 'story-paramo-bg-960.webp' | asset_url }} 960w">
+          <img
+            src="{{ 'story-paramo-bg-960.webp' | asset_url }}"
+            srcset="{{ 'story-paramo-bg-480.webp' | asset_url }} 480w, {{ 'story-paramo-bg-960.webp' | asset_url }} 960w, {{ 'story-paramo-bg-1440.webp' | asset_url }} 1440w"
+            sizes="100vw" width="960" height="536" fetchpriority="high" decoding="async"
+            alt="{% if is_en %}Low mist over the páramo of Las Huaringas, in Huancabamba{% else %}Niebla baja sobre el páramo de las Huaringas, en Huancabamba{% endif %}">
+        </picture>
+        <video class="story-video" muted playsinline loop preload="none" aria-hidden="true"
+          poster="{{ 'story-paramo-bg-960.webp' | asset_url }}"
+          data-src="{{ 'origen-bg.mp4' | asset_url }}"
+          data-src-720="{{ 'origen-bg-720.mp4' | asset_url }}"></video>
+      </div>
+      <div class="story-scene__scrim" aria-hidden="true"></div>
+      {{ s1_beats }}
+    </div>
+  </section>
+
+  {%- comment -%} ══ ESCENA 02 · ENCANTO ══ {%- endcomment -%}
+  <section class="story-scene" data-scene="encanto"
+    data-theme-from="#051613" data-theme-to="#020807"
+    data-fg-from="#FFFFFF" data-fg-to="#FFFFFF"
+    data-ramp="0.75,1" style="--len: 4">
+    <div class="story-scene__pin">
+      <div class="story-scene__media">
+        <picture>
+          {%- comment -%} -m-*: recorte vertical art-directed para móvil {%- endcomment -%}
+          <source media="(max-width: 600px)"
+            srcset="{{ 'story-encanto-bg-m-480.webp' | asset_url }} 480w, {{ 'story-encanto-bg-m-960.webp' | asset_url }} 960w"
+            sizes="100vw">
+          <img
+            src="{{ 'story-encanto-bg-960.webp' | asset_url }}"
+            srcset="{{ 'story-encanto-bg-480.webp' | asset_url }} 480w, {{ 'story-encanto-bg-960.webp' | asset_url }} 960w, {{ 'story-encanto-bg-1440.webp' | asset_url }} 1440w"
+            sizes="100vw" width="960" height="536" loading="lazy" decoding="async"
+            alt="{% if is_en %}The dark, still surface of the Black Lagoon{% else %}La superficie oscura y quieta de la Laguna Negra{% endif %}">
+        </picture>
+      </div>
+      <div class="story-scene__scrim" aria-hidden="true"></div>
+      {{ s2_beats }}
+    </div>
+  </section>
+
+  {%- comment -%} ══ ESCENA 03 · MESA ══
+    Noche (laguna-negra-bg, el telón nocturno del home) → amanecer: media-b
+    (story-amanecer-bg) cross-fadea con el MISMO k del ramp de tema 0.66→0.92,
+    así la foto clara y el fondo crema llegan exactamente juntos. {%- endcomment -%}
+  <section class="story-scene" data-scene="mesa"
+    data-theme-from="#020807" data-theme-to="#F6F2E8"
+    data-fg-from="#FFFFFF" data-fg-to="#0A2620"
+    data-ramp="0.66,0.92" style="--len: 4.6">
+    <div class="story-scene__pin">
+      <div class="story-scene__media">
+        <picture>
+          <source media="(max-width: 600px)" sizes="100vw"
+            srcset="{{ 'laguna-negra-bg-640.webp' | asset_url }} 640w, {{ 'laguna-negra-bg.webp' | asset_url }} 928w">
+          <img
+            src="{{ 'laguna-negra-bg.webp' | asset_url }}"
+            srcset="{{ 'laguna-negra-bg-640.webp' | asset_url }} 640w, {{ 'laguna-negra-bg.webp' | asset_url }} 928w"
+            sizes="100vw" width="928" height="1131" loading="lazy" decoding="async"
+            alt="{% if is_en %}The Black Lagoon at night, under a closed sky{% else %}La Laguna Negra de noche, bajo un cielo cerrado{% endif %}">
+        </picture>
+        <video class="story-video" muted playsinline loop preload="none" aria-hidden="true"
+          poster="{{ 'laguna-negra-bg.webp' | asset_url }}"
+          data-src="{{ 'tribu-bg.mp4' | asset_url }}"
+          data-src-720="{{ 'tribu-bg-720.mp4' | asset_url }}"></video>
+      </div>
+      <div class="story-scene__scrim" aria-hidden="true"></div>
+      <div class="story-scene__media-b">
+        <picture>
+          <source media="(max-width: 600px)" sizes="100vw"
+            srcset="{{ 'story-amanecer-bg-480.webp' | asset_url }} 480w, {{ 'story-amanecer-bg-960.webp' | asset_url }} 960w">
+          <img
+            src="{{ 'story-amanecer-bg-960.webp' | asset_url }}"
+            srcset="{{ 'story-amanecer-bg-480.webp' | asset_url }} 480w, {{ 'story-amanecer-bg-960.webp' | asset_url }} 960w, {{ 'story-amanecer-bg-1440.webp' | asset_url }} 1440w"
+            sizes="100vw" width="960" height="536" loading="lazy" decoding="async"
+            alt="{% if is_en %}First light of dawn over the páramo{% else %}Primera luz del amanecer sobre el páramo{% endif %}">
+        </picture>
+      </div>
+      {{ s3_beats }}
+    </div>
+  </section>
+
+  {%- comment -%} ══ ESCENA 04 · SEGURO ══
+    Sin media de fondo: el ángel vive sobre el lienzo de tema (--story-bg).
+    story-angel.js inyecta el canvas en .story-angel-mount y añade .is-3d;
+    la foto de debajo es el fallback permanente (red, WebGL, gamas bajas). {%- endcomment -%}
+  <section class="story-scene" data-scene="seguro"
+    data-theme-from="#F6F2E8" data-theme-to="#0A2620"
+    data-fg-from="#0A2620" data-fg-to="#FFFFFF"
+    data-ramp="0,0.25" style="--len: 4">
+    <div class="story-scene__pin">
+      <div class="story-angel-mount">
+        <picture>
+          <source media="(max-width: 600px)" sizes="100vw"
+            srcset="{{ 'story-angel-still-480.webp' | asset_url }} 480w, {{ 'story-angel-still-960.webp' | asset_url }} 960w">
+          <img
+            src="{{ 'story-angel-still-960.webp' | asset_url }}"
+            srcset="{{ 'story-angel-still-480.webp' | asset_url }} 480w, {{ 'story-angel-still-960.webp' | asset_url }} 960w, {{ 'story-angel-still-1440.webp' | asset_url }} 1440w"
+            sizes="(max-width: 900px) 100vw, 50vw" width="960" height="1197" loading="lazy" decoding="async"
+            alt="{% if is_en %}The Angel of the Black Lagoon: a gold pendant whose crystal sphere guards the water{% else %}El Ángel de la Laguna Negra: colgante de oro cuya esfera de cristal custodia el agua{% endif %}">
+        </picture>
+      </div>
+      {{ s4_beats }}
+    </div>
+  </section>
+
+  {%- comment -%} ══ ESCENA 05 · VIVA ══ {%- endcomment -%}
+  <section class="story-scene" data-scene="viva"
+    data-theme-from="#0A2620" data-theme-to="#051613"
+    data-fg-from="#FFFFFF" data-fg-to="#FFFFFF"
+    data-ramp="0.75,1" style="--len: 4">
+    <div class="story-scene__pin">
+      <div class="story-scene__media">
+        <picture>
+          <source media="(max-width: 600px)" sizes="100vw"
+            srcset="{{ 'story-custodios-bg-480.webp' | asset_url }} 480w, {{ 'story-custodios-bg-960.webp' | asset_url }} 960w">
+          <img
+            src="{{ 'story-custodios-bg-960.webp' | asset_url }}"
+            srcset="{{ 'story-custodios-bg-480.webp' | asset_url }} 480w, {{ 'story-custodios-bg-960.webp' | asset_url }} 960w, {{ 'story-custodios-bg-1440.webp' | asset_url }} 1440w"
+            sizes="100vw" width="960" height="536" loading="lazy" decoding="async"
+            alt="{% if is_en %}The communities who keep watch over the Huaringas territory{% else %}Las comunidades que custodian el territorio de las Huaringas{% endif %}">
+        </picture>
+      </div>
+      <div class="story-scene__scrim" aria-hidden="true"></div>
+      {{ s5_beats }}
+    </div>
+  </section>
+
+  {%- comment -%} ══ GLOSARIO ══ {%- endcomment -%}
+  <section class="story-gloss">
+    {{ gloss_html }}
+  </section>
+
+  {%- comment -%} ══ CRÉDITOS ══ {%- endcomment -%}
+  <section class="story-credits">
+    {{ credits_html }}
+  </section>
+</div>
+
+{%- comment -%}
+  Importmap de three/addons — copiado de layout/elyxie.liquid. Es INERTE: no
+  descarga nada hasta que story-angel.js inyecta su primer import (lazy, a
+  1.5 viewports de la escena del ángel). Debe vivir en el documento ANTES de
+  ese import; elyxie-page no lo trae, así que lo aporta la sección.
+{%- endcomment -%}
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+<script src="{{ 'story-scroll.js' | asset_url }}" defer></script>
+<script src="{{ 'story-angel.js' | asset_url }}" defer></script>
+
+{% schema %}
+{
+  "name": "Elyxie — Story",
+  "settings": [
+    {
+      "type": "paragraph",
+      "content": "Scrollytelling de la Laguna Negra. Copy y escenas viven en el código de la sección."
+    }
+  ],
+  "presets": [{ "name": "Elyxie — Story" }]
+}
+{% endschema %}

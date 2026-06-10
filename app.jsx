@@ -982,6 +982,20 @@ const MOBILE_MENU = {
 function MobileNavDrawer({ lang, setLang, open, onClose }) {
   const [openIdx, setOpenIdx] = useState(-1);
 
+  // Mismo origen que el nav de escritorio: los link lists de Shopify
+  // (elyxie-header-es/en) que la sección emite en window.__ELYXIE.nav.
+  // Se mergea por índice sobre MOBILE_MENU (mismos 5 ítems, mismo orden)
+  // para conservar el submenú de EDICIONES, que los link lists no traen.
+  // Solo se adopta la URL real cuando no es '/' — los ítems aún sin página
+  // (CUSTODIA, etc.) apuntan a '/' en el Admin y deben seguir como '#'
+  // (cerrar el drawer sin recargar el one-pager); en cuanto se les asigne
+  // página en Navegación, el drawer los recoge solo.
+  const themeNav = (typeof window !== 'undefined') && window.__ELYXIE && window.__ELYXIE.nav && window.__ELYXIE.nav[lang];
+  const menuItems = MOBILE_MENU[lang].map((item, i) => {
+    const link = themeNav && themeNav[i];
+    return (link && link.url && link.url !== '/') ? { ...item, href: link.url } : item;
+  });
+
   // Lock body scroll + Esc-to-close while drawer is open
   useEffect(() => {
     if (!open) return;
@@ -1006,7 +1020,7 @@ function MobileNavDrawer({ lang, setLang, open, onClose }) {
     <div className="mobile-drawer" data-open={open} aria-hidden={!open}>
       <div className="mobile-drawer__inner">
         <ul className="mobile-drawer__list">
-          {MOBILE_MENU[lang].map((item, i) => {
+          {menuItems.map((item, i) => {
             const hasChildren = !!item.children;
             const isOpen = openIdx === i;
             return (

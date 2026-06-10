@@ -6,6 +6,17 @@
   <title>{{ page_title | default: shop.name }}</title>
   <link rel="canonical" href="{{ canonical_url }}"/>
   <link rel="icon" href="{{ 'elyxie-mark.svg' | asset_url }}"/>
+  {%- if page_description -%}<meta name="description" content="{{ page_description | escape }}">{%- endif -%}
+  <meta property="og:site_name" content="{{ shop.name }}">
+  <meta property="og:title" content="{{ page_title | default: shop.name }}">
+  {%- if page_description -%}<meta property="og:description" content="{{ page_description | escape }}">{%- endif -%}
+  <meta property="og:url" content="{{ canonical_url }}">
+  <meta property="og:type" content="website">
+  {%- if template.suffix == 'story' -%}
+    <meta property="og:image" content="{{ 'story-og.jpg' | asset_url }}">
+    {%- comment -%} Story carga Three.js desde unpkg al acercarse la escena 3D. {%- endcomment -%}
+    <link rel="preconnect" href="https://unpkg.com" crossorigin>
+  {%- endif -%}
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="preconnect" href="https://api.fontshare.com" crossorigin>
@@ -69,7 +80,7 @@
     .epage-foot { flex-shrink: 0; border-top: 1px solid rgba(255,255,255,0.08);
       padding: 56px clamp(20px,5vw,64px) 40px; display: grid; gap: 40px;
       grid-template-columns: 1.4fr repeat(3, 1fr); align-items: start; }
-    .epage-foot__mark { width: 120px; height: 30px; background-color: var(--ep-champ);
+    .epage-foot__mark { display: inline-block; width: 120px; height: 30px; background-color: var(--ep-champ);
       -webkit-mask: url("{{ 'elyxie-wordmark.svg' | asset_url }}") no-repeat left center / contain;
               mask: url("{{ 'elyxie-wordmark.svg' | asset_url }}") no-repeat left center / contain; }
     .epage-foot__tag { margin-top: 14px; font-size: 11px; letter-spacing: 0.3em; color: rgba(255,255,255,0.5); }

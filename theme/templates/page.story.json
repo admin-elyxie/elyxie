@@ -1,0 +1,11 @@
+{
+  "layout": "elyxie-page",
+  "sections": {
+    "main": {
+      "type": "elyxie-story"
+    }
+  },
+  "order": [
+    "main"
+  ]
+}
