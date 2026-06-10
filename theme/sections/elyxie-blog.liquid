@@ -1,0 +1,193 @@
+{%- comment -%}
+  Blog ELYXIE — índice editorial de relatos (clon del lenguaje de elyxie-collection).
+  Vive bajo el layout `elyxie-page` (wordmark champán + ES/EN + carrito + footer).
+  Server-rendered puro, sin JS. Bilingüe ES/EN.
+{%- endcomment -%}
+{%- assign is_en = false -%}
+{%- if request.locale.iso_code == 'en' -%}{%- assign is_en = true -%}{%- endif -%}
+
+{%- assign heading = section.settings.heading | strip -%}
+{%- if heading == blank -%}
+  {%- if blog.title != blank -%}{%- assign heading = blog.title -%}
+  {%- else -%}{%- if is_en -%}{%- assign heading = 'Stories' -%}{%- else -%}{%- assign heading = 'Relatos' -%}{%- endif -%}{%- endif -%}
+{%- endif -%}
+{%- assign eyebrow = section.settings.eyebrow | strip -%}
+{%- if eyebrow == blank -%}{%- if is_en -%}{%- assign eyebrow = 'The Journal' -%}{%- else -%}{%- assign eyebrow = 'El Diario' -%}{%- endif -%}{%- endif -%}
+
+<style>
+  .eblog {
+    --eb-surface: #0E2E26;
+    --eb-hair: rgba(255,255,255,0.08);
+    --eb-hair-champ: rgba(233,215,177,0.22);
+    max-width: 1240px; margin: 0 auto;
+    padding: clamp(40px,7vw,104px) clamp(20px,5vw,64px) clamp(88px,13vw,168px);
+  }
+  .eblog__head { margin-bottom: clamp(40px,6vw,72px); }
+  .eblog__eyebrow { margin: 0; font-family: var(--ep-sans); font-size: 11px; font-weight: 500;
+    letter-spacing: 0.32em; text-transform: uppercase; color: var(--ep-champ); }
+  .eblog__title { margin: clamp(14px,1.6vw,20px) 0 0; font-family: var(--ep-serif); font-style: italic;
+    font-weight: 400; font-size: clamp(42px,6.4vw,88px); line-height: 1.0; letter-spacing: -0.02em;
+    color: var(--ep-ink); text-wrap: balance; }
+  .eblog__count { display: block; margin-top: clamp(22px,3vw,34px); font-family: var(--ep-sans); font-size: 11px;
+    font-weight: 500; letter-spacing: 0.22em; text-transform: uppercase; color: rgba(255,255,255,0.62);
+    font-variant-numeric: tabular-nums; }
+  .eblog__rule { height: 1px; border: 0; margin: clamp(20px,2.4vw,30px) 0 0;
+    background: linear-gradient(90deg, var(--eb-hair-champ), rgba(255,255,255,0.05) 40%, transparent); }
+
+  .eblog__grid { list-style: none; margin: clamp(40px,6vw,72px) 0 0; padding: 0;
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(320px,1fr));
+    gap: clamp(48px,6vw,80px) clamp(28px,3vw,48px); }
+
+  .epost { --i: 0; opacity: 0; transform: translateY(18px);
+    animation: epost-rise 760ms cubic-bezier(0.05,0.7,0.1,1) both; animation-delay: calc(var(--i) * 90ms); }
+  @keyframes epost-rise { to { opacity: 1; transform: none; } }
+  .epost__link { display: block; text-decoration: none; color: inherit; }
+  .epost__link:focus-visible { outline: none; }
+  .epost__link:focus-visible .epost__frame { outline: 2px solid var(--ep-champ); outline-offset: 4px; }
+
+  .epost__frame { position: relative; aspect-ratio: 3 / 2; border-radius: 14px; overflow: hidden;
+    background: var(--eb-surface);
+    box-shadow: 0 20px 60px rgba(5,22,19,0.45), inset 0 0 0 1px rgba(255,255,255,0.06);
+    transition: box-shadow 420ms cubic-bezier(0.2,0,0,1); }
+  .epost__img { display: block; width: 100%; height: 100%; object-fit: cover;
+    transition: transform 760ms cubic-bezier(0.2,0,0,1); }
+  .epost__frame--empty { display: grid; place-items: center; padding: 24px; text-align: center;
+    color: rgba(233,215,177,0.5); font-family: var(--ep-serif); font-style: italic; font-size: clamp(20px,2.4vw,28px); line-height: 1.2; }
+  .epost__link:hover .epost__img { transform: scale(1.045); }
+  .epost__link:hover .epost__frame {
+    box-shadow: 0 24px 70px rgba(5,22,19,0.55), 0 0 54px rgba(233,215,177,0.12), inset 0 0 0 1px rgba(233,215,177,0.24); }
+
+  .epost__body { padding-top: 20px; }
+  .epost__date { margin: 0 0 11px; font-family: var(--ep-sans); font-size: 10px; font-weight: 500;
+    letter-spacing: 0.28em; text-transform: uppercase; color: var(--ep-champ); font-variant-numeric: tabular-nums; }
+  .epost__name { margin: 0; font-family: var(--ep-serif); font-weight: 400; font-size: clamp(24px,2.4vw,32px);
+    line-height: 1.1; letter-spacing: -0.01em; color: var(--ep-ink); text-wrap: balance; }
+  .epost__excerpt { margin: 13px 0 0; max-width: 46ch; font-family: var(--ep-sans); font-size: 15px;
+    line-height: 1.65; color: rgba(255,255,255,0.66); }
+  .epost__cta { display: inline-flex; align-items: center; gap: 8px; margin-top: 18px;
+    font-family: var(--ep-sans); font-size: 10.5px; font-weight: 500; letter-spacing: 0.2em;
+    text-transform: uppercase; color: rgba(233,215,177,0.85); transition: color 240ms ease; }
+  .epost__cta svg { transition: transform 240ms cubic-bezier(0.2,0,0,1); }
+  .epost__link:hover .epost__cta { color: var(--ep-champ); }
+  .epost__link:hover .epost__cta svg { transform: translateX(4px); }
+
+  .eblog__empty { padding: clamp(56px,11vw,128px) 0; text-align: center; }
+  .eblog__empty p { margin: 0; font-family: var(--ep-serif); font-style: italic; font-size: clamp(22px,3vw,32px);
+    color: rgba(255,255,255,0.72); }
+  .eblog__empty a { display: inline-block; margin-top: 24px; font-family: var(--ep-sans); font-size: 11px;
+    font-weight: 500; letter-spacing: 0.24em; text-transform: uppercase; color: var(--ep-champ);
+    text-decoration: none; border-bottom: 1px solid var(--eb-hair-champ); padding-bottom: 4px;
+    transition: color 240ms ease, border-color 240ms ease; }
+  .eblog__empty a:hover { color: #fff; border-color: rgba(233,215,177,0.5); }
+
+  .eblog__pager { display: flex; justify-content: center; gap: 10px; margin-top: clamp(48px,7vw,88px); }
+  .eblog__pager a, .eblog__pager span { min-width: 40px; height: 40px; display: inline-flex; align-items: center;
+    justify-content: center; font-family: var(--ep-sans); font-size: 12px; color: rgba(255,255,255,0.55);
+    text-decoration: none; border: 1px solid var(--eb-hair); transition: color 220ms ease, border-color 220ms ease; }
+  .eblog__pager a:hover { color: #fff; border-color: var(--eb-hair-champ); }
+  .eblog__pager span[aria-current] { color: #0A2620; background: var(--ep-champ); border-color: var(--ep-champ); }
+
+  @media (max-width: 600px) {
+    .eblog__grid { grid-template-columns: 1fr; gap: 48px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .epost { opacity: 1; transform: none; animation: none; }
+    .epost__img, .epost__cta svg, .epost__frame { transition: none; }
+    .epost__link:hover .epost__img { transform: none; }
+  }
+</style>
+
+<section class="eblog">
+  <header class="eblog__head">
+    <p class="eblog__eyebrow">{{ eyebrow }}</p>
+    <h1 class="eblog__title">{{ heading }}</h1>
+    {%- if blog.articles_count > 0 -%}
+      <span class="eblog__count">
+        {{ blog.articles_count }}
+        {%- if blog.articles_count == 1 -%}{% if is_en %} story{% else %} relato{% endif %}
+        {%- else -%}{% if is_en %} stories{% else %} relatos{% endif %}{%- endif -%}
+      </span>
+    {%- endif -%}
+    <hr class="eblog__rule">
+  </header>
+
+  {%- if blog.articles_count > 0 -%}
+    {%- paginate blog.articles by section.settings.posts_per_page -%}
+      <ul class="eblog__grid" role="list">
+        {%- for article in blog.articles -%}
+          <li class="epost" style="--i: {{ forloop.index0 }}">
+            <a class="epost__link" href="{{ article.url }}">
+              <div class="epost__frame{% unless article.image %} epost__frame--empty{% endunless %}">
+                {%- if article.image -%}
+                  <img class="epost__img"
+                    src="{{ article.image | image_url: width: 800 }}"
+                    srcset="{{ article.image | image_url: width: 500 }} 500w,
+                            {{ article.image | image_url: width: 800 }} 800w,
+                            {{ article.image | image_url: width: 1200 }} 1200w"
+                    sizes="(max-width: 600px) 90vw, (max-width: 1000px) 46vw, 420px"
+                    alt="{{ article.title | escape }}"
+                    width="800" height="533"
+                    loading="{% if forloop.index <= 3 %}eager{% else %}lazy{% endif %}">
+                {%- else -%}
+                  {{ article.title }}
+                {%- endif -%}
+              </div>
+              <div class="epost__body">
+                {%- if section.settings.show_date -%}
+                  <p class="epost__date">
+                    {%- if is_en -%}{{ article.published_at | date: '%B %-d, %Y' }}
+                    {%- else -%}{{ article.published_at | date: '%-d %B %Y' }}{%- endif -%}
+                  </p>
+                {%- endif -%}
+                <h2 class="epost__name">{{ article.title }}</h2>
+                {%- if section.settings.show_excerpt -%}
+                  {%- if article.excerpt != blank -%}
+                    <p class="epost__excerpt">{{ article.excerpt | strip_html | truncatewords: 28 }}</p>
+                  {%- elsif article.content != blank -%}
+                    <p class="epost__excerpt">{{ article.content | strip_html | truncatewords: 28 }}</p>
+                  {%- endif -%}
+                {%- endif -%}
+                <span class="epost__cta">
+                  {% if is_en %}Read{% else %}Leer{% endif %}
+                  <svg width="13" height="9" viewBox="0 0 13 9" fill="none" aria-hidden="true">
+                    <path d="M1 4.5h10M7.5 1L11 4.5 7.5 8" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                </span>
+              </div>
+            </a>
+          </li>
+        {%- endfor -%}
+      </ul>
+
+      {%- if paginate.pages > 1 -%}
+        <nav class="eblog__pager" role="navigation" aria-label="{% if is_en %}Pagination{% else %}Paginación{% endif %}">
+          {%- if paginate.previous -%}<a href="{{ paginate.previous.url }}" aria-label="{% if is_en %}Previous{% else %}Anterior{% endif %}">←</a>{%- endif -%}
+          {%- for part in paginate.parts -%}
+            {%- if part.is_link -%}<a href="{{ part.url }}">{{ part.title }}</a>
+            {%- else -%}<span{% if part.title == paginate.current_page %} aria-current="page"{% endif %}>{{ part.title }}</span>{%- endif -%}
+          {%- endfor -%}
+          {%- if paginate.next -%}<a href="{{ paginate.next.url }}" aria-label="{% if is_en %}Next{% else %}Siguiente{% endif %}">→</a>{%- endif -%}
+        </nav>
+      {%- endif -%}
+    {%- endpaginate -%}
+  {%- else -%}
+    <div class="eblog__empty">
+      <p>{% if is_en %}No stories yet. The waters are still gathering.{% else %}Aún no hay relatos. El agua todavía se está reuniendo.{% endif %}</p>
+      <a href="{{ routes.root_url }}">{% if is_en %}Back to the home{% else %}Volver al inicio{% endif %}</a>
+    </div>
+  {%- endif -%}
+</section>
+
+{% schema %}
+{
+  "name": "Blog ELYXIE",
+  "settings": [
+    { "type": "text", "id": "eyebrow", "label": "Eyebrow", "info": "Vacío = 'El Diario' / 'The Journal'" },
+    { "type": "text", "id": "heading", "label": "Título", "info": "Vacío = título del blog" },
+    { "type": "checkbox", "id": "show_date", "label": "Mostrar fecha", "default": true },
+    { "type": "checkbox", "id": "show_excerpt", "label": "Mostrar extracto", "default": true },
+    { "type": "range", "id": "posts_per_page", "min": 3, "max": 18, "step": 3, "label": "Relatos por página", "default": 9 }
+  ],
+  "presets": [{ "name": "Blog ELYXIE" }]
+}
+{% endschema %}
