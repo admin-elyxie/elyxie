@@ -32,10 +32,13 @@ function Container({ children, className = '' }) {
 // Tabs 2-4 = videos alojados en Shopify (window.__ELYXIE.films[id] = {src, src720, poster, w, h}).
 const FILMS = [
   { id: 'viaje',    label: { es: 'Viaje a la Laguna', en: 'Journey to the Lagoon' },
-    caption: { es: 'El filme. Tres minutos en la cordillera, antes de bajar el agua.', en: 'The film. Three minutes in the cordillera, before the water descends.' } },
-  { id: 'missperu', label: { es: 'Miss Perú se protege con Elyxie', en: 'Miss Perú, protected by Elyxie' }, caption: { es: '', en: '' } },
-  { id: 'contodo',  label: { es: 'Elyxie va con todo', en: 'Elyxie goes with everything' }, caption: { es: '', en: '' } },
-  { id: 'historia', label: { es: 'Un poco de historia', en: 'A little history' }, caption: { es: '', en: '' } },
+    caption: { es: 'El filme. Tres minutos en la cordillera, antes de bajar el agua.', en: 'The film. Three minutes in the cordillera, before the water comes down.' } },
+  { id: 'missperu', label: { es: 'El seguro de Miss Perú', en: "Miss Perú's Seguro" },
+    caption: { es: 'La protección no se exhibe. Se lleva encima.', en: 'Protection is not displayed. It is carried.' } },
+  { id: 'contodo',  label: { es: 'Siempre encima', en: 'Always Worn' },
+    caption: { es: 'El pacto no se guarda. Se lleva.', en: 'The pact is not kept. It is carried.' } },
+  { id: 'historia', label: { es: 'Antes de la joya', en: 'Before the Jewel' },
+    caption: { es: 'Milenios de curanderos. Un agua que cierra heridas invisibles.', en: 'Millennia of curanderos. A water that closes invisible wounds.' } },
 ];
 
 function SectionVideoHero({ lang }) {
