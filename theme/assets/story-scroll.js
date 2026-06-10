@@ -397,6 +397,12 @@
     window.addEventListener('scroll', onScroll, { passive: true });
     window.addEventListener('resize', onResize);
     window.addEventListener('orientationchange', onResize);
+    // iOS dispara visualViewport resize al colapsar/expandir la barra del
+    // navegador con más fiabilidad que window resize (que puede llegar
+    // tarde o no llegar); el debounce de 150ms de onResize absorbe la
+    // ráfaga que emite durante la animación de la barra. innerHeight ya
+    // refleja el viewport dinámico en iOS, así que el mismo onResize vale.
+    if (window.visualViewport) window.visualViewport.addEventListener('resize', onResize);
     document.addEventListener('visibilitychange', onVisibility);
 
     measureAll();
@@ -411,6 +417,7 @@
       window.removeEventListener('scroll', onScroll);
       window.removeEventListener('resize', onResize);
       window.removeEventListener('orientationchange', onResize);
+      if (window.visualViewport) window.visualViewport.removeEventListener('resize', onResize);
       document.removeEventListener('visibilitychange', onVisibility);
     };
   }

@@ -120,7 +120,12 @@
      (visibles solo como lienzo, enlaces no clicables). Ni .story ni body crean
      stacking context, así que el -1 lo manda detrás de TODO el flujo pero
      sigue por encima del background del body. */
-  .story__bg { position: fixed; inset: 0; z-index: -1;
+  /* height en lvh (viewport GRANDE), no inset 0: durante la animación de
+     la barra de iOS las capas fixed van con unos frames de lag; pintar
+     siempre a la altura máxima posible (overdraw gratuito: es una capa
+     plana de color) cierra esa ventana. Fallback 100vh ≈ lvh en iOS. */
+  .story__bg { position: fixed; top: 0; left: 0; right: 0; height: 100vh;
+    height: 100lvh; z-index: -1;
     background: var(--story-bg, #0A2620); }
 
   /* Grano de película — receta del one-pager (styles.css raíz): una sola capa
@@ -190,6 +195,21 @@
     height: calc(var(--len, 4) * 100svh); }
   .story--armed .story-scene__pin { position: sticky; top: 0; height: 100vh;
     height: 100svh; overflow: hidden; }
+  /* iOS: el pin en dvh (viewport DINÁMICO). Con la barra del navegador
+     colapsada el viewport visible crece (≈lvh) y un pin de 100svh dejaba
+     una franja inferior enseñando .story__bg — mismo fix que el hero del
+     home (styles.css raíz, .pin-stage 100dvh). El TRACK de escena se queda
+     en svh A PROPÓSITO (divergencia deliberada respecto al home, que pone
+     también su wrap en dvh): el home tiene UN solo pin al tope de página;
+     aquí hay 5 escenas apiladas y un track dinámico cambiaría la altura de
+     las escenas por ENCIMA de la actual al animarse la barra → la página
+     saltaría bajo el dedo. La resta del motor (offsetHeight − innerHeight)
+     ya es "track fijo − viewport vivo", igual que el rango sticky CSS
+     (len·svh − dvh), así que p=1 sigue coincidiendo con el unstick en
+     ambos estados de barra. NO igualar el track al home. */
+  @supports (height: 100dvh) {
+    .story--armed .story-scene__pin { height: 100dvh; }
+  }
 
   /* media a pantalla completa; el motor escribe transform (parallax ±3.5% con
      scale 1.08 de colchón) inline — aquí solo damos el frame inicial. */
