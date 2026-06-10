@@ -322,3 +322,65 @@ h2,
   background: var(--gradient-background);
   background-attachment: fixed;
 }
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Re-skin elyxie (apéndice) — alinea la gift card al sistema de diseño de
+   las secciones elyxie-* (colores ya heredados del scheme-1 emerald/champagne;
+   las fuentes Cormorant/Inter llegan por el font_face de settings).
+   No tocar las reglas @media print de arriba.
+   ────────────────────────────────────────────────────────────────────────── */
+
+.button {
+  border-radius: 999px;
+  background-color: #e9d7b1;
+  background-image: linear-gradient(180deg, #e9d7b1, #c9a66b);
+  color: #0a2620;
+  font-size: 1.1rem;
+  font-weight: 500;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  box-shadow: 0 0 30px rgba(233, 215, 177, 0.25);
+  transition: box-shadow 240ms ease;
+}
+
+.button:hover {
+  box-shadow: 0 0 60px rgba(233, 215, 177, 0.35), 0 0 120px rgba(233, 215, 177, 0.18);
+}
+
+.button--secondary {
+  background-image: none;
+  background-color: transparent;
+  color: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 0 0 0.1rem rgba(255, 255, 255, 0.25);
+}
+
+.button--secondary:hover {
+  color: #e9d7b1;
+  box-shadow: 0 0 0 0.1rem #e9d7b1, 0 0 30px rgba(233, 215, 177, 0.14);
+}
+
+.gift-card__image-wrapper {
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 20px 60px rgba(5, 22, 19, 0.55), inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+
+.gift-card__number {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.22em;
+  color: #e9d7b1;
+  opacity: 1;
+}
+
+.badge--expired {
+  background-color: transparent;
+  border-color: rgba(217, 119, 87, 0.5);
+  color: #d97757;
+}
+
+/* Caja blanca para que el QR siga siendo escaneable sobre el emerald */
+.gift-card__qr-code img {
+  background-color: #ffffff;
+  border-radius: 8px;
+  padding: 8px;
+}

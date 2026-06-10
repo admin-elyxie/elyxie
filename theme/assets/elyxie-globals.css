@@ -1,0 +1,379 @@
+/* ──────────────────────────────────────────────────────────────────────────
+   elyxie-globals.css — re-skin elyxie de las superficies Dawn restantes:
+   blog, artículo, /policies/*, /challenge (theme.liquid) y password.liquid.
+
+   Fuente de verdad: el sistema de diseño de las secciones elyxie-*
+   (ver colors_and_type.css y layout/elyxie-page.liquid).
+
+   Este asset se carga SOLO en theme.liquid y password.liquid, después de
+   base.css — los layouts elyxie/elyxie-page no cargan base.css ni este
+   archivo, así que no hay fuga a las páginas custom.
+
+   Si un update de Dawn reemplaza los layouts, re-aplicar:
+     theme.liquid    → <link> de Cormorant Garamond (Google Fonts) y Satoshi
+                       (Fontshare) en el <head> +
+                       {{ 'elyxie-globals.css' | asset_url | stylesheet_tag }}
+                       tras elyxie-cart.css
+     password.liquid → mismos <link> + stylesheet_tag tras base.css
+
+   NO tocar aquí nada bajo cart-drawer / .quick-add: es territorio de
+   elyxie-cart.css.
+   ────────────────────────────────────────────────────────────────────────── */
+
+/* ── B0 · Tokens ─────────────────────────────────────────────────────────── */
+:root {
+  --ex-canvas: #0a2620;
+  --ex-void: #051613;
+  --ex-surface: #0e2e26;
+  --ex-champ: #e9d7b1;
+  --ex-gold: #c9a66b;
+  --ex-phosphor: #7dffb2;
+  --ex-error: #d97757; /* bronce desaturado — nunca rojo de semáforo */
+  --ex-hair: rgba(255, 255, 255, 0.08);
+  --ex-hair-gold: rgba(233, 215, 177, 0.22);
+  --ex-shadow-panel: 0 20px 60px rgba(5, 22, 19, 0.55);
+  --ex-ring-card: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+  /* Familias exactas: pisan el font_face de settings (cormorant_n4/inter_n4),
+     que queda como fallback. Los <link> viven en el <head> de los layouts. */
+  --font-heading-family: 'Cormorant Garamond', 'EB Garamond', Georgia, serif;
+  --font-body-family: 'Satoshi', 'Inter', system-ui, sans-serif;
+}
+
+/* ── B1 · Tipografía ─────────────────────────────────────────────────────── */
+h1, h2, h3, h4, .h0, .h1, .h2, .h3, .h4 {
+  font-weight: 400;
+  letter-spacing: -0.01em;
+}
+
+/* Patrón eyebrow elyxie: micro caps champagne con tracking 0.32em */
+.announcement-bar__message,
+.footer-block__heading,
+.predictive-search__heading,
+.article-card__info {
+  font-family: var(--font-body-family);
+  font-size: 1.1rem;
+  font-weight: 500;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: var(--ex-champ);
+}
+
+/* ── B2 · Botones ────────────────────────────────────────────────────────── */
+/* Píldora vía custom properties: el radio del elemento y de ::before/::after
+   (base.css 1199/1241/1257) sale de estas dos variables. */
+.button,
+.shopify-challenge__button,
+.customer button,
+button.shopify-payment-button__button--unbranded {
+  --buttons-radius: 999px;
+  --buttons-radius-outset: 999px;
+  font-family: var(--font-body-family);
+  font-size: 1.1rem;
+  font-weight: 500;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+}
+
+/* CTA dorado (primario): gradiente champagne→oro + glow */
+.button:not(.button--secondary):not(.button--tertiary),
+.shopify-challenge__button {
+  background-image: linear-gradient(180deg, var(--ex-champ), var(--ex-gold));
+  color: var(--ex-canvas);
+  box-shadow: 0 0 30px rgba(233, 215, 177, 0.25);
+}
+
+.button:not(.button--secondary):not(.button--tertiary):not([disabled]):hover,
+.shopify-challenge__button:hover {
+  box-shadow: 0 0 60px rgba(233, 215, 177, 0.35), 0 0 120px rgba(233, 215, 177, 0.18);
+}
+
+/* Ghost (secundario): transparente + hairline blanco, hover champagne.
+   El borde de Dawn vive en el box-shadow del ::after y toma su color de
+   --color-button-text con opacidad --buttons-border-opacity (base.css 1274). */
+.button--secondary,
+.button--tertiary {
+  --color-button-text: 255, 255, 255;
+  --buttons-border-opacity: 0.25;
+  --alpha-button-background: 0;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.button--secondary:hover,
+.button--tertiary:hover {
+  --color-button-text: 233, 215, 177;
+  color: var(--ex-champ);
+  box-shadow: 0 0 30px rgba(233, 215, 177, 0.14);
+}
+
+/* ── B3 · Inputs / formularios ──────────────────────────────────────────── */
+/* El borde rgba(blanco, .2) ya sale de settings (inputs_border_opacity: 20);
+   aquí van el fondo translúcido y el focus champagne. */
+.field__input,
+.select__select,
+.customer .field input,
+.customer select {
+  background-color: rgba(255, 255, 255, 0.04);
+}
+
+.field__label {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.field__input:focus,
+.field__input:focus-visible,
+.select__select:focus,
+.select__select:focus-visible,
+.customer .field input:focus,
+.customer .field input:focus-visible,
+.customer select:focus,
+.customer select:focus-visible {
+  background-color: rgba(255, 255, 255, 0.06);
+  box-shadow: 0 0 0 calc(0.1rem + var(--inputs-border-width)) rgba(233, 215, 177, 0.9),
+    0 0 0 0.4rem rgba(233, 215, 177, 0.12);
+}
+
+/* ── B4 · Cards (producto / colección / blog) ───────────────────────────── */
+/* Settings ponen surface + r18 + sombra (blur capado a 40 por el slider);
+   aquí el top-up a 60px de blur y el hairline interior del panel elyxie. */
+.card--card,
+.card--standard .card__inner {
+  box-shadow: var(--ex-ring-card);
+}
+
+.card--card:after,
+.card--standard .card__inner:after {
+  box-shadow: var(--ex-shadow-panel);
+}
+
+.article-card__excerpt {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+/* ── B5 · Paginación ────────────────────────────────────────────────────── */
+/* El subrayado de current/hover usa currentColor → hereda el champagne. */
+.pagination__item {
+  font-family: var(--font-body-family);
+  font-size: 1.1rem;
+  font-weight: 500;
+  letter-spacing: 0.22em;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.pagination__item--current,
+a.pagination__item:hover {
+  color: var(--ex-champ);
+}
+
+/* ── B6 · Header Dawn (paridad con .epage-nav de elyxie-page.liquid) ────── */
+.header__heading-link .h2 {
+  font-family: var(--font-heading-family);
+  font-weight: 400;
+  color: var(--ex-champ);
+}
+
+.header__heading-link:hover .h2 {
+  color: var(--ex-champ);
+}
+
+.header__menu-item {
+  font-size: 1.1rem;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+}
+
+.header__menu-item span {
+  color: rgba(255, 255, 255, 0.72);
+  transition: color 240ms ease;
+}
+
+.header__menu-item:hover span,
+.header__active-menu-item {
+  color: var(--ex-champ);
+}
+
+.header__icon:hover .icon {
+  color: var(--ex-champ);
+}
+
+/* Sticky: velo emerald translúcido + blur (mismo gesto que el nav custom).
+   La doble clase gana al shorthand de .gradient (background con imagen). */
+.shopify-section-header-sticky .header-wrapper,
+.shopify-section-header-sticky .header-wrapper.gradient {
+  background: rgba(10, 38, 32, 0.55);
+  -webkit-backdrop-filter: blur(24px);
+  backdrop-filter: blur(24px);
+}
+
+/* ── B7 · Menu drawer móvil ─────────────────────────────────────────────── */
+/* El hover bg rgba(blanco, .04) ya sale de Dawn con scheme-1. */
+.menu-drawer__menu-item {
+  font-family: var(--font-body-family);
+  font-size: 1.2rem;
+  font-weight: 500;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.menu-drawer__menu-item:hover,
+.menu-drawer__menu-item--active {
+  color: var(--ex-champ);
+}
+
+/* Velos de modal/drawer: Dawn los pinta con --color-foreground (blanco con
+   scheme oscuro → lavado gris). Velo void emerald, como el cart drawer. */
+details[open] .modal-overlay::after {
+  background-color: rgba(5, 22, 19, 0.62);
+}
+
+.js menu-drawer > details > summary::before,
+.js menu-drawer > details[open]:not(.menu-opening) > summary::before {
+  background: rgba(5, 22, 19, 0.62);
+}
+
+/* ── B8 · Búsqueda predictiva ───────────────────────────────────────────── */
+/* body + clase: +1 de especificidad — component-predictive-search.css carga
+   async (media="print" onload) y podría ganar por orden a igual peso. */
+body .predictive-search {
+  background-color: var(--ex-surface);
+  border-color: var(--ex-hair);
+  box-shadow: var(--ex-shadow-panel), var(--ex-ring-card);
+}
+
+predictive-search .spinner .path {
+  stroke: var(--ex-champ);
+}
+
+/* ── B9 · Footer Dawn (paridad con .epage-foot) ─────────────────────────── */
+/* El border-top hairline 0.08 ya sale de Dawn con scheme-1. */
+.footer-block__details-content .list-menu__item--link,
+.copyright__content a {
+  color: rgba(255, 255, 255, 0.66);
+}
+
+.footer-block__details-content .list-menu__item--link:hover,
+.copyright__content a:hover {
+  color: var(--ex-champ);
+}
+
+.footer__copyright .copyright__content {
+  font-size: 1.1rem;
+  letter-spacing: 0.2em;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.list-social__link:hover .icon,
+.field__button:hover .icon {
+  color: var(--ex-champ);
+}
+
+/* ── B10 · Badges ───────────────────────────────────────────────────────── */
+/* Sale = scheme-5 (gold) y sold-out = scheme-3 (void) vía settings;
+   aquí tipografía de chip elyxie + sold-out en bronce. */
+.badge {
+  font-family: var(--font-body-family);
+  font-size: 1rem;
+  font-weight: 500;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  border-color: transparent;
+}
+
+.badge.color-scheme-3 {
+  color: var(--ex-error);
+}
+
+/* ── B11 · Blog / artículo ──────────────────────────────────────────────── */
+.article-template__hero-container {
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.article-template__content {
+  color: rgba(255, 255, 255, 0.8);
+  line-height: 1.65;
+}
+
+.article-template__content a {
+  color: var(--ex-champ);
+}
+
+.article-template__content a:hover {
+  color: var(--ex-phosphor);
+}
+
+.article-template__content img {
+  border-radius: 14px;
+}
+
+.article-template__content blockquote {
+  margin-left: 0;
+  padding-left: 2rem;
+  border-left: 1px solid var(--ex-hair-gold);
+  font-family: var(--font-heading-family);
+  font-style: italic;
+  font-size: 1.2em;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+/* Comentarios: panel surface elyxie */
+.article-template__comment-wrapper {
+  background-color: var(--ex-surface);
+  border-radius: 18px;
+  box-shadow: var(--ex-shadow-panel), var(--ex-ring-card);
+  padding: 2.7rem 2rem;
+}
+
+@media screen and (min-width: 750px) {
+  .article-template__comment-wrapper {
+    padding: 3.6rem 3rem;
+  }
+}
+
+.article-template__comments-comment {
+  background-color: rgba(255, 255, 255, 0.04);
+  border-radius: 12px;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+/* Errores de formulario: bronce, nunca rojo */
+.form__message {
+  color: var(--ex-error);
+}
+
+/* ── B12 · Password page ────────────────────────────────────────────────── */
+.password-link {
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 999px;
+  padding: 1rem 2.4rem;
+  font-size: 1.1rem;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  text-decoration: none;
+  color: rgba(255, 255, 255, 0.9);
+  transition: color 240ms ease, border-color 240ms ease;
+}
+
+.password-link:hover {
+  color: var(--ex-champ);
+  border-color: var(--ex-champ);
+}
+
+.password-modal__content {
+  background-color: var(--ex-surface);
+  border-radius: 18px;
+  box-shadow: var(--ex-shadow-panel), var(--ex-ring-card);
+}
+
+.email-signup-banner__box {
+  box-shadow: var(--ex-ring-card);
+}
+
+/* ── B13 · Misceláneos ──────────────────────────────────────────────────── */
+/* Popover de país/idioma (header y footer) */
+.disclosure__list-wrapper {
+  background-color: var(--ex-surface);
+  border-color: var(--ex-hair);
+  border-radius: 12px;
+  box-shadow: var(--ex-shadow-panel);
+}

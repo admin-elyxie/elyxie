@@ -15,6 +15,13 @@
       <link rel="preconnect" href="https://fonts.shopifycdn.com" crossorigin>
     {%- endunless -%}
 
+    {%- comment -%} Familias exactas elyxie (mismos <link> que elyxie-page.liquid); el font_face de settings queda como fallback. {%- endcomment -%}
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preconnect" href="https://api.fontshare.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&display=swap">
+    <link rel="stylesheet" href="https://api.fontshare.com/v2/css?f[]=satoshi@300,400,500&display=swap">
+
     <title>
       {{ page_title }}
       {%- if current_tags %} &ndash; tagged "{{ current_tags | join: ', ' }}"{% endif -%}
@@ -268,6 +275,9 @@
 
     {%- comment -%} elyxie re-skin of the native cart drawer + champagne badge + quick-add. {%- endcomment -%}
     {{ 'elyxie-cart.css' | asset_url | stylesheet_tag }}
+
+    {%- comment -%} elyxie re-skin global de las superficies Dawn restantes (blog, artículo, policies, challenge). {%- endcomment -%}
+    {{ 'elyxie-globals.css' | asset_url | stylesheet_tag }}
 
     {%- unless settings.type_body_font.system? -%}
       {% comment %}theme-check-disable AssetPreload{% endcomment %}
