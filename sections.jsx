@@ -132,7 +132,8 @@ function SectionVideoHero({ lang }) {
       else if (v && v.webkitEnterFullscreen) v.webkitEnterFullscreen(); // iOS Safari
     } catch (e) {}
   };
-  const selectFilm = (id) => { if (id === active) return; setActive(id); setSoundOn(false); };
+  // El estado de sonido PERSISTE entre videos: no se resetea al cambiar de pestaña.
+  const selectFilm = (id) => { if (id === active) return; setActive(id); };
 
   const t = lang === 'es'
     ? { eyebrow: 'CINEMATOGRAFÍA · ELYXIE', sound: soundOn ? 'SILENCIAR' : 'ACTIVAR SONIDO', full: 'PANTALLA COMPLETA' }
