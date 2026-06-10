@@ -1,0 +1,33 @@
+{%- comment -%}
+  Fecha localizada ELYXIE. El filtro `date: '%B'` de Shopify NO traduce el mes al
+  locale es (toma los nombres del locale primario, que es en) → en /es la fecha salía
+  con el mes en inglés ("June" en vez de "junio"). Aquí mapeamos el número de mes a un
+  nombre bilingüe propio.
+
+  Params:
+  - date:  timestamp (p.ej. article.published_at, comment.created_at)  [requerido]
+  - is_en: booleano del locale activo                                  [requerido]
+  - abbr:  true = mes abreviado (ene / Jan)                            [opcional]
+
+  Uso: {% render 'elyxie-date', date: article.published_at, is_en: is_en %}
+       → es: "9 junio 2026"   ·   en: "June 9, 2026"
+{%- endcomment -%}
+{%- liquid
+  assign mnum = date | date: '%m' | plus: 0 | minus: 1
+  assign day = date | date: '%-d'
+  assign year = date | date: '%Y'
+  if abbr
+    assign months_es = 'ene,feb,mar,abr,may,jun,jul,ago,sep,oct,nov,dic' | split: ','
+    assign months_en = 'Jan,Feb,Mar,Apr,May,Jun,Jul,Aug,Sep,Oct,Nov,Dec' | split: ','
+  else
+    assign months_es = 'enero,febrero,marzo,abril,mayo,junio,julio,agosto,septiembre,octubre,noviembre,diciembre' | split: ','
+    assign months_en = 'January,February,March,April,May,June,July,August,September,October,November,December' | split: ','
+  endif
+  if is_en
+    assign mname = months_en[mnum]
+    echo mname | append: ' ' | append: day | append: ', ' | append: year
+  else
+    assign mname = months_es[mnum]
+    echo day | append: ' ' | append: mname | append: ' ' | append: year
+  endif
+-%}

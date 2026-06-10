@@ -183,9 +183,7 @@
       <h1 class="eart-title">{{ article.title | escape }}</h1>
       <div class="eart-meta">
         {%- if section.settings.show_date -%}
-          <time datetime="{{ article.published_at | date: '%Y-%m-%d' }}">
-            {%- if is_en -%}{{ article.published_at | date: '%B %-d, %Y' }}{%- else -%}{{ article.published_at | date: '%-d %B %Y' }}{%- endif -%}
-          </time>
+          <time datetime="{{ article.published_at | date: '%Y-%m-%d' }}">{% render 'elyxie-date', date: article.published_at, is_en: is_en %}</time>
         {%- endif -%}
         {%- if section.settings.show_author and article.author != blank -%}
           {%- if section.settings.show_date -%}<span class="eart-meta__dot" aria-hidden="true"></span>{%- endif -%}
@@ -241,7 +239,7 @@
               <article id="{{ comment.id }}" class="eart-comment">
                 <div class="eart-comment__body">{{ comment.content }}</div>
                 <div class="eart-comment__meta">
-                  <span>{{ comment.author }}</span><span class="eart-meta__dot" aria-hidden="true"></span><span>{{ comment.created_at | date: '%-d %b %Y' }}</span>
+                  <span>{{ comment.author }}</span><span class="eart-meta__dot" aria-hidden="true"></span><span>{% render 'elyxie-date', date: comment.created_at, is_en: is_en, abbr: true %}</span>
                 </div>
               </article>
             {%- endfor -%}

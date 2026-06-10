@@ -134,10 +134,7 @@
               </div>
               <div class="epost__body">
                 {%- if section.settings.show_date -%}
-                  <p class="epost__date">
-                    {%- if is_en -%}{{ article.published_at | date: '%B %-d, %Y' }}
-                    {%- else -%}{{ article.published_at | date: '%-d %B %Y' }}{%- endif -%}
-                  </p>
+                  <p class="epost__date">{% render 'elyxie-date', date: article.published_at, is_en: is_en %}</p>
                 {%- endif -%}
                 <h2 class="epost__name">{{ article.title }}</h2>
                 {%- if section.settings.show_excerpt -%}
