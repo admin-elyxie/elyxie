@@ -1,0 +1,249 @@
+{%- comment -%}
+  Página de contenido ELYXIE — páginas genéricas (políticas, Cuidado, Devoluciones,
+  Sobre nosotros). Re-skin de Dawn `main-page.liquid`: renderiza page.title + el
+  rich text page.content. Vive bajo el layout `elyxie-page` (wordmark champán +
+  ES/EN + carrito + footer de marca + vacío esmeralda); NO construye chrome.
+
+  Dirección: prosa editorial de formato largo en el idioma elyxie — título en
+  Cormorant italic grande con eyebrow, medida estrecha centrada (~68ch), cuerpo
+  Satoshi 16–18px lh 1.7, acentos champán y hairlines finas. Hereda el lenguaje
+  visual de `.estory` (PDP) y lo aplica al rich text que escribe el merchant:
+  cada h2/h3/p/ul/ol/blockquote/a/hr/strong/img/table luce de lujo sin tocarlo.
+
+  Contraste AA: el cuerpo usa rgba(255,255,255,0.80) sobre el vacío (≈10.5:1),
+  nunca gris plano. Bilingüe ES/EN — el español lidera el concepto. El rich text
+  lo escribe el merchant en su propio idioma; aquí solo el eyebrow es bilingüe.
+{%- endcomment -%}
+{%- assign is_en = false -%}
+{%- if request.locale.iso_code == 'en' -%}{%- assign is_en = true -%}{%- endif -%}
+
+{%- comment -%} Eyebrow: override del editor → frase de marca por defecto. {%- endcomment -%}
+{%- assign eyebrow = section.settings.eyebrow | strip -%}
+{%- if eyebrow == blank -%}
+  {%- if is_en -%}{%- assign eyebrow = 'Elyxie' -%}{%- else -%}{%- assign eyebrow = 'Elyxie' -%}{%- endif -%}
+{%- endif -%}
+
+<style>
+  /* ── Página de contenido ──────────────────────────────────────────────────
+     Mismas variables/medida que `.estory`: champán con cuentagotas, jerarquía
+     por tamaño/peso, centrado estrecho. Aquí la diferencia es que el cuerpo
+     procede del rich text del merchant (.epage-rte), así que estilamos por
+     tipo de elemento (h2/h3/p/ul/ol/blockquote/a/hr/img/table) en vez de por
+     clase. La medida de lectura es ~68ch para confort de párrafo largo. */
+  .epc {
+    --epc-measure: 720px;            /* medida del bloque (caja) */
+    --epc-ink: #FFFFFF;
+    --epc-body: rgba(255,255,255,0.80);     /* ≈10.5:1 sobre #051613 — AA holgado */
+    --epc-body-soft: rgba(255,255,255,0.62);
+    --epc-champ: var(--ep-champ);
+    --epc-gold: var(--ep-gold);
+    --epc-hair: rgba(255,255,255,0.10);
+    --epc-hair-faint: rgba(255,255,255,0.07);
+    --epc-hair-champ: rgba(233,215,177,0.40);
+    --epc-serif: var(--ep-serif);
+    --epc-sans: var(--ep-sans);
+    position: relative; width: 100%;
+    padding: clamp(56px,9vw,128px) 24px clamp(72px,11vw,148px);
+    color: var(--epc-body); font-family: var(--epc-sans);
+    -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
+
+  /* hilo champán de apertura — el mismo gesto que cose el PDP con el hero */
+  .epc::before { content: ""; position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+    width: clamp(120px,22vw,280px); height: 1px;
+    background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--ep-champ) 55%, transparent), transparent); }
+
+  .epc-inner { max-width: var(--epc-measure); margin: 0 auto; }
+
+  /* ── Cabecera ──────────────────────────────────────────────────────────── */
+  .epc-head { text-align: center; margin-bottom: clamp(40px,6vw,80px); }
+  .epc-eyebrow { margin: 0; font-family: var(--epc-sans); font-size: 11px; font-weight: 500;
+    letter-spacing: 0.32em; text-transform: uppercase; color: var(--epc-champ); }
+  .epc-title { margin: clamp(16px,2vw,24px) 0 0; font-family: var(--epc-serif); font-style: italic;
+    font-weight: 400; font-size: clamp(40px,6.4vw,84px); line-height: 1.02; letter-spacing: -0.02em;
+    color: var(--epc-ink); text-wrap: balance; }
+  /* rúbrica capilar bajo el título — pequeño rombo champán, sin halo (igual que hr del PDP) */
+  .epc-head__rule { position: relative; width: 64px; height: 1px; border: 0;
+    margin: clamp(26px,3.4vw,44px) auto 0; background: var(--epc-hair); overflow: visible; }
+  .epc-head__rule::before { content: ""; position: absolute; top: 50%; left: 50%; width: 5px; height: 5px;
+    transform: translate(-50%,-50%) rotate(45deg); background: var(--epc-champ); opacity: 0.55; }
+
+  /* ── Rich text del merchant ────────────────────────────────────────────────
+     Estilamos por elemento. `.epc-rte > *` controla el ritmo vertical; cada
+     tipo redefine medida/alineación. Todo el cuerpo va a AA sobre el vacío. */
+  .epc-rte { font-size: clamp(16px, 1.05vw + 13px, 18px); line-height: 1.7; color: var(--epc-body); }
+  .epc-rte > :first-child { margin-top: 0; }
+  .epc-rte > :last-child { margin-bottom: 0; }
+
+  /* Párrafos — medida de lectura ~68ch, centrada en la caja, texto a la izquierda */
+  .epc-rte p { max-width: 68ch; margin: 0 auto clamp(20px,2.2vw,28px);
+    color: var(--epc-body); font-weight: 400; letter-spacing: 0.002em; }
+
+  /* Encabezados — Cormorant; h2 es el escalón editorial, h3 cae a etiqueta sans
+     (el escalón donde el serif cede al sans, según el sistema). */
+  .epc-rte h2 { max-width: 30ch; margin: clamp(52px,6.5vw,92px) auto clamp(14px,1.6vw,20px);
+    font-family: var(--epc-serif); font-style: italic; font-weight: 400;
+    font-size: clamp(28px,3.6vw,46px); line-height: 1.12; letter-spacing: -0.012em;
+    color: var(--epc-ink); text-wrap: balance; }
+  .epc-rte h3 { max-width: 56ch; margin: clamp(40px,5vw,68px) auto clamp(10px,1.2vw,14px);
+    font-family: var(--epc-sans); font-weight: 500; font-size: clamp(11px,0.5vw + 9px,12.5px);
+    line-height: 1.6; letter-spacing: 0.28em; text-transform: uppercase; color: var(--epc-champ); }
+  /* h4–h6 — variantes serif más pequeñas para jerarquías profundas */
+  .epc-rte h4, .epc-rte h5, .epc-rte h6 {
+    max-width: 56ch; margin: clamp(34px,4vw,54px) auto clamp(8px,1vw,12px);
+    font-family: var(--epc-serif); font-weight: 400; font-size: clamp(21px,2.2vw,28px);
+    line-height: 1.2; letter-spacing: -0.006em; color: var(--epc-ink); }
+  /* el primer párrafo tras un encabezado se pega un poco más */
+  .epc-rte h2 + p, .epc-rte h3 + p, .epc-rte h4 + p { margin-top: 0; }
+
+  .epc-rte strong, .epc-rte b { color: rgba(255,255,255,0.94); font-weight: 600; }
+  .epc-rte em, .epc-rte i { font-style: italic; }
+
+  /* Enlaces — subrayado champán fino; en hover el texto pasa a champán. Sin
+     side-stripe ni gradient text (prohibidos por el sistema). */
+  .epc-rte a { color: var(--epc-ink); text-decoration: none;
+    background-image: linear-gradient(var(--epc-hair-champ), var(--epc-hair-champ));
+    background-repeat: no-repeat; background-position: 0 100%; background-size: 100% 1px;
+    transition: color 240ms cubic-bezier(0.2,0,0,1), background-size 240ms cubic-bezier(0.2,0,0,1); }
+  .epc-rte a:hover { color: var(--epc-champ); background-size: 100% 1.5px; }
+  .epc-rte a:focus-visible { outline: 2px solid var(--epc-champ); outline-offset: 3px; border-radius: 1px; }
+
+  /* Listas — viñeta-rombo champán (no disco de sistema), medida ~62ch */
+  .epc-rte ul, .epc-rte ol { max-width: 64ch; margin: 0 auto clamp(20px,2.2vw,28px);
+    padding: 0; list-style: none; }
+  .epc-rte ul li, .epc-rte ol li { position: relative; padding-left: 28px;
+    color: var(--epc-body); line-height: 1.7; }
+  .epc-rte ul li + li, .epc-rte ol li + li { margin-top: clamp(10px,1.2vw,15px); }
+  .epc-rte ul li::before { content: ""; position: absolute; left: 3px; top: 0.78em;
+    width: 4px; height: 4px; transform: rotate(45deg); background: rgba(233,215,177,0.55); }
+  /* listas numeradas — contador serif champán (el seriado de la marca) */
+  .epc-rte ol { counter-reset: epc-ol; }
+  .epc-rte ol li { counter-increment: epc-ol; padding-left: 36px; }
+  .epc-rte ol li::before { content: counter(epc-ol, decimal-leading-zero); position: absolute; left: 0;
+    top: 0.06em; font-family: var(--epc-serif); font-weight: 400; font-size: 0.92em;
+    letter-spacing: 0.02em; color: rgba(233,215,177,0.78); font-feature-settings: "tnum" 1; }
+  /* listas anidadas — sin doble margen superior */
+  .epc-rte li > ul, .epc-rte li > ol { margin: clamp(10px,1.2vw,15px) 0 0; }
+
+  /* Cita — el blockquote editorial: Cormorant italic grande, hairline champán a
+     la izquierda (1px, permitido), comilla decorativa tenue. */
+  .epc-rte blockquote { position: relative; max-width: 34ch;
+    margin: clamp(48px,7vw,96px) auto !important;
+    padding: clamp(8px,1.4vw,16px) 0 clamp(8px,1.4vw,16px) clamp(26px,4vw,48px);
+    border-left: 1px solid var(--epc-hair-champ);
+    font-family: var(--epc-serif); font-style: italic; font-weight: 400;
+    font-size: clamp(24px,3.4vw,40px); line-height: 1.3; letter-spacing: -0.008em;
+    color: rgba(255,255,255,0.90); text-wrap: pretty; }
+  .epc-rte blockquote::before { content: "\201C"; position: absolute; left: clamp(12px,1.8vw,26px);
+    top: -0.42em; font-family: var(--epc-serif); font-style: normal; font-size: clamp(56px,8vw,112px);
+    line-height: 1; color: rgba(233,215,177,0.16); pointer-events: none; user-select: none; }
+  .epc-rte blockquote p { max-width: none; margin: 0; color: inherit; font-size: inherit; }
+  .epc-rte blockquote p + p { margin-top: clamp(10px,1.4vw,18px); }
+
+  /* Separador — hairline con rombo champán al centro (firma del PDP) */
+  .epc-rte hr { position: relative; width: min(100%, 420px); height: 1px; border: 0;
+    margin: clamp(48px,7vw,96px) auto !important; overflow: visible;
+    background: linear-gradient(90deg, transparent, var(--epc-hair) 22%, var(--epc-hair) 78%, transparent); }
+  .epc-rte hr::before { content: ""; position: absolute; top: 50%; left: 50%; width: 5px; height: 5px;
+    transform: translate(-50%,-50%) rotate(45deg); background: var(--epc-champ); opacity: 0.55; }
+
+  /* Imágenes — marco de superficie redondeado (la curvatura va en superficies,
+     no en lo interactivo), con sombra de tarjeta y hairline interior. */
+  .epc-rte img { display: block; max-width: 100%; height: auto; margin: clamp(36px,5vw,64px) auto;
+    border-radius: 14px; box-shadow: 0 20px 60px rgba(5,22,19,0.45), inset 0 0 0 1px rgba(255,255,255,0.06); }
+
+  /* Tabla — útil en políticas/devoluciones; hairlines independientes del fondo,
+     cabecera en etiqueta champán (registro de catálogo, como la ficha del PDP). */
+  .epc-rte table { width: 100%; max-width: 100%; margin: clamp(32px,4vw,56px) auto;
+    border-collapse: collapse; font-size: clamp(14px,1vw + 11px,16px); }
+  .epc-rte th, .epc-rte td { padding: clamp(12px,1.6vw,18px) clamp(10px,1.4vw,18px);
+    text-align: left; vertical-align: top; border-bottom: 1px solid var(--epc-hair); }
+  .epc-rte th { font-family: var(--epc-sans); font-weight: 500; font-size: clamp(10px,0.9vw,11.5px);
+    letter-spacing: 0.22em; text-transform: uppercase; color: var(--epc-champ); line-height: 1.5; }
+  .epc-rte td { color: var(--epc-body); line-height: 1.6; }
+  .epc-rte thead th { border-bottom-color: var(--epc-hair-champ); }
+
+  /* Código en línea / bloque — mono del sistema, velo de vidrio nítido */
+  .epc-rte code, .epc-rte pre { font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.88em; color: rgba(255,255,255,0.88); }
+  .epc-rte :not(pre) > code { padding: 2px 7px; background: rgba(255,255,255,0.06);
+    border: 1px solid var(--epc-hair-faint); border-radius: 4px; }
+  .epc-rte pre { max-width: 68ch; margin: clamp(24px,3vw,40px) auto; padding: clamp(18px,2vw,26px);
+    overflow-x: auto; background: rgba(255,255,255,0.04);
+    border: 1px solid var(--epc-hair-faint); border-radius: 12px; line-height: 1.6; }
+  .epc-rte pre code { padding: 0; background: none; border: 0; }
+
+  /* Vacío — la página sin contenido aún (preview del editor, página recién creada) */
+  .epc-empty { max-width: 38ch; margin: clamp(32px,4vw,56px) auto 0; text-align: center;
+    font-family: var(--epc-serif); font-style: italic; font-size: clamp(20px,2.6vw,28px);
+    line-height: 1.3; color: var(--epc-body-soft); }
+
+  /* ── Revelado de entrada — primero la luz/opacidad, luego la geometría ──── */
+  .epc-head, .epc-rte { opacity: 0; transform: translateY(16px);
+    animation: epc-rise 800ms cubic-bezier(0.05,0.7,0.1,1) both; }
+  .epc-rte { animation-delay: 120ms; }
+  @keyframes epc-rise { to { opacity: 1; transform: none; } }
+
+  @media (max-width: 720px) {
+    .epc { padding: clamp(48px,12vw,80px) 22px clamp(56px,14vw,80px); }
+    .epc-rte { font-size: 16px; line-height: 1.68; }
+    .epc-rte p, .epc-rte ul, .epc-rte ol, .epc-rte pre { max-width: none; }
+    .epc-title { font-size: clamp(34px,11vw,56px); }
+    .epc-rte h2 { font-size: clamp(26px,8vw,38px); max-width: none; }
+    .epc-rte blockquote { font-size: clamp(22px,7vw,30px); max-width: none; padding-left: 22px; }
+    /* tabla → tarjetas apiladas para evitar scroll horizontal en políticas largas */
+    .epc-rte table, .epc-rte thead, .epc-rte tbody, .epc-rte tr, .epc-rte th, .epc-rte td { display: block; width: 100%; }
+    .epc-rte thead { position: absolute; left: -9999px; }   /* la cabecera se infiere por contexto en móvil */
+    .epc-rte tr { padding: 14px 0; border-bottom: 1px solid var(--epc-hair); }
+    .epc-rte td { border: 0; padding: 4px 0; }
+    .epc-rte tr + tr { margin-top: 0; }
+  }
+  @media (max-width: 480px) {
+    .epc { padding: 44px 18px 56px; }
+    .epc-title { font-size: clamp(30px,12vw,44px); }
+    .epc-rte h2 { font-size: clamp(24px,9vw,32px); }
+    .epc-rte h3 { letter-spacing: 0.24em; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    /* el revelado realza un default ya visible — nunca lo oculta */
+    .epc-head, .epc-rte { opacity: 1; transform: none; animation: none; }
+    .epc-rte a { transition: none; }
+  }
+</style>
+
+<section class="epc">
+  <div class="epc-inner">
+    <header class="epc-head">
+      <p class="epc-eyebrow">{{ eyebrow }}</p>
+      <h1 class="epc-title">{{ page.title | escape }}</h1>
+      <hr class="epc-head__rule" aria-hidden="true">
+    </header>
+
+    {%- comment -%} El rich text del merchant. Si está vacío, una nota serif tenue
+      (estado de página recién creada / preview del editor) en vez de un hueco. {%- endcomment -%}
+    {%- assign body = page.content | strip -%}
+    {%- if body != blank -%}
+      <div class="epc-rte rte">{{ page.content }}</div>
+    {%- else -%}
+      <p class="epc-empty">
+        {%- if is_en -%}This page has not been written yet.{%- else -%}Esta página aún no se ha escrito.{%- endif -%}
+      </p>
+    {%- endif -%}
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "Página ELYXIE",
+  "tag": "section",
+  "settings": [
+    {
+      "type": "text",
+      "id": "eyebrow",
+      "label": "Eyebrow",
+      "info": "Etiqueta sobre el título. Vacío = 'Elyxie'.",
+      "default": "Elyxie"
+    }
+  ],
+  "presets": [{ "name": "Página ELYXIE" }]
+}
+{% endschema %}

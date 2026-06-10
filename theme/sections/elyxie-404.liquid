@@ -1,0 +1,182 @@
+{%- comment -%}
+  404 ELYXIE — la página no encontrada como un momento de marca, no un error técnico.
+  Vive bajo el layout `elyxie-page` (wordmark champán + ES/EN + carrito + footer +
+  vacío esmeralda). El Dawn original (`main-404.liquid`) solo trae subtext + título +
+  enlace "seguir comprando" a `routes.all_products_collection_url`; aquí se conserva
+  ese único comportamiento Shopify (el enlace de vuelta) y se reviste en el idioma
+  ELYXIE: una sola estrofa serif italic, una línea reverente y un enlace fantasma de
+  vuelta a casa. Centrado, mucho espacio negativo, un solo punto de luz champán.
+  Bilingüe ES/EN — el español lidera, el inglés aclara.
+{%- endcomment -%}
+{%- assign is_en = false -%}
+{%- if request.locale.iso_code == 'en' -%}{%- assign is_en = true -%}{%- endif -%}
+
+{%- comment -%} Destino del enlace de vuelta: home (por defecto) o la colección completa. {%- endcomment -%}
+{%- if section.settings.link_target == 'collection' -%}
+  {%- assign back_url = routes.all_products_collection_url -%}
+{%- else -%}
+  {%- assign back_url = routes.root_url -%}
+{%- endif -%}
+
+<style>
+  .e404 {
+    /* min-height: descuenta nav (~88px) + footer (~280px) para centrar en el resto del
+       viewport sin forzar scroll; el clamp da aire en móvil sin colapsar en pantallas bajas. */
+    min-height: clamp(440px, calc(100vh - 360px), 760px);
+    display: grid; place-items: center; text-align: center;
+    padding: clamp(64px,12vw,140px) clamp(20px,5vw,64px);
+    position: relative; overflow: hidden;
+  }
+
+  /* El único punto de luz: un halo champán difuso detrás del serial, "una vela en
+     la oscuridad". Se respira lento (no rebota); ≤10% de la pantalla. */
+  .e404__halo {
+    position: absolute; top: 34%; left: 50%; width: min(560px, 84vw); aspect-ratio: 1;
+    transform: translate(-50%, -50%); pointer-events: none; z-index: 0;
+    background: radial-gradient(circle at center,
+      rgba(233,215,177,0.16) 0%, rgba(233,215,177,0.06) 32%, rgba(233,215,177,0) 68%);
+    animation: e404-breathe 6s cubic-bezier(0.65,0,0.35,1) infinite;
+  }
+  @keyframes e404-breathe {
+    0%, 100% { opacity: 0.7; transform: translate(-50%, -50%) scale(1); }
+    50%      { opacity: 1;   transform: translate(-50%, -50%) scale(1.06); }
+  }
+
+  .e404__inner { position: relative; z-index: 1; max-width: 600px; }
+
+  /* Cada elemento entra escalonado: primero la luz (opacidad), luego asienta la
+     geometría 14px hacia arriba. Salida exponencial, sin rebote. */
+  .e404__serial,
+  .e404__title,
+  .e404__line,
+  .e404__back {
+    opacity: 0; transform: translateY(14px);
+    animation: e404-rise 1100ms cubic-bezier(0.05,0.7,0.1,1) both;
+  }
+  .e404__serial { animation-delay: 80ms; }
+  .e404__title  { animation-delay: 240ms; }
+  .e404__line   { animation-delay: 440ms; }
+  .e404__back   { animation-delay: 640ms; }
+  @keyframes e404-rise { to { opacity: 1; transform: none; } }
+
+  /* Serial / eyebrow — la única mayúscula tracked. Mono no se carga en el build,
+     así que el sans con tabular-nums sostiene el "Nº 404". */
+  .e404__serial {
+    margin: 0 0 clamp(22px,3vw,34px); font-family: var(--ep-sans);
+    font-size: 12px; font-weight: 500; letter-spacing: 0.34em; text-transform: uppercase;
+    color: var(--ep-champ); font-variant-numeric: tabular-nums;
+  }
+
+  .e404__title {
+    margin: 0; font-family: var(--ep-serif); font-style: italic; font-weight: 400;
+    font-size: clamp(52px,10vw,108px); line-height: 0.96; letter-spacing: -0.02em;
+    color: var(--ep-ink); text-wrap: balance;
+  }
+
+  .e404__line {
+    margin: clamp(22px,3vw,32px) auto 0; max-width: 40ch; font-family: var(--ep-sans);
+    font-size: clamp(15px,1.5vw,17px); line-height: 1.7; color: rgba(255,255,255,0.72);
+    text-wrap: balance;
+  }
+
+  /* Enlace fantasma — esquina viva, hairline champán; el texto y el borde se
+     encienden a champán en hover, la flecha avanza 5px. Es el botón de la marca. */
+  .e404__back {
+    display: inline-flex; align-items: center; gap: 12px;
+    margin-top: clamp(36px,5vw,52px); padding: 16px 32px;
+    font-family: var(--ep-sans); font-size: 11px; font-weight: 500;
+    letter-spacing: 0.28em; text-transform: uppercase; text-decoration: none;
+    color: rgba(255,255,255,0.88); border: 1px solid rgba(255,255,255,0.25);
+    border-radius: 0; background: transparent;
+    transition: color 300ms cubic-bezier(0.2,0,0,1),
+                border-color 300ms cubic-bezier(0.2,0,0,1),
+                box-shadow 300ms cubic-bezier(0.2,0,0,1);
+  }
+  .e404__back svg { transition: transform 300ms cubic-bezier(0.2,0,0,1); }
+  .e404__back:hover {
+    color: var(--ep-champ); border-color: var(--ep-champ);
+    box-shadow: 0 0 30px rgba(233,215,177,0.14);
+  }
+  .e404__back:hover svg { transform: translateX(5px); }
+  .e404__back:focus-visible { outline: 2px solid var(--ep-champ); outline-offset: 4px; }
+
+  @media (max-width: 600px) {
+    .e404__halo { top: 30%; }
+  }
+
+  /* Reduced-motion: el contenido nace visible (los revelados solo realzan un default
+     ya presente) y la vela deja de respirar. */
+  @media (prefers-reduced-motion: reduce) {
+    .e404__serial, .e404__title, .e404__line, .e404__back {
+      opacity: 1; transform: none; animation: none;
+    }
+    .e404__halo { animation: none; opacity: 0.85; }
+    .e404__back, .e404__back svg { transition: none; }
+  }
+</style>
+
+<section class="e404" aria-labelledby="e404-title">
+  <span class="e404__halo" aria-hidden="true"></span>
+
+  <div class="e404__inner">
+    <p class="e404__serial">{% if is_en %}Error · Nº 404{% else %}Error · Nº 404{% endif %}</p>
+
+    <h1 class="e404__title" id="e404-title">
+      {%- if section.settings.heading != blank -%}
+        {{ section.settings.heading }}
+      {%- elsif is_en -%}
+        Lost to the darkness
+      {%- else -%}
+        Perdida en la oscuridad
+      {%- endif -%}
+    </h1>
+
+    <p class="e404__line">
+      {%- if section.settings.subtext != blank -%}
+        {{ section.settings.subtext }}
+      {%- elsif is_en -%}
+        This page was lost to the darkness. The water keeps no record of it.
+      {%- else -%}
+        Esta página se perdió en la oscuridad. El agua no guarda su rastro.
+      {%- endif -%}
+    </p>
+
+    <a class="e404__back" href="{{ back_url }}">
+      {% if is_en %}Return to the light{% else %}Volver a la luz{% endif %}
+      <svg width="14" height="9" viewBox="0 0 14 9" fill="none" aria-hidden="true">
+        <path d="M1 4.5h11M8 1l4 3.5L8 8" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </a>
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "404 ELYXIE",
+  "settings": [
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "Título",
+      "info": "Vacío = 'Perdida en la oscuridad' / 'Lost to the darkness'"
+    },
+    {
+      "type": "textarea",
+      "id": "subtext",
+      "label": "Línea",
+      "info": "Vacío = 'Esta página se perdió en la oscuridad…' / 'This page was lost to the darkness…'"
+    },
+    {
+      "type": "select",
+      "id": "link_target",
+      "label": "Destino del enlace",
+      "options": [
+        { "value": "home", "label": "Inicio" },
+        { "value": "collection", "label": "Colección completa" }
+      ],
+      "default": "home"
+    }
+  ],
+  "presets": [{ "name": "404 ELYXIE" }]
+}
+{% endschema %}

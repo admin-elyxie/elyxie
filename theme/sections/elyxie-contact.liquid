@@ -1,0 +1,393 @@
+{%- comment -%}
+  Contacto ELYXIE — la página de contacto (page.contact). Porta dos fuentes Dawn:
+  `main-page.liquid` (page.title + page.content sobre el formulario) y
+  `contact-form.liquid` (el {% form 'contact' %} con nombre/correo/teléfono/mensaje
+  + estados de éxito/error). Re-piel completa al idioma ELYXIE; NO se re-arquitectura
+  el formulario.
+
+  Vive bajo el layout `elyxie-page` (wordmark champán + ES/EN + carrito + footer de
+  marca + vacío esmeralda). Composición editorial a dos columnas: a la izquierda la
+  invocación (eyebrow + título serif italic + prosa + otras vías de contacto); a la
+  derecha el formulario. En móvil colapsa a una sola columna (prosa primero, formulario
+  después). Bilingüe ES/EN — el español lidera.
+
+  CONSERVADO 1:1 de Dawn (no tocar el comportamiento Shopify):
+  - {%- form 'contact', id: 'ContactForm' -%} … {%- endform -%}
+  - name="contact[{{ 'templates.contact.form.name' | t }}]" (clave = etiqueta localizada
+    "Nombre"/"Name"), name="contact[email]" (literal), teléfono y comentario igual.
+  - form.posted_successfully? → confirmación reverente; form.errors → resumen de error.
+  - El correo es el único campo validado por Shopify: aria-required, aria-invalid,
+    aria-describedby y el small de error en línea se mantienen tal cual.
+{%- endcomment -%}
+{%- assign is_en = false -%}
+{%- if request.locale.iso_code == 'en' -%}{%- assign is_en = true -%}{%- endif -%}
+
+{%- comment -%} Título: override del editor → título de la página → frase de marca. {%- endcomment -%}
+{%- assign heading = section.settings.heading | strip -%}
+{%- if heading == blank -%}
+  {%- if page.title != blank -%}
+    {%- assign heading = page.title -%}
+  {%- else -%}
+    {%- if is_en -%}{%- assign heading = 'Write to us' -%}{%- else -%}{%- assign heading = 'Escríbenos' -%}{%- endif -%}
+  {%- endif -%}
+{%- endif -%}
+{%- assign eyebrow = section.settings.eyebrow | strip -%}
+{%- if eyebrow == blank -%}{%- if is_en -%}{%- assign eyebrow = 'Contact' -%}{%- else -%}{%- assign eyebrow = 'Contacto' -%}{%- endif -%}{%- endif -%}
+
+<style>
+  .econt {
+    --en-hair: rgba(255,255,255,0.08);
+    --en-hair-champ: rgba(233,215,177,0.22);
+    --en-bronze: #D97757;                       /* error de marca — bronce desaturado, nunca rojo */
+    --en-field-bg: rgba(255,255,255,0.04);
+    --en-field-bg-focus: rgba(255,255,255,0.06);
+    --en-field-line: rgba(255,255,255,0.18);
+    max-width: 1240px; margin: 0 auto;
+    padding: clamp(40px,7vw,104px) clamp(20px,5vw,64px) clamp(88px,13vw,168px);
+  }
+
+  /* ── Rejilla editorial: invocación (izq) + formulario (der) ──────────────── */
+  /* 0.92fr / 1.08fr — el formulario pesa un punto más que la prosa para que el ojo
+     aterrice en el campo, sin que la columna izquierda se sienta accesoria. */
+  .econt__grid { display: grid; grid-template-columns: 0.92fr 1.08fr;
+    gap: clamp(40px,6vw,96px); align-items: start; }
+
+  /* ── Columna izquierda: la invocación ──────────────────────────────────── */
+  .econt__intro { max-width: 46ch; }
+  .econt__eyebrow { margin: 0; font-family: var(--ep-sans); font-size: 11px; font-weight: 500;
+    letter-spacing: 0.32em; text-transform: uppercase; color: var(--ep-champ); }
+  .econt__title { margin: clamp(14px,1.6vw,20px) 0 0; font-family: var(--ep-serif); font-style: italic;
+    font-weight: 400; font-size: clamp(42px,6.4vw,84px); line-height: 1.0; letter-spacing: -0.02em;
+    color: var(--ep-ink); text-wrap: balance; }
+  .econt__lede { margin: clamp(18px,2vw,26px) 0 0; font-family: var(--ep-sans); font-size: 16px;
+    line-height: 1.7; color: rgba(255,255,255,0.74); }
+
+  /* prosa del editor (page.content), si la hay — texto corrido a 4.5:1+ sobre el vacío */
+  .econt__rte { margin: clamp(22px,2.4vw,32px) 0 0; font-family: var(--ep-sans); font-size: 16px;
+    line-height: 1.7; color: rgba(255,255,255,0.72); }
+  .econt__rte > :first-child { margin-top: 0; }
+  .econt__rte > :last-child { margin-bottom: 0; }
+  .econt__rte p { margin: 0 0 16px; }
+  .econt__rte a { color: var(--ep-champ); text-decoration: none;
+    border-bottom: 1px solid var(--en-hair-champ); transition: border-color 240ms ease; }
+  .econt__rte a:hover { border-color: var(--ep-champ); }
+  .econt__rte h2, .econt__rte h3 { font-family: var(--ep-serif); font-style: italic; font-weight: 400;
+    color: var(--ep-ink); line-height: 1.15; margin: 28px 0 12px; }
+  .econt__rte h2 { font-size: clamp(26px,3vw,34px); }
+  .econt__rte h3 { font-size: 22px; }
+
+  /* otras vías — bloque tenue de detalles directos (opcional, por settings) */
+  .econt__ways { margin: clamp(32px,4vw,52px) 0 0; padding-top: clamp(24px,3vw,34px);
+    border-top: 1px solid var(--en-hair); display: grid; gap: 22px; }
+  .econt__way { display: grid; gap: 5px; }
+  .econt__way-label { margin: 0; font-family: var(--ep-sans); font-size: 10px; font-weight: 500;
+    letter-spacing: 0.3em; text-transform: uppercase; color: rgba(255,255,255,0.5); }
+  .econt__way-value { margin: 0; font-family: var(--ep-serif); font-size: clamp(20px,2vw,24px);
+    line-height: 1.25; color: var(--ep-ink); }
+  .econt__way-value a { color: inherit; text-decoration: none;
+    border-bottom: 1px solid transparent; transition: border-color 240ms ease, color 240ms ease; }
+  .econt__way-value a:hover { color: var(--ep-champ); border-bottom-color: var(--en-hair-champ); }
+
+  /* ── Columna derecha: la superficie del formulario ───────────────────────── */
+  /* Superficie con redondeo (18px) y glow contenido — el único bloque que "sube"
+     un escalón desde el vacío; los campos dentro son nítidos (esquina viva). */
+  .econt__panel { position: relative; border-radius: 18px; padding: clamp(28px,3.4vw,48px);
+    background: linear-gradient(180deg, rgba(20,60,50,0.30), rgba(11,36,29,0.30));
+    box-shadow: 0 20px 60px rgba(5,22,19,0.45), inset 0 0 0 1px rgba(255,255,255,0.06); }
+
+  .econt__form { display: grid; gap: clamp(20px,2.2vw,28px); }
+  /* nombre + correo en par a partir de 560px de panel; teléfono y mensaje a ancho completo */
+  .econt__row { display: grid; gap: clamp(20px,2.2vw,28px); }
+  @container econt-panel (min-width: 560px) {
+    .econt__row { grid-template-columns: 1fr 1fr; }
+  }
+
+  /* Campo: floating label CSS puro. La etiqueta reposa sobre el campo y sube al
+     enfocar o con valor (:not(:placeholder-shown)). Placeholder transparente: el
+     placeholder real existe (Dawn lo necesita) pero no se ve, solo dispara el estado. */
+  .econt__field { position: relative; }
+  .econt__field .field__input {
+    width: 100%; display: block; margin: 0; appearance: none; -webkit-appearance: none;
+    background: var(--en-field-bg); border: 1px solid var(--en-field-line); border-radius: 0;
+    color: var(--ep-ink); font-family: var(--ep-sans); font-size: 16px; line-height: 1.4;
+    padding: 26px 18px 10px; min-height: 58px;
+    transition: border-color 240ms cubic-bezier(0.2,0,0,1), background 240ms cubic-bezier(0.2,0,0,1); }
+  .econt__field textarea.field__input { min-height: 168px; resize: vertical; line-height: 1.6;
+    padding-top: 28px; }
+  .econt__field .field__input::placeholder { color: transparent; }
+  .econt__field .field__input:hover { border-color: rgba(255,255,255,0.3); }
+  .econt__field .field__input:focus { outline: none;
+    border-color: var(--ep-champ); background: var(--en-field-bg-focus); }
+  .econt__field .field__input:focus-visible { outline: none; }
+  /* autofill: navegadores pintan un fondo claro; lo neutralizamos hacia el vacío */
+  .econt__field .field__input:-webkit-autofill,
+  .econt__field .field__input:-webkit-autofill:focus {
+    -webkit-text-fill-color: var(--ep-ink);
+    -webkit-box-shadow: 0 0 0 1000px #0C2C24 inset;
+    caret-color: var(--ep-ink); }
+
+  .econt__field .field__label { position: absolute; left: 18px; top: 18px; margin: 0;
+    font-family: var(--ep-sans); font-size: 15px; font-weight: 400; color: rgba(255,255,255,0.5);
+    pointer-events: none; transform-origin: left top;
+    transition: transform 200ms cubic-bezier(0.2,0,0,1), color 200ms cubic-bezier(0.2,0,0,1); }
+  .econt__field .field__input:focus + .field__label,
+  .econt__field .field__input:not(:placeholder-shown) + .field__label {
+    transform: translateY(-10px) scale(0.72); letter-spacing: 0.22em; text-transform: uppercase; }
+  .econt__field .field__input:focus + .field__label { color: var(--ep-champ); }
+  .econt__field .field__input:not(:placeholder-shown):not(:focus) + .field__label {
+    color: rgba(255,255,255,0.55); }
+  /* el asterisco del correo no se pone en mayúsculas con el resto de la etiqueta */
+  .econt__field .field__label span { text-transform: none; letter-spacing: 0; color: var(--en-bronze); }
+
+  /* estado inválido (solo correo, lo único que Shopify valida en este form) */
+  .econt__field--error .field__input { border-color: var(--en-bronze); }
+  .econt__field-error { display: block; margin: 8px 0 0; font-family: var(--ep-sans);
+    font-size: 12px; line-height: 1.5; letter-spacing: 0.02em; color: var(--en-bronze); }
+  .econt__field-error .svg-wrapper { display: none; }   /* el icono Dawn no encaja; el color basta */
+  .econt__field-error .form__message { display: inline; }
+
+  /* ── CTA precioso: oro nítido (esquina viva), glow que crece en hover ────── */
+  .econt__submit { justify-self: start; margin-top: clamp(6px,1vw,12px); }
+  .econt__submit .button { display: inline-flex; align-items: center; gap: 12px;
+    appearance: none; -webkit-appearance: none; cursor: pointer; border: 0; border-radius: 0;
+    padding: 18px 44px; background: linear-gradient(180deg, #E9D7B1, #C9A66B); color: #0A2620;
+    font-family: var(--ep-sans); font-size: 11px; font-weight: 600; letter-spacing: 0.28em;
+    text-transform: uppercase;
+    box-shadow: 0 0 30px rgba(233,215,177,0.25);
+    transition: box-shadow 360ms cubic-bezier(0.2,0,0,1), transform 360ms cubic-bezier(0.2,0,0,1); }
+  .econt__submit .button svg { transition: transform 240ms cubic-bezier(0.2,0,0,1); }
+  .econt__submit .button:hover { box-shadow: 0 0 46px rgba(233,215,177,0.42); }
+  .econt__submit .button:hover svg { transform: translateX(5px); }
+  .econt__submit .button:focus-visible { outline: 2px solid var(--ep-champ); outline-offset: 4px; }
+
+  /* ── Éxito: bloque fósforo (la luz guardada devuelta) ────────────────────── */
+  .econt__success { display: flex; align-items: flex-start; gap: 16px; margin: 0 0 clamp(24px,3vw,34px);
+    padding: 22px 24px; border-radius: 12px;
+    background: rgba(125,255,178,0.08); border: 1px solid rgba(125,255,178,0.32); }
+  .econt__success svg { flex: none; margin-top: 3px; color: #7DFFB2; }
+  .econt__success-text { margin: 0; font-family: var(--ep-sans); font-size: 15px; line-height: 1.55;
+    color: rgba(246,242,232,0.92); }
+  .econt__success-text strong { display: block; margin-bottom: 4px; font-family: var(--ep-serif);
+    font-style: italic; font-weight: 400; font-size: 22px; color: #fff; }
+
+  /* ── Resumen de error (encabezado + lista) ───────────────────────────────── */
+  .econt__error-summary { margin: 0 0 clamp(24px,3vw,34px); padding: 20px 24px; border-radius: 12px;
+    background: rgba(217,119,87,0.08); border: 1px solid rgba(217,119,87,0.32); }
+  .econt__error-summary h2 { display: flex; align-items: center; gap: 10px; margin: 0;
+    font-family: var(--ep-sans); font-size: 11px; font-weight: 500; letter-spacing: 0.28em;
+    text-transform: uppercase; color: var(--en-bronze); }
+  .econt__error-summary h2 .svg-wrapper { display: none; }
+  .econt__error-list { margin: 12px 0 0; padding: 0; list-style: none; }
+  .econt__error-list li { font-family: var(--ep-sans); font-size: 14px; line-height: 1.6; }
+  .econt__error-list a { color: rgba(246,242,232,0.9); text-decoration: none;
+    border-bottom: 1px solid var(--en-bronze); transition: color 240ms ease; }
+  .econt__error-list a:hover { color: #fff; }
+
+  /* ── Responsive ──────────────────────────────────────────────────────────── */
+  @media (max-width: 860px) {
+    /* una sola columna: la invocación arriba, el formulario debajo */
+    .econt__grid { grid-template-columns: 1fr; gap: clamp(40px,8vw,56px); }
+    .econt__intro { max-width: none; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .econt__field .field__input, .econt__field .field__label,
+    .econt__submit .button, .econt__submit .button svg, .econt__rte a, .econt__way-value a {
+      transition: none; }
+  }
+</style>
+
+<section class="econt">
+  <div class="econt__grid">
+    {%- comment -%} ── Columna izquierda: la invocación + prosa del editor ── {%- endcomment -%}
+    <div class="econt__intro">
+      <p class="econt__eyebrow">{{ eyebrow }}</p>
+      <h1 class="econt__title">{{ heading }}</h1>
+
+      {%- if section.settings.lede != blank -%}
+        <p class="econt__lede">{{ section.settings.lede }}</p>
+      {%- else -%}
+        <p class="econt__lede">
+          {%- if is_en -%}
+            Tell us what you are looking for. Every message reaches a person, not a queue, and we answer with care.
+          {%- else -%}
+            Cuéntanos qué buscas. Cada mensaje llega a una persona, no a una cola, y respondemos con cuidado.
+          {%- endif -%}
+        </p>
+      {%- endif -%}
+
+      {%- if section.settings.show_page_content and page.content != blank -%}
+        <div class="econt__rte rte">{{ page.content }}</div>
+      {%- endif -%}
+
+      {%- comment -%} Otras vías de contacto — opcionales, vacío = oculto. {%- endcomment -%}
+      {%- if section.settings.contact_email != blank or section.settings.contact_phone != blank or section.settings.contact_location != blank -%}
+        <div class="econt__ways">
+          {%- if section.settings.contact_email != blank -%}
+            <div class="econt__way">
+              <p class="econt__way-label">{% if is_en %}By correspondence{% else %}Por correo{% endif %}</p>
+              <p class="econt__way-value"><a href="mailto:{{ section.settings.contact_email }}">{{ section.settings.contact_email }}</a></p>
+            </div>
+          {%- endif -%}
+          {%- if section.settings.contact_phone != blank -%}
+            <div class="econt__way">
+              <p class="econt__way-label">{% if is_en %}By voice{% else %}Por voz{% endif %}</p>
+              {%- assign tel_href = section.settings.contact_phone | remove: ' ' | remove: '(' | remove: ')' | remove: '-' -%}
+              <p class="econt__way-value"><a href="tel:{{ tel_href }}">{{ section.settings.contact_phone }}</a></p>
+            </div>
+          {%- endif -%}
+          {%- if section.settings.contact_location != blank -%}
+            <div class="econt__way">
+              <p class="econt__way-label">{% if is_en %}The lagoon{% else %}La laguna{% endif %}</p>
+              <p class="econt__way-value">{{ section.settings.contact_location }}</p>
+            </div>
+          {%- endif -%}
+        </div>
+      {%- endif -%}
+    </div>
+
+    {%- comment -%} ── Columna derecha: el formulario (machinery Dawn, piel ELYXIE) ── {%- endcomment -%}
+    <div class="econt__panel" style="container: econt-panel / inline-size;">
+      {%- form 'contact', id: 'ContactForm', class: 'econt__form' -%}
+        {%- if form.posted_successfully? -%}
+          {%- comment -%} Confirmación reverente — bloque fósforo, autofocus para lectores de pantalla. {%- endcomment -%}
+          <div class="econt__success" tabindex="-1" autofocus role="status">
+            <svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden="true">
+              <circle cx="11" cy="11" r="10" stroke="currentColor" stroke-width="1.2" opacity="0.5"/>
+              <path d="M6.5 11.2l3 3 6-6.4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <p class="econt__success-text">
+              <strong>{% if is_en %}Your message is received.{% else %}Tu mensaje quedó recibido.{% endif %}</strong>
+              {%- if is_en -%}
+                We will write back soon. Thank you for reaching the water.
+              {%- else -%}
+                Te escribiremos pronto. Gracias por acercarte al agua.
+              {%- endif -%}
+            </p>
+          </div>
+        {%- elsif form.errors -%}
+          {%- comment -%} Resumen de error — bronce desaturado; el enlace lleva al campo del correo. {%- endcomment -%}
+          <div class="econt__error-summary">
+            <h2 class="form-status" role="alert" tabindex="-1" autofocus>
+              <span class="svg-wrapper">{{- 'icon-error.svg' | inline_asset_content -}}</span>
+              {% if is_en %}Please adjust the following{% else %}Por favor, ajusta lo siguiente{% endif %}
+            </h2>
+            <ul class="econt__error-list" role="list">
+              <li>
+                <a href="#ContactForm-email" class="link">
+                  {{ form.errors.translated_fields.email | capitalize }}
+                  {{ form.errors.messages.email }}
+                </a>
+              </li>
+            </ul>
+          </div>
+        {%- endif -%}
+
+        <div class="econt__row">
+          {%- comment -%} Nombre — clave del campo = etiqueta localizada (idéntico a Dawn). {%- endcomment -%}
+          <div class="econt__field">
+            <input
+              class="field__input"
+              autocomplete="name"
+              type="text"
+              id="ContactForm-name"
+              name="contact[{{ 'templates.contact.form.name' | t }}]"
+              value="{% if form.name %}{{ form.name }}{% elsif customer %}{{ customer.name }}{% endif %}"
+              placeholder="{{ 'templates.contact.form.name' | t }}"
+            >
+            <label class="field__label" for="ContactForm-name">{% if is_en %}Name{% else %}Nombre{% endif %}</label>
+          </div>
+
+          {%- comment -%} Correo — único campo validado por Shopify; se conserva todo el cableado aria. {%- endcomment -%}
+          <div class="econt__field{% if form.errors contains 'email' %} econt__field--error{% endif %}">
+            <input
+              autocomplete="email"
+              type="email"
+              id="ContactForm-email"
+              class="field__input"
+              name="contact[email]"
+              spellcheck="false"
+              autocapitalize="off"
+              value="{% if form.email %}{{ form.email }}{% elsif customer %}{{ customer.email }}{% endif %}"
+              aria-required="true"
+              {% if form.errors contains 'email' %}
+                aria-invalid="true"
+                aria-describedby="ContactForm-email-error"
+              {% endif %}
+              placeholder="{{ 'templates.contact.form.email' | t }}"
+            >
+            <label class="field__label" for="ContactForm-email">
+              {%- if is_en %}Email{% else %}Correo{% endif %}
+              <span aria-hidden="true">*</span>
+            </label>
+            {%- if form.errors contains 'email' -%}
+              <small class="econt__field-error" id="ContactForm-email-error">
+                <span class="visually-hidden">{{ 'accessibility.error' | t }}</span>
+                <span class="form__message">
+                  <span class="svg-wrapper">{{- 'icon-error.svg' | inline_asset_content -}}</span>
+                  {{- form.errors.translated_fields.email | capitalize }}
+                  {{ form.errors.messages.email -}}
+                </span>
+              </small>
+            {%- endif -%}
+          </div>
+        </div>
+
+        {%- comment -%} Teléfono — clave del campo = etiqueta localizada (idéntico a Dawn). {%- endcomment -%}
+        <div class="econt__field">
+          <input
+            type="tel"
+            id="ContactForm-phone"
+            class="field__input"
+            autocomplete="tel"
+            name="contact[{{ 'templates.contact.form.phone' | t }}]"
+            pattern="[0-9\-]*"
+            value="{% if form.phone %}{{ form.phone }}{% elsif customer %}{{ customer.phone }}{% endif %}"
+            placeholder="{{ 'templates.contact.form.phone' | t }}"
+          >
+          <label class="field__label" for="ContactForm-phone">{% if is_en %}Phone{% else %}Teléfono{% endif %}</label>
+        </div>
+
+        {%- comment -%} Mensaje — clave del campo = etiqueta localizada (idéntico a Dawn).
+          Sin espacios entre la etiqueta de apertura del textarea y {{ form.body }}: cualquier
+          blanco se renderiza dentro y rompería el estado :placeholder-shown del floating label. {%- endcomment -%}
+        <div class="econt__field">
+          <textarea
+            rows="10"
+            id="ContactForm-body"
+            class="text-area field__input"
+            name="contact[{{ 'templates.contact.form.comment' | t }}]"
+            placeholder="{{ 'templates.contact.form.comment' | t }}"
+          >{{- form.body -}}</textarea>
+          <label class="field__label" for="ContactForm-body">{% if is_en %}Message{% else %}Mensaje{% endif %}</label>
+        </div>
+
+        <div class="econt__submit">
+          <button type="submit" class="button">
+            {% if is_en %}Send{% else %}Enviar{% endif %}
+            <svg width="13" height="9" viewBox="0 0 13 9" fill="none" aria-hidden="true">
+              <path d="M1 4.5h10M7.5 1L11 4.5 7.5 8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+        </div>
+      {%- endform -%}
+    </div>
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "Contacto ELYXIE",
+  "settings": [
+    { "type": "text", "id": "eyebrow", "label": "Eyebrow", "info": "Vacío = 'Contacto' / 'Contact'" },
+    { "type": "text", "id": "heading", "label": "Título", "info": "Vacío = título de la página (page.title)" },
+    { "type": "text", "id": "lede", "label": "Frase de entrada", "info": "Vacío = frase de marca bilingüe por defecto" },
+    { "type": "checkbox", "id": "show_page_content", "label": "Mostrar contenido de la página (page.content)", "default": true },
+    { "type": "header", "content": "Otras vías de contacto", "info": "Opcionales. Vacío = oculto." },
+    { "type": "text", "id": "contact_email", "label": "Correo de contacto", "info": "Ej. hola@elyxie.com" },
+    { "type": "text", "id": "contact_phone", "label": "Teléfono", "info": "Ej. +51 999 999 999" },
+    { "type": "text", "id": "contact_location", "label": "Ubicación", "info": "Ej. Laguna Negra, Huancabamba" }
+  ],
+  "presets": [{ "name": "Contacto ELYXIE" }]
+}
+{% endschema %}

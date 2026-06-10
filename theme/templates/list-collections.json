@@ -1,12 +1,8 @@
 {
+  "layout": "elyxie-page",
   "sections": {
     "main": {
-      "type": "main-list-collections",
-      "settings": {
-        "title": "Collections",
-        "sort": "alphabetical",
-        "image_ratio": "square"
-      }
+      "type": "elyxie-collections-list"
     }
   },
   "order": [

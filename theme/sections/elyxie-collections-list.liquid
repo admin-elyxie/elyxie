@@ -1,0 +1,265 @@
+{%- comment -%}
+  Índice de colecciones ELYXIE — la portada de /collections como una galería
+  editorial de "casas" de la marca, NO un directorio de e-commerce. Vive bajo el
+  layout `elyxie-page` (wordmark champán + ES/EN + carrito + footer de marca +
+  vacío esmeralda). Cada colección es un marco luminoso que enlaza a su portada
+  (`collection.url`), donde vive la galería editorial de piezas (la PDP es la
+  superficie de venta). Bilingüe ES/EN; el español lidera.
+
+  Puerto del Dawn `main-list-collections.liquid`: conserva el objeto `collections`,
+  el ordenamiento (alfabético / fecha / nº de productos) y `paginate collections`.
+  El "card-collection" de Dawn ya cae a la primera imagen de producto cuando no
+  hay imagen destacada: `collection.featured_image` hace ese fallback nativo, así
+  que aquí solo añadimos un tercer fallback —un marco esmeralda refinado— cuando
+  la colección está vacía.
+{%- endcomment -%}
+{%- assign is_en = false -%}
+{%- if request.locale.iso_code == 'en' -%}{%- assign is_en = true -%}{%- endif -%}
+
+{%- comment -%} Cabecera: override del editor → frase de marca por defecto. {%- endcomment -%}
+{%- assign heading = section.settings.heading | strip -%}
+{%- if heading == blank -%}{%- if is_en -%}{%- assign heading = 'The Collections' -%}{%- else -%}{%- assign heading = 'Las Colecciones' -%}{%- endif -%}{%- endif -%}
+{%- assign eyebrow = section.settings.eyebrow | strip -%}
+{%- if eyebrow == blank -%}{%- if is_en -%}{%- assign eyebrow = 'The Houses' -%}{%- else -%}{%- assign eyebrow = 'Las Casas' -%}{%- endif -%}{%- endif -%}
+
+{%- comment -%} Orden — espejo del Dawn: alfabético, por fecha de publicación o por nº de productos. {%- endcomment -%}
+{%- liquid
+  case section.settings.sort
+    when 'products_high', 'products_low'
+      assign collections = collections | sort: 'all_products_count'
+    when 'date', 'date_reversed'
+      assign collections = collections | sort: 'published_at'
+  endcase
+  if section.settings.sort == 'products_high' or section.settings.sort == 'date_reversed' or section.settings.sort == 'alphabetical_reversed'
+    assign collections = collections | reverse
+  endif
+-%}
+
+<style>
+  .eclist {
+    --el-surface: #0E2E26;
+    --el-hair: rgba(255,255,255,0.08);
+    --el-hair-champ: rgba(233,215,177,0.22);
+    max-width: 1240px; margin: 0 auto;
+    padding: clamp(40px,7vw,104px) clamp(20px,5vw,64px) clamp(88px,13vw,168px);
+  }
+
+  /* ── Cabecera editorial ────────────────────────────────────────────────── */
+  .eclist__head { margin-bottom: clamp(40px,6vw,72px); }
+  .eclist__eyebrow { margin: 0; font-family: var(--ep-sans); font-size: 11px; font-weight: 500;
+    letter-spacing: 0.32em; text-transform: uppercase; color: var(--ep-champ); }
+  .eclist__title { margin: clamp(14px,1.6vw,20px) 0 0; font-family: var(--ep-serif); font-style: italic;
+    font-weight: 400; font-size: clamp(42px,6.4vw,88px); line-height: 1.0; letter-spacing: -0.02em;
+    color: var(--ep-ink); text-wrap: balance; }
+  .eclist__desc { margin: clamp(18px,2vw,26px) 0 0; max-width: 56ch; font-family: var(--ep-sans);
+    font-size: 16px; line-height: 1.7; color: rgba(255,255,255,0.74); }
+  .eclist__desc p { margin: 0; }
+
+  .eclist__meta { margin-top: clamp(28px,4vw,44px); }
+  .eclist__count { font-family: var(--ep-sans); font-size: 11px; font-weight: 500; letter-spacing: 0.22em;
+    text-transform: uppercase; color: rgba(255,255,255,0.62); font-variant-numeric: tabular-nums; }
+
+  .eclist__rule { height: 1px; border: 0; margin: clamp(26px,3vw,38px) 0 0;
+    background: linear-gradient(90deg, var(--el-hair-champ), rgba(255,255,255,0.05) 40%, transparent); }
+
+  /* ── Grid de colecciones ───────────────────────────────────────────────── */
+  /* minmax 300px: las "casas" piden un marco más ancho que las piezas (260px). */
+  .eclist__grid { list-style: none; margin: clamp(40px,6vw,72px) 0 0; padding: 0;
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(300px,380px)); justify-content: start;
+    gap: clamp(40px,5vw,72px) clamp(24px,3vw,44px); }
+
+  .ehouse { --i: 0; opacity: 0; transform: translateY(18px);
+    animation: ehouse-rise 760ms cubic-bezier(0.05,0.7,0.1,1) both;
+    animation-delay: calc(var(--i) * 90ms); }
+  @keyframes ehouse-rise { to { opacity: 1; transform: none; } }
+
+  .ehouse__link { display: block; text-decoration: none; color: inherit; }
+  .ehouse__link:focus-visible { outline: none; }
+  .ehouse__link:focus-visible .ehouse__frame { outline: 2px solid var(--ep-champ); outline-offset: 4px; }
+
+  /* marco luminoso — la colección flota sobre el vacío; ratio 3/2 más editorial que la pieza */
+  .ehouse__frame { position: relative; aspect-ratio: 3 / 2; border-radius: 14px; overflow: hidden;
+    background: var(--el-surface);
+    box-shadow: 0 20px 60px rgba(5,22,19,0.45), inset 0 0 0 1px rgba(255,255,255,0.06);
+    transition: box-shadow 420ms cubic-bezier(0.2,0,0,1); }
+  .ehouse__img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: center 42%;
+    transition: transform 760ms cubic-bezier(0.2,0,0,1); }
+
+  /* velo: aterriza el título sobre la imagen sin lavar el texto (contraste ≥4.5:1) */
+  .ehouse__veil { position: absolute; inset: 0; pointer-events: none;
+    background: linear-gradient(180deg, rgba(5,22,19,0) 38%, rgba(5,22,19,0.62) 100%); }
+
+  /* placeholder esmeralda refinado — colección sin imagen destacada ni productos */
+  .ehouse__frame--empty { display: grid; place-items: center;
+    background:
+      radial-gradient(ellipse 80% 70% at 50% 30%, rgba(38,96,100,0.30) 0%, rgba(10,38,32,0) 60%),
+      linear-gradient(180deg, #0E2E26 0%, #0B241D 100%); }
+  .ehouse__glyph { font-family: var(--ep-serif); font-style: italic; font-size: clamp(34px,5vw,52px);
+    color: rgba(233,215,177,0.5); }
+
+  .ehouse__link:hover .ehouse__img { transform: scale(1.045); }
+  .ehouse__link:hover .ehouse__frame {
+    box-shadow: 0 24px 70px rgba(5,22,19,0.55), 0 0 54px rgba(233,215,177,0.12),
+                inset 0 0 0 1px rgba(233,215,177,0.24); }
+
+  .ehouse__body { display: flex; align-items: baseline; justify-content: space-between; gap: 16px;
+    padding-top: 20px; }
+  .ehouse__name { margin: 0; font-family: var(--ep-serif); font-weight: 400; font-size: clamp(24px,2.4vw,31px);
+    line-height: 1.08; letter-spacing: -0.01em; color: var(--ep-ink); }
+  .ehouse__count { flex: none; font-family: var(--ep-sans); font-size: 10px; font-weight: 500;
+    letter-spacing: 0.24em; text-transform: uppercase; color: rgba(255,255,255,0.5);
+    font-variant-numeric: tabular-nums; }
+
+  .ehouse__cta { display: inline-flex; align-items: center; gap: 8px; margin-top: 13px;
+    font-family: var(--ep-sans); font-size: 10.5px; font-weight: 500; letter-spacing: 0.2em;
+    text-transform: uppercase; color: rgba(233,215,177,0.85); transition: color 240ms ease; }
+  .ehouse__cta svg { transition: transform 240ms cubic-bezier(0.2,0,0,1); }
+  .ehouse__link:hover .ehouse__cta { color: var(--ep-champ); }
+  .ehouse__link:hover .ehouse__cta svg { transform: translateX(4px); }
+
+  /* ── Vacío + paginación ────────────────────────────────────────────────── */
+  .eclist__empty { padding: clamp(56px,10vw,120px) 0; text-align: center; }
+  .eclist__empty p { margin: 0; font-family: var(--ep-serif); font-style: italic; font-size: clamp(22px,3vw,30px);
+    color: rgba(255,255,255,0.7); }
+  .eclist__empty a { display: inline-block; margin-top: 22px; font-family: var(--ep-sans); font-size: 11px;
+    font-weight: 500; letter-spacing: 0.24em; text-transform: uppercase; color: var(--ep-champ);
+    text-decoration: none; border-bottom: 1px solid var(--el-hair-champ); padding-bottom: 4px; }
+
+  .eclist__pager { display: flex; justify-content: center; gap: 10px; margin-top: clamp(48px,7vw,88px); }
+  .eclist__pager a, .eclist__pager span { min-width: 40px; height: 40px; display: inline-flex; align-items: center;
+    justify-content: center; font-family: var(--ep-sans); font-size: 12px; letter-spacing: 0.04em;
+    color: rgba(255,255,255,0.55); text-decoration: none; border: 1px solid var(--el-hair);
+    transition: color 220ms ease, border-color 220ms ease; }
+  .eclist__pager a:hover { color: #fff; border-color: var(--el-hair-champ); }
+  .eclist__pager span[aria-current] { color: #0A2620; background: var(--ep-champ); border-color: var(--ep-champ); }
+
+  @media (max-width: 600px) {
+    /* una sola casa luminosa por fila */
+    .eclist__grid { grid-template-columns: 1fr; gap: 44px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .ehouse { opacity: 1; transform: none; animation: none; }
+    .ehouse__img, .ehouse__cta svg, .ehouse__frame { transition: none; }
+    .ehouse__link:hover .ehouse__img { transform: none; }
+  }
+</style>
+
+<section class="eclist">
+  <header class="eclist__head">
+    <p class="eclist__eyebrow">{{ eyebrow }}</p>
+    <h1 class="eclist__title">{{ heading }}</h1>
+
+    {%- if section.settings.description != blank -%}
+      <div class="eclist__desc">{{ section.settings.description }}</div>
+    {%- endif -%}
+
+    {%- comment -%} solo contamos/mostramos colecciones con piezas (oculta la 'Home page' vacía de Shopify) {%- endcomment -%}
+    {%- assign visible_count = 0 -%}
+    {%- for c in collections -%}{%- if c.all_products_count > 0 -%}{%- assign visible_count = visible_count | plus: 1 -%}{%- endif -%}{%- endfor -%}
+    {%- if visible_count > 0 -%}
+      <div class="eclist__meta">
+        <span class="eclist__count">
+          {{ visible_count }}
+          {%- if visible_count == 1 -%}{% if is_en %} house{% else %} casa{% endif %}
+          {%- else -%}{% if is_en %} houses{% else %} casas{% endif %}{%- endif -%}
+        </span>
+      </div>
+    {%- endif -%}
+
+    <hr class="eclist__rule">
+  </header>
+
+  {%- if visible_count > 0 -%}
+    {%- comment -%} 28 cabe limpio en grids de 1/2/4/7; si no, 30 (espejo de la heurística Dawn). {%- endcomment -%}
+    {%- paginate collections by 28 -%}
+      <ul class="eclist__grid" role="list">
+        {%- for collection in collections -%}
+          {%- if collection.all_products_count > 0 -%}
+          {%- comment -%} collection.featured_image no cae a producto solo; añadimos ese fallback. {%- endcomment -%}
+          {%- assign coll_img = collection.featured_image | default: collection.products.first.featured_media.preview_image -%}
+          <li class="ehouse" style="--i: {{ forloop.index0 }}">
+            <a class="ehouse__link" href="{{ collection.url }}">
+              <div class="ehouse__frame{% unless coll_img %} ehouse__frame--empty{% endunless %}">
+                {%- if coll_img -%}
+                  <img class="ehouse__img"
+                    src="{{ coll_img | image_url: width: 800 }}"
+                    srcset="{{ coll_img | image_url: width: 400 }} 400w,
+                            {{ coll_img | image_url: width: 600 }} 600w,
+                            {{ coll_img | image_url: width: 800 }} 800w,
+                            {{ coll_img | image_url: width: 1100 }} 1100w"
+                    sizes="(max-width: 600px) 90vw, 380px"
+                    alt="{{ coll_img.alt | default: collection.title | escape }}"
+                    width="800" height="533"
+                    loading="{% if forloop.index <= 2 %}eager{% else %}lazy{% endif %}">
+                  <span class="ehouse__veil"></span>
+                {%- else -%}
+                  {%- comment -%} Sin imagen destacada ni primer producto: marco esmeralda con inicial. {%- endcomment -%}
+                  <span class="ehouse__glyph" aria-hidden="true">{{ collection.title | slice: 0 }}</span>
+                {%- endif -%}
+              </div>
+              <div class="ehouse__body">
+                <h2 class="ehouse__name">{{ collection.title }}</h2>
+                {%- if collection.all_products_count > 0 -%}
+                  <span class="ehouse__count">
+                    {{ collection.all_products_count }}
+                    {%- if collection.all_products_count == 1 -%}{% if is_en %} piece{% else %} pieza{% endif %}
+                    {%- else -%}{% if is_en %} pieces{% else %} piezas{% endif %}{%- endif -%}
+                  </span>
+                {%- endif -%}
+              </div>
+              <span class="ehouse__cta">
+                {% if is_en %}Enter{% else %}Entrar{% endif %}
+                <svg width="13" height="9" viewBox="0 0 13 9" fill="none" aria-hidden="true">
+                  <path d="M1 4.5h10M7.5 1L11 4.5 7.5 8" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </span>
+            </a>
+          </li>
+          {%- endif -%}
+        {%- endfor -%}
+      </ul>
+
+      {%- if paginate.pages > 1 -%}
+        <nav class="eclist__pager" role="navigation" aria-label="{% if is_en %}Pagination{% else %}Paginación{% endif %}">
+          {%- if paginate.previous -%}<a href="{{ paginate.previous.url }}" aria-label="{% if is_en %}Previous{% else %}Anterior{% endif %}">←</a>{%- endif -%}
+          {%- for part in paginate.parts -%}
+            {%- if part.is_link -%}<a href="{{ part.url }}">{{ part.title }}</a>
+            {%- else -%}<span{% if part.title == paginate.current_page %} aria-current="page"{% endif %}>{{ part.title }}</span>{%- endif -%}
+          {%- endfor -%}
+          {%- if paginate.next -%}<a href="{{ paginate.next.url }}" aria-label="{% if is_en %}Next{% else %}Siguiente{% endif %}">→</a>{%- endif -%}
+        </nav>
+      {%- endif -%}
+    {%- endpaginate -%}
+  {%- else -%}
+    <div class="eclist__empty">
+      <p>{% if is_en %}No collections yet.{% else %}Aún no hay colecciones.{% endif %}</p>
+      <a href="{{ routes.all_products_collection_url }}">{% if is_en %}See all pieces{% else %}Ver todas las piezas{% endif %}</a>
+    </div>
+  {%- endif -%}
+</section>
+
+{% schema %}
+{
+  "name": "Colecciones ELYXIE",
+  "settings": [
+    { "type": "text", "id": "eyebrow", "label": "Eyebrow", "info": "Vacío = 'Las Casas' / 'The Houses'" },
+    { "type": "text", "id": "heading", "label": "Título", "info": "Vacío = 'Las Colecciones' / 'The Collections'" },
+    { "type": "richtext", "id": "description", "label": "Descripción", "info": "Opcional, bajo el título" },
+    {
+      "type": "select",
+      "id": "sort",
+      "label": "Orden de las colecciones",
+      "default": "alphabetical",
+      "options": [
+        { "value": "alphabetical", "label": "Alfabético (A–Z)" },
+        { "value": "alphabetical_reversed", "label": "Alfabético (Z–A)" },
+        { "value": "date_reversed", "label": "Fecha (recientes primero)" },
+        { "value": "date", "label": "Fecha (antiguas primero)" },
+        { "value": "products_high", "label": "Nº de piezas (mayor primero)" },
+        { "value": "products_low", "label": "Nº de piezas (menor primero)" }
+      ]
+    }
+  ],
+  "presets": [{ "name": "Colecciones ELYXIE" }]
+}
+{% endschema %}

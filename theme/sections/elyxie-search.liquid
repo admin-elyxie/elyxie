@@ -1,0 +1,409 @@
+{%- comment -%}
+  Búsqueda ELYXIE — página /search re-vestida en el idioma de la marca.
+  Porta fielmente la maquinaria Dawn de `main-search`: el GET form a
+  `routes.search_url` con name="q", type="search" y el hidden `options[prefix]=last`,
+  el botón reset, y `search.results` / `search.performed` / `search.results_count`
+  bajo `{% paginate %}`. No usa predictive-search ni facetas (la búsqueda aquí es
+  contenida: una pieza se encuentra, no se filtra).
+
+  Para resultados de PRODUCTO reutiliza el patrón de tarjeta de la Colección
+  (marco luminoso, eyebrow de acabado del título partido en '—', nombre Cormorant,
+  precio, "Ver la pieza →" que enlaza al PDP editorial — nunca add-to-cart).
+  Para PÁGINA / ARTÍCULO, una lista sobria de enlaces (título Cormorant + extracto).
+  Vive bajo el layout `elyxie-page`. Bilingüe ES/EN, el español lidera.
+{%- endcomment -%}
+{%- assign is_en = false -%}
+{%- if request.locale.iso_code == 'en' -%}{%- assign is_en = true -%}{%- endif -%}
+
+<style>
+  .esrch {
+    --es-surface: #0E2E26;
+    --es-hair: rgba(255,255,255,0.08);
+    --es-hair-champ: rgba(233,215,177,0.22);
+    max-width: 1240px; margin: 0 auto;
+    padding: clamp(40px,7vw,104px) clamp(20px,5vw,64px) clamp(88px,13vw,168px);
+  }
+
+  /* ── Cabecera + campo de búsqueda ──────────────────────────────────────── */
+  .esrch__head { margin-bottom: clamp(40px,6vw,72px); }
+  .esrch__eyebrow { margin: 0; font-family: var(--ep-sans); font-size: 11px; font-weight: 500;
+    letter-spacing: 0.32em; text-transform: uppercase; color: var(--ep-champ); }
+  .esrch__title { margin: clamp(14px,1.6vw,20px) 0 0; font-family: var(--ep-serif); font-style: italic;
+    font-weight: 400; font-size: clamp(40px,6vw,84px); line-height: 1.0; letter-spacing: -0.02em;
+    color: var(--ep-ink); text-wrap: balance; }
+  /* El término buscado, dentro del titular italic, en champán (lo escrito) */
+  .esrch__title em { font-style: italic; color: var(--ep-champ); }
+
+  /* Campo: input nítido de la marca (esquina viva 0px, foco champán). El botón
+     submit vive dentro del campo a la derecha; el reset aparece solo con valor. */
+  .esrch__form { position: relative; margin: clamp(26px,3.4vw,40px) 0 0; max-width: 620px; }
+  .esrch__field { position: relative; display: flex; align-items: center; }
+  .esrch__input { flex: 1 1 auto; width: 100%; height: 58px;
+    margin: 0; padding: 0 96px 0 18px; border-radius: 0;
+    background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.18);
+    font-family: var(--ep-sans); font-size: 16px; font-weight: 400; letter-spacing: 0.01em;
+    color: var(--ep-ink); -webkit-appearance: none; appearance: none;
+    transition: border-color 280ms cubic-bezier(0.2,0,0,1), background 280ms cubic-bezier(0.2,0,0,1); }
+  .esrch__input::placeholder { color: rgba(255,255,255,0.4); }
+  .esrch__input:focus { outline: none; border-color: var(--ep-champ); background: rgba(255,255,255,0.06); }
+  /* el search clear nativo del navegador rompe la composición — lo retiramos */
+  .esrch__input::-webkit-search-decoration,
+  .esrch__input::-webkit-search-cancel-button { -webkit-appearance: none; }
+
+  .esrch__label { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+    overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+
+  /* botones dentro del campo (submit + reset) — íconos, color heredado champán */
+  .esrch__btn { position: absolute; top: 50%; transform: translateY(-50%);
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 40px; height: 40px; padding: 0; margin: 0; cursor: pointer;
+    background: transparent; border: 0; border-radius: 0;
+    color: rgba(233,215,177,0.85); transition: color 220ms ease; }
+  .esrch__btn:hover { color: var(--ep-champ); }
+  .esrch__btn:focus-visible { outline: 2px solid var(--ep-champ); outline-offset: 2px; }
+  .esrch__btn svg { display: block; width: 19px; height: 19px; }
+  .esrch__submit { right: 10px; }
+  .esrch__reset { right: 50px; color: rgba(255,255,255,0.5); }
+  .esrch__reset:hover { color: var(--ep-champ); }
+  /* .hidden lo provee elyxie-cart.css; el reset se oculta sin término */
+  .esrch__reset.hidden { display: none; }
+
+  /* línea de resultado ("12 piezas para «agua»") bajo el campo */
+  .esrch__status { margin: clamp(22px,2.6vw,32px) 0 0; font-family: var(--ep-sans);
+    font-size: 11px; font-weight: 500; letter-spacing: 0.22em; text-transform: uppercase;
+    color: rgba(255,255,255,0.62); font-variant-numeric: tabular-nums; }
+  .esrch__status b { font-weight: 500; color: var(--ep-champ); }
+
+  .esrch__rule { height: 1px; border: 0; margin: clamp(26px,3vw,38px) 0 0;
+    background: linear-gradient(90deg, var(--es-hair-champ), rgba(255,255,255,0.05) 40%, transparent); }
+
+  /* ── Grid de piezas (idéntico a la Colección) ──────────────────────────── */
+  .esrch__grid { list-style: none; margin: clamp(40px,6vw,72px) 0 0; padding: 0;
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(260px,1fr));
+    gap: clamp(40px,5vw,72px) clamp(24px,3vw,44px); }
+
+  .ecard { --i: 0; opacity: 0; transform: translateY(18px);
+    animation: ecard-rise 760ms cubic-bezier(0.05,0.7,0.1,1) both;
+    animation-delay: calc(var(--i) * 90ms); }
+  @keyframes ecard-rise { to { opacity: 1; transform: none; } }
+
+  .ecard__link { display: block; text-decoration: none; color: inherit; }
+  .ecard__link:focus-visible { outline: none; }
+  .ecard__link:focus-visible .ecard__frame { outline: 2px solid var(--ep-champ); outline-offset: 4px; }
+
+  .ecard__frame { position: relative; aspect-ratio: 4 / 5; border-radius: 14px; overflow: hidden;
+    background: var(--es-surface);
+    box-shadow: 0 20px 60px rgba(5,22,19,0.45), inset 0 0 0 1px rgba(255,255,255,0.06);
+    transition: box-shadow 420ms cubic-bezier(0.2,0,0,1); }
+  .ecard__img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: center 38%;
+    transition: transform 760ms cubic-bezier(0.2,0,0,1); }
+  .ecard__frame--empty { display: grid; place-items: center; color: rgba(255,255,255,0.3);
+    font-family: var(--ep-serif); font-style: italic; font-size: 20px; padding: 0 18px; text-align: center; }
+
+  .ecard__link:hover .ecard__img { transform: scale(1.045); }
+  .ecard__link:hover .ecard__frame {
+    box-shadow: 0 24px 70px rgba(5,22,19,0.55), 0 0 54px rgba(233,215,177,0.12),
+                inset 0 0 0 1px rgba(233,215,177,0.24); }
+
+  .ecard__body { padding-top: 20px; }
+  .ecard__finish { margin: 0 0 9px; font-family: var(--ep-sans); font-size: 10px; font-weight: 500;
+    letter-spacing: 0.3em; text-transform: uppercase; color: var(--ep-champ); }
+  .ecard__name { margin: 0; font-family: var(--ep-serif); font-weight: 400; font-size: clamp(23px,2.2vw,29px);
+    line-height: 1.08; letter-spacing: -0.01em; color: var(--ep-ink); }
+
+  .ecard__foot { display: flex; align-items: baseline; justify-content: space-between; gap: 16px;
+    margin-top: 16px; padding-top: 15px; border-top: 1px solid var(--es-hair); }
+  .ecard__price { font-family: var(--ep-serif); font-size: 21px; color: #fff; font-variant-numeric: tabular-nums; }
+  .ecard__cta { display: inline-flex; align-items: center; gap: 8px; flex: none;
+    font-family: var(--ep-sans); font-size: 10.5px; font-weight: 500; letter-spacing: 0.2em;
+    text-transform: uppercase; color: rgba(233,215,177,0.85); transition: color 240ms ease; }
+  .ecard__cta svg { transition: transform 240ms cubic-bezier(0.2,0,0,1); }
+  .ecard__link:hover .ecard__cta { color: var(--ep-champ); }
+  .ecard__link:hover .ecard__cta svg { transform: translateX(4px); }
+
+  /* ── Lista de páginas / artículos (lo escrito, no las piezas) ───────────── */
+  .esrch__writings { margin: clamp(52px,7vw,84px) 0 0; }
+  .esrch__writings-t { margin: 0 0 clamp(22px,2.6vw,30px); font-family: var(--ep-sans);
+    font-size: 11px; font-weight: 500; letter-spacing: 0.3em; text-transform: uppercase;
+    color: rgba(255,255,255,0.5); }
+  .esrch__list { list-style: none; margin: 0; padding: 0;
+    border-top: 1px solid var(--es-hair); }
+  .esrch__item { --i: 0; opacity: 0; transform: translateY(14px);
+    animation: ecard-rise 700ms cubic-bezier(0.05,0.7,0.1,1) both;
+    animation-delay: calc(var(--i) * 70ms); border-bottom: 1px solid var(--es-hair); }
+  .esrch__item-link { display: block; text-decoration: none; color: inherit;
+    padding: clamp(20px,2.6vw,30px) 0; transition: padding-left 320ms cubic-bezier(0.2,0,0,1); }
+  .esrch__item-link:hover { padding-left: 14px; }
+  .esrch__item-link:focus-visible { outline: 2px solid var(--ep-champ); outline-offset: 4px; }
+  .esrch__kind { display: block; margin: 0 0 8px; font-family: var(--ep-sans); font-size: 9.5px;
+    font-weight: 500; letter-spacing: 0.3em; text-transform: uppercase; color: var(--ep-champ); }
+  .esrch__item-title { margin: 0; font-family: var(--ep-serif); font-style: italic; font-weight: 400;
+    font-size: clamp(24px,3vw,34px); line-height: 1.1; letter-spacing: -0.01em; color: var(--ep-ink);
+    transition: color 240ms ease; }
+  .esrch__item-link:hover .esrch__item-title { color: var(--ep-champ); }
+  .esrch__snippet { margin: 12px 0 0; max-width: 64ch; font-family: var(--ep-sans); font-size: 15px;
+    line-height: 1.65; color: rgba(255,255,255,0.66); }
+
+  /* ── Estados vacíos (sin consulta / sin resultados) ─────────────────────── */
+  .esrch__empty { padding: clamp(48px,8vw,96px) 0 clamp(40px,6vw,72px); }
+  .esrch__empty p { margin: 0; max-width: 48ch; font-family: var(--ep-serif); font-style: italic;
+    font-size: clamp(22px,3vw,30px); line-height: 1.3; color: rgba(255,255,255,0.7); }
+  .esrch__empty .esrch__empty-note { margin-top: 16px; font-family: var(--ep-sans); font-style: normal;
+    font-size: 14px; line-height: 1.7; color: rgba(255,255,255,0.5); }
+  .esrch__empty a.esrch__empty-cta { display: inline-block; margin-top: 26px; font-family: var(--ep-sans);
+    font-size: 11px; font-weight: 500; letter-spacing: 0.24em; text-transform: uppercase; color: var(--ep-champ);
+    text-decoration: none; border-bottom: 1px solid var(--es-hair-champ); padding-bottom: 4px;
+    transition: border-color 240ms ease; }
+  .esrch__empty a.esrch__empty-cta:hover { border-color: var(--ep-champ); }
+
+  /* ── Paginación (idéntica a la Colección) ──────────────────────────────── */
+  .esrch__pager { display: flex; justify-content: center; gap: 10px; margin-top: clamp(48px,7vw,88px); }
+  .esrch__pager a, .esrch__pager span { min-width: 40px; height: 40px; display: inline-flex; align-items: center;
+    justify-content: center; font-family: var(--ep-sans); font-size: 12px; letter-spacing: 0.04em;
+    color: rgba(255,255,255,0.55); text-decoration: none; border: 1px solid var(--es-hair);
+    transition: color 220ms ease, border-color 220ms ease; }
+  .esrch__pager a:hover { color: #fff; border-color: var(--es-hair-champ); }
+  .esrch__pager span[aria-current] { color: #0A2620; background: var(--ep-champ); border-color: var(--ep-champ); }
+
+  @media (max-width: 600px) {
+    .esrch__grid { grid-template-columns: 1fr; gap: 44px; }
+    .esrch__frame { aspect-ratio: 4 / 5; }
+    .esrch__input { font-size: 16px; } /* >=16px evita el zoom de iOS al enfocar */
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .ecard, .esrch__item { opacity: 1; transform: none; animation: none; }
+    .ecard__img, .ecard__cta svg, .ecard__frame,
+    .esrch__item-link, .esrch__item-title, .esrch__input { transition: none; }
+    .ecard__link:hover .ecard__img { transform: none; }
+    .esrch__item-link:hover { padding-left: 0; }
+  }
+</style>
+
+{%- comment -%}
+  Paginamos por las piezas/escritos por página del editor. Todo el cuerpo va dentro
+  del paginate (Dawn lo hace igual) para que `paginate.parts` tenga los enlaces.
+{%- endcomment -%}
+{%- paginate search.results by section.settings.results_per_page -%}
+  <section class="esrch">
+    <header class="esrch__head">
+      <p class="esrch__eyebrow">{% if is_en %}Search{% else %}Búsqueda{% endif %}</p>
+
+      {%- comment -%} Titular: si hay consulta, eco del término en champán dentro del italic. {%- endcomment -%}
+      {%- if search.performed and search.terms != blank -%}
+        <h1 class="esrch__title">
+          {%- if is_en -%}Results for <em>«{{ search.terms | escape }}»</em>
+          {%- else -%}Resultados para <em>«{{ search.terms | escape }}»</em>{%- endif -%}
+        </h1>
+      {%- else -%}
+        <h1 class="esrch__title">{% if is_en %}Find a piece{% else %}Encuentra una pieza{% endif %}</h1>
+      {%- endif -%}
+
+      {%- comment -%}
+        Campo de búsqueda — GET a routes.search_url con name="q" (idéntico a Dawn).
+        Conservamos el hidden options[prefix]=last (búsqueda por prefijo). El submit
+        nativo de Shopify hace el resto; sin JS la búsqueda sigue funcionando.
+        El reset (type="reset") limpia el campo en cliente; oculto cuando no hay término.
+      {%- endcomment -%}
+      <form action="{{ routes.search_url }}" method="get" role="search" class="esrch__form">
+        <div class="esrch__field">
+          <label class="esrch__label" for="esrch-input">{% if is_en %}Search{% else %}Buscar{% endif %}</label>
+          <input
+            class="esrch__input"
+            id="esrch-input"
+            type="search"
+            name="q"
+            value="{{ search.terms | escape }}"
+            placeholder="{% if is_en %}A name, a finish, a word…{% else %}Un nombre, un acabado, una palabra…{% endif %}"
+            autocomplete="off"
+            autocapitalize="off"
+            autocorrect="off"
+            spellcheck="false"
+          >
+          <input name="options[prefix]" type="hidden" value="last">
+
+          <button
+            type="reset"
+            class="esrch__btn esrch__reset{% if search.terms == blank %} hidden{% endif %}"
+            aria-label="{% if is_en %}Clear search{% else %}Borrar búsqueda{% endif %}"
+          >
+            <svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
+              <path d="M5 5l10 10M15 5L5 15" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+            </svg>
+          </button>
+          <button
+            type="submit"
+            class="esrch__btn esrch__submit"
+            aria-label="{% if is_en %}Search{% else %}Buscar{% endif %}"
+          >
+            <svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
+              <circle cx="9" cy="9" r="6.25" stroke="currentColor" stroke-width="1.4"/>
+              <path d="M13.7 13.7L17 17" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+            </svg>
+          </button>
+        </div>
+      </form>
+
+      {%- comment -%} Línea de estado: recuento + término (solo si la búsqueda corrió y hay resultados). {%- endcomment -%}
+      {%- if search.performed and search.results_count > 0 -%}
+        <p class="esrch__status" role="status">
+          {{ search.results_count }}
+          {%- if is_en -%}
+            {%- if search.results_count == 1 %} result{% else %} results{% endif %} for <b>«{{ search.terms | escape }}»</b>
+          {%- else -%}
+            {%- if search.results_count == 1 %} resultado{% else %} resultados{% endif %} para <b>«{{ search.terms | escape }}»</b>
+          {%- endif -%}
+        </p>
+      {%- endif -%}
+
+      <hr class="esrch__rule">
+    </header>
+
+    {%- if search.performed -%}
+      {%- if search.results_count > 0 -%}
+        {%- comment -%}
+          Separamos productos de escritos: las piezas van al grid luminoso;
+          páginas y artículos a una lista sobria debajo. Un solo recorrido por
+          `search.results` para no duplicar el coste.
+        {%- endcomment -%}
+        {%- assign product_count = 0 -%}
+        {%- assign writing_count = 0 -%}
+        {%- for item in search.results -%}
+          {%- if item.object_type == 'product' -%}{%- assign product_count = product_count | plus: 1 -%}
+          {%- else -%}{%- assign writing_count = writing_count | plus: 1 -%}{%- endif -%}
+        {%- endfor -%}
+
+        {%- if product_count > 0 -%}
+          <ul class="esrch__grid" role="list">
+            {%- for item in search.results -%}
+              {%- if item.object_type == 'product' -%}
+                {%- comment -%} Mismo patrón que la Colección: título partido en '·' → nombre + acabado. {%- endcomment -%}
+                {%- assign tparts = item.title | split: '·' -%}
+                {%- assign tname = tparts[0] | strip -%}
+                {%- assign tfinish = tparts[1] | strip -%}
+                <li class="ecard" style="--i: {{ forloop.index0 }}">
+                  <a class="ecard__link" href="{{ item.url }}">
+                    <div class="ecard__frame{% unless item.featured_media %} ecard__frame--empty{% endunless %}">
+                      {%- if item.featured_media -%}
+                        <img class="ecard__img"
+                          src="{{ item.featured_media | image_url: width: 700 }}"
+                          srcset="{{ item.featured_media | image_url: width: 400 }} 400w,
+                                  {{ item.featured_media | image_url: width: 600 }} 600w,
+                                  {{ item.featured_media | image_url: width: 800 }} 800w,
+                                  {{ item.featured_media | image_url: width: 1100 }} 1100w"
+                          sizes="(max-width: 600px) 90vw, (max-width: 1000px) 44vw, 380px"
+                          alt="{{ item.title | escape }}"
+                          width="700" height="875"
+                          loading="{% if forloop.index <= 3 %}eager{% else %}lazy{% endif %}">
+                      {%- else -%}
+                        {{ tname | default: item.title }}
+                      {%- endif -%}
+                    </div>
+                    <div class="ecard__body">
+                      {%- if tfinish != blank -%}<p class="ecard__finish">{{ tfinish | upcase }}</p>{%- endif -%}
+                      <h2 class="ecard__name">{{ tname | default: item.title }}</h2>
+                      <div class="ecard__foot">
+                        <span class="ecard__price">
+                          {%- if item.price_varies -%}{% if is_en %}From {% else %}Desde {% endif %}{%- endif -%}
+                          {{- item.price | money -}}
+                        </span>
+                        <span class="ecard__cta">
+                          {% if is_en %}View the piece{% else %}Ver la pieza{% endif %}
+                          <svg width="13" height="9" viewBox="0 0 13 9" fill="none" aria-hidden="true">
+                            <path d="M1 4.5h10M7.5 1L11 4.5 7.5 8" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+                          </svg>
+                        </span>
+                      </div>
+                    </div>
+                  </a>
+                </li>
+              {%- endif -%}
+            {%- endfor -%}
+          </ul>
+        {%- endif -%}
+
+        {%- if writing_count > 0 -%}
+          <div class="esrch__writings">
+            <p class="esrch__writings-t">{% if is_en %}Pages and journal{% else %}Páginas y diario{% endif %}</p>
+            <ul class="esrch__list" role="list">
+              {%- assign wi = 0 -%}
+              {%- for item in search.results -%}
+                {%- if item.object_type == 'product' -%}{%- continue -%}{%- endif -%}
+                {%- comment -%}
+                  Etiqueta de tipo + extracto. Los artículos exponen `excerpt`/`content`;
+                  las páginas solo `content`. Recortamos a ~28 palabras y limpiamos HTML.
+                {%- endcomment -%}
+                {%- if item.object_type == 'article' -%}
+                  {%- assign kind_label_es = 'Diario' -%}{%- assign kind_label_en = 'Journal' -%}
+                  {%- if item.excerpt != blank -%}{%- assign raw_snippet = item.excerpt -%}
+                  {%- else -%}{%- assign raw_snippet = item.content -%}{%- endif -%}
+                {%- else -%}
+                  {%- assign kind_label_es = 'Página' -%}{%- assign kind_label_en = 'Page' -%}
+                  {%- assign raw_snippet = item.content -%}
+                {%- endif -%}
+                {%- assign snippet = raw_snippet | strip_html | strip | truncatewords: 28 -%}
+                <li class="esrch__item" style="--i: {{ wi }}">
+                  <a class="esrch__item-link" href="{{ item.url }}">
+                    <span class="esrch__kind">{% if is_en %}{{ kind_label_en }}{% else %}{{ kind_label_es }}{% endif %}</span>
+                    <h2 class="esrch__item-title">{{ item.title | escape }}</h2>
+                    {%- if snippet != blank -%}<p class="esrch__snippet">{{ snippet }}</p>{%- endif -%}
+                  </a>
+                </li>
+                {%- assign wi = wi | plus: 1 -%}
+              {%- endfor -%}
+            </ul>
+          </div>
+        {%- endif -%}
+
+        {%- if paginate.pages > 1 -%}
+          <nav class="esrch__pager" role="navigation" aria-label="{% if is_en %}Pagination{% else %}Paginación{% endif %}">
+            {%- if paginate.previous -%}<a href="{{ paginate.previous.url }}" aria-label="{% if is_en %}Previous{% else %}Anterior{% endif %}">←</a>{%- endif -%}
+            {%- for part in paginate.parts -%}
+              {%- if part.is_link -%}<a href="{{ part.url }}">{{ part.title }}</a>
+              {%- else -%}<span{% if part.title == paginate.current_page %} aria-current="page"{% endif %}>{{ part.title }}</span>{%- endif -%}
+            {%- endfor -%}
+            {%- if paginate.next -%}<a href="{{ paginate.next.url }}" aria-label="{% if is_en %}Next{% else %}Siguiente{% endif %}">→</a>{%- endif -%}
+          </nav>
+        {%- endif -%}
+
+      {%- else -%}
+        {%- comment -%} Búsqueda corrió, sin resultados — voz de marca, contenida. {%- endcomment -%}
+        <div class="esrch__empty">
+          <p>
+            {%- if is_en -%}Nothing answered to «{{ search.terms | escape }}».
+            {%- else -%}Nada respondió a «{{ search.terms | escape }}».{%- endif -%}
+          </p>
+          <p class="esrch__empty-note">
+            {% if is_en %}Try a shorter word, or a finish.{% else %}Prueba con una palabra más corta, o un acabado.{% endif %}
+          </p>
+          <a class="esrch__empty-cta" href="{{ routes.all_products_collection_url }}">
+            {% if is_en %}See all pieces{% else %}Ver todas las piezas{% endif %}
+          </a>
+        </div>
+      {%- endif -%}
+
+    {%- else -%}
+      {%- comment -%} Sin consulta todavía — invitación sobria, no un grid vacío. {%- endcomment -%}
+      <div class="esrch__empty">
+        <p>
+          {% if is_en %}Name what you are looking for.{% else %}Nombra lo que buscas.{% endif %}
+        </p>
+        <p class="esrch__empty-note">
+          {% if is_en %}A piece, a finish, a word from the journal.{% else %}Una pieza, un acabado, una palabra del diario.{% endif %}
+        </p>
+        <a class="esrch__empty-cta" href="{{ routes.all_products_collection_url }}">
+          {% if is_en %}See all pieces{% else %}Ver todas las piezas{% endif %}
+        </a>
+      </div>
+    {%- endif -%}
+  </section>
+{%- endpaginate -%}
+
+{% schema %}
+{
+  "name": "Búsqueda ELYXIE",
+  "settings": [
+    { "type": "range", "id": "results_per_page", "min": 6, "max": 24, "step": 2, "label": "Resultados por página", "default": 12 }
+  ],
+  "presets": [{ "name": "Búsqueda ELYXIE" }]
+}
+{% endschema %}
