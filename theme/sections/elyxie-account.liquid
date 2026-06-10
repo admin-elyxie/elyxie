@@ -1,0 +1,1247 @@
+{%- comment -%}
+  Cuenta ELYXIE — UNA sección que sirve TODOS los contextos de cliente, ramificando
+  por `request.path`. Vive bajo el layout `elyxie-page` (wordmark champán + ES/EN +
+  carrito + footer de marca + vacío esmeralda), así que aquí no se construye chrome.
+
+  Ramas (Dawn → re-skin elyxie):
+    /account/login      → recover_customer_password + customer_login (+ Sign in with Shop nativo)
+    /account/register   → create_customer
+    /account/addresses  → customer_address CRUD (depende de customer.js → CustomerAddresses)
+    /account/orders|…   → detalle de pedido (objeto `order`)
+    /account/reset      → reset_customer_password
+    /account/activate   → activate_customer_password
+    else (/account)     → panel: bienvenida, pedidos recientes, direcciones, salir
+
+  Reglas de marca aplicadas: inputs/botones de esquina viva (0px), foco champán,
+  CTA primario en degradado oro, secundario fantasma, errores en bronce #D97757,
+  titulares en Cormorant italic. Bilingüe ES/EN — el español lidera.
+
+  El selector de país/provincia y el borrado de dirección usan `Shopify.CountryProvinceSelector`
+  y `Shopify.postLink`, ambos definidos en global.js (cargado por el layout). El toggle
+  add/edit/cancel/delete lo gobierna customer.js, que se carga abajo. NO renombrar los
+  data-* ni los id de los campos de dirección: customer.js los busca por nombre exacto.
+{%- endcomment -%}
+{%- assign is_en = false -%}
+{%- if request.locale.iso_code == 'en' -%}{%- assign is_en = true -%}{%- endif -%}
+
+{%- comment -%} Ruta normalizada (sin prefijo de locale tipo /en) para ramificar. {%- endcomment -%}
+{%- assign p = request.path -%}
+
+<style>
+  .eacct {
+    --ea-surface: #0E2E26;
+    --ea-surface-raised: #143C32;
+    --ea-hair: rgba(255,255,255,0.08);
+    --ea-hair-strong: rgba(255,255,255,0.14);
+    --ea-hair-champ: rgba(233,215,177,0.22);
+    --ea-error: #D97757;
+    --ea-phosphor: #7DFFB2;
+    max-width: 1180px; margin: 0 auto;
+    padding: clamp(40px,7vw,96px) clamp(20px,5vw,64px) clamp(80px,12vw,152px);
+    font-family: var(--ep-sans);
+    color: rgba(255,255,255,0.82);
+  }
+  /* Ancho contenido para las ramas tipo formulario (login/register/reset/activate):
+     un formulario de lujo respira, no se estira a 1180px. */
+  .eacct--narrow { max-width: 560px; }
+
+  /* ── Cabecera editorial ───────────────────────────────────────────────── */
+  .eacct__eyebrow { margin: 0; font-family: var(--ep-sans); font-size: 11px; font-weight: 500;
+    letter-spacing: 0.32em; text-transform: uppercase; color: var(--ep-champ); }
+  .eacct__title { margin: clamp(12px,1.4vw,18px) 0 0; font-family: var(--ep-serif); font-style: italic;
+    font-weight: 400; font-size: clamp(38px,5.4vw,72px); line-height: 1.0; letter-spacing: -0.02em;
+    color: var(--ep-ink); text-wrap: balance; }
+  .eacct__lede { margin: clamp(16px,1.8vw,22px) 0 0; max-width: 54ch; font-size: 16px; line-height: 1.7;
+    color: rgba(255,255,255,0.72); }
+  .eacct__lede p { margin: 0 0 12px; }
+  .eacct__lede p:last-child { margin-bottom: 0; }
+
+  .eacct__rule { height: 1px; border: 0; margin: clamp(28px,4vw,44px) 0 0;
+    background: linear-gradient(90deg, var(--ea-hair-champ), rgba(255,255,255,0.05) 40%, transparent); }
+
+  /* ── Campos (esquina viva, foco champán, label Satoshi) ───────────────── */
+  .eacct__form { margin-top: clamp(28px,4vw,44px); }
+  .eacct__field { position: relative; margin-bottom: 18px; }
+  .eacct__field label { display: block; margin: 0 0 8px; font-family: var(--ep-sans);
+    font-size: 11px; font-weight: 500; letter-spacing: 0.18em; text-transform: uppercase;
+    color: rgba(255,255,255,0.6); transition: color 240ms ease; }
+  .eacct__field input,
+  .eacct__select select {
+    width: 100%; height: 56px; margin: 0; padding: 0 16px;
+    background: rgba(255,255,255,0.04); color: var(--ep-ink);
+    border: 1px solid rgba(255,255,255,0.18); border-radius: 0;
+    font-family: var(--ep-sans); font-size: 15px; line-height: 1.4;
+    transition: border-color 240ms ease, background 240ms ease;
+    appearance: none; -webkit-appearance: none;
+  }
+  .eacct__field input::placeholder { color: rgba(255,255,255,0.34); }
+  .eacct__field input:focus,
+  .eacct__select select:focus {
+    outline: none; border-color: var(--ep-champ); background: rgba(255,255,255,0.06);
+  }
+  .eacct__field:focus-within label { color: var(--ep-champ); }
+  /* Campo inválido: bronce desaturado, nunca rojo de semáforo. */
+  .eacct__field input[aria-invalid="true"] { border-color: var(--ea-error); }
+
+  /* Selects de dirección — flecha champán pintada a mano (Dawn inyecta su propio
+     icon-caret en .svg-wrapper; lo ocultamos y usamos el nuestro para coherencia). */
+  .eacct__select { position: relative; }
+  .eacct__select select { padding-right: 42px; cursor: pointer; }
+  .eacct__select option { color: #0A2620; }
+  .eacct__select .svg-wrapper { position: absolute; right: 15px; bottom: 18px; width: 12px; height: 12px;
+    pointer-events: none; color: var(--ep-champ); display: inline-flex; }
+  .eacct__select .svg-wrapper svg { width: 100%; height: auto; }
+
+  .eacct__checkbox { display: flex; align-items: center; gap: 12px; margin: 6px 0 22px; }
+  .eacct__checkbox input[type="checkbox"] { width: 18px; height: 18px; margin: 0; flex: none;
+    appearance: none; -webkit-appearance: none; cursor: pointer; border-radius: 0;
+    background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.3);
+    display: grid; place-content: center; transition: background 200ms ease, border-color 200ms ease; }
+  .eacct__checkbox input[type="checkbox"]:checked { background: var(--ep-champ); border-color: var(--ep-champ); }
+  .eacct__checkbox input[type="checkbox"]:checked::after { content: ''; width: 9px; height: 5px;
+    border-left: 2px solid #0A2620; border-bottom: 2px solid #0A2620; transform: translateY(-1px) rotate(-45deg); }
+  .eacct__checkbox input[type="checkbox"]:focus-visible { outline: 2px solid var(--ep-champ); outline-offset: 2px; }
+  .eacct__checkbox label { margin: 0; font-family: var(--ep-sans); font-size: 13px; letter-spacing: 0.02em;
+    text-transform: none; color: rgba(255,255,255,0.72); cursor: pointer; }
+
+  /* ── Botones ───────────────────────────────────────────────────────────── */
+  .eacct__actions { display: flex; flex-wrap: wrap; align-items: center; gap: 16px 24px; margin-top: 28px; }
+
+  /* CTA precioso: degradado champán→oro, esquina viva, glow que crece en hover. */
+  .eacct__btn { display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+    padding: 16px 40px; border: 0; border-radius: 0; cursor: pointer;
+    font-family: var(--ep-sans); font-size: 11px; font-weight: 600; letter-spacing: 0.28em;
+    text-transform: uppercase; text-decoration: none; text-align: center;
+    background: linear-gradient(180deg, #E9D7B1, #C9A66B); color: #0A2620;
+    box-shadow: 0 0 30px rgba(233,215,177,0.25);
+    transition: box-shadow 360ms cubic-bezier(0.2,0,0,1), transform 360ms cubic-bezier(0.2,0,0,1); }
+  .eacct__btn:hover { box-shadow: 0 0 54px rgba(233,215,177,0.42); }
+  .eacct__btn:focus-visible { outline: 2px solid var(--ep-champ); outline-offset: 4px; }
+
+  /* Fantasma: transparente, borde hairline → champán en hover. */
+  .eacct__btn--ghost { background: transparent; color: rgba(255,255,255,0.9);
+    border: 1px solid rgba(255,255,255,0.25); box-shadow: none; }
+  .eacct__btn--ghost:hover { color: var(--ep-champ); border-color: var(--ea-hair-champ); box-shadow: none; }
+
+  /* Enlace textual sobrio (cancelar, ¿olvidaste?, crear cuenta). */
+  .eacct__link { display: inline-flex; align-items: center; gap: 8px; font-family: var(--ep-sans);
+    font-size: 11px; font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase;
+    color: rgba(233,215,177,0.85); text-decoration: none; cursor: pointer;
+    background: none; border: 0; padding: 0; transition: color 220ms ease; }
+  .eacct__link:hover { color: var(--ep-champ); }
+  .eacct__link svg { transition: transform 240ms cubic-bezier(0.2,0,0,1); }
+  .eacct__link:hover svg { transform: translateX(4px); }
+  .eacct__link--back svg { transform: scaleX(-1); }
+  .eacct__link--back:hover svg { transform: scaleX(-1) translateX(4px); }
+
+  /* ── Mensajes (error bronce / éxito fósforo) ──────────────────────────── */
+  .eacct__msg { margin: 0 0 22px; padding: 16px 18px; border-radius: 12px;
+    font-family: var(--ep-sans); font-size: 14px; line-height: 1.55; }
+  .eacct__msg--error { background: rgba(217,119,87,0.1); border: 1px solid rgba(217,119,87,0.4);
+    color: #F0C3B0; }
+  .eacct__msg--error .eacct__msg-title { color: var(--ea-error); }
+  .eacct__msg--success { background: rgba(125,255,178,0.1); border: 1px solid rgba(125,255,178,0.35);
+    color: #BFF6D6; }
+  .eacct__msg-title { display: block; margin: 0 0 4px; font-size: 11px; font-weight: 600;
+    letter-spacing: 0.2em; text-transform: uppercase; }
+  .eacct__msg ul { margin: 8px 0 0; padding-left: 18px; }
+  .eacct__msg li { margin: 4px 0; }
+  .eacct__msg a { color: inherit; text-decoration: underline; text-underline-offset: 3px; }
+  .eacct__msg .svg-wrapper { display: none; } /* el SVG de error de Dawn — nuestra tipografía ya habla */
+  /* Error de campo en línea (debajo del input). */
+  .eacct__field-error { display: block; margin-top: 7px; font-family: var(--ep-sans);
+    font-size: 12.5px; letter-spacing: 0.01em; color: var(--ea-error); }
+  .eacct__field-error .svg-wrapper { display: none; }
+
+  /* ── Sign in with Shop (bloque nativo, no se reestiliza por dentro) ────── */
+  .eacct__shop { margin-bottom: 22px; }
+  .eacct__shop-sep { margin: 22px 0; text-align: center; font-family: var(--ep-sans); font-size: 11px;
+    letter-spacing: 0.24em; text-transform: uppercase; color: rgba(255,255,255,0.42);
+    display: flex; align-items: center; gap: 16px; }
+  .eacct__shop-sep::before, .eacct__shop-sep::after { content: ''; flex: 1; height: 1px;
+    background: var(--ea-hair); }
+
+  /* ── Panel de cuenta (dashboard) ──────────────────────────────────────── */
+  .eacct__grid { display: grid; grid-template-columns: 1fr; gap: clamp(24px,3vw,40px);
+    margin-top: clamp(32px,4vw,48px); }
+  @media (min-width: 900px) { .eacct__grid { grid-template-columns: 1.65fr 1fr; align-items: start; } }
+
+  .eacct__card { background: var(--ea-surface); border-radius: 18px; padding: clamp(24px,3vw,36px);
+    box-shadow: 0 20px 60px rgba(5,22,19,0.45), inset 0 0 0 1px rgba(255,255,255,0.06); }
+  .eacct__card-head { display: flex; align-items: baseline; justify-content: space-between; gap: 16px;
+    margin-bottom: 22px; flex-wrap: wrap; }
+  .eacct__card-title { margin: 0; font-family: var(--ep-serif); font-style: italic; font-weight: 400;
+    font-size: clamp(24px,2.6vw,32px); line-height: 1.1; color: var(--ep-ink); }
+
+  /* ── Tabla de pedidos (historial) ─────────────────────────────────────── */
+  .eacct__table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .eacct__table { width: 100%; border-collapse: collapse; font-family: var(--ep-sans);
+    font-size: 14px; color: rgba(255,255,255,0.8); }
+  .eacct__table caption { text-align: left; }
+  .eacct__table th { font-family: var(--ep-sans); font-size: 10px; font-weight: 500; letter-spacing: 0.22em;
+    text-transform: uppercase; color: rgba(255,255,255,0.5); text-align: left; font-weight: 500;
+    padding: 0 18px 14px 0; white-space: nowrap; border-bottom: 1px solid var(--ea-hair-champ); }
+  .eacct__table td { padding: 18px 18px 18px 0; border-bottom: 1px solid var(--ea-hair);
+    vertical-align: top; }
+  .eacct__table tbody tr:last-child td { border-bottom: 0; }
+  .eacct__table td[data-num], .eacct__table th[data-num] { font-variant-numeric: tabular-nums; }
+  .eacct__table a { color: var(--ep-champ); text-decoration: none; font-weight: 500; letter-spacing: 0.02em;
+    border-bottom: 1px solid var(--ea-hair-champ); padding-bottom: 2px; transition: color 200ms ease; }
+  .eacct__table a:hover { color: #fff; }
+  .eacct__empty { margin: 0; font-family: var(--ep-serif); font-style: italic; font-size: 20px;
+    color: rgba(255,255,255,0.6); }
+
+  /* Paginación — espejo del pager de la Colección (esquina viva, activa champán). */
+  .eacct__pager { display: flex; justify-content: flex-start; flex-wrap: wrap; gap: 10px;
+    margin-top: clamp(28px,4vw,40px); list-style: none; padding: 0; }
+  .eacct__pager li { margin: 0; }
+  .eacct__pager a, .eacct__pager span { min-width: 40px; height: 40px; display: inline-flex; align-items: center;
+    justify-content: center; padding: 0 10px; font-family: var(--ep-sans); font-size: 12px; letter-spacing: 0.04em;
+    color: rgba(255,255,255,0.55); text-decoration: none; border: 1px solid var(--ea-hair); border-radius: 0;
+    transition: color 220ms ease, border-color 220ms ease; }
+  .eacct__pager a:hover { color: #fff; border-color: var(--ea-hair-champ); }
+  .eacct__pager span[aria-current] { color: #0A2620; background: var(--ep-champ); border-color: var(--ep-champ); }
+  .eacct__pager .svg-wrapper { display: inline-flex; }
+  .eacct__pager .svg-wrapper svg { width: 14px; height: 14px; }
+
+  /* Dirección formateada (format_address) dentro de tarjetas. */
+  .eacct__address { font-family: var(--ep-sans); font-size: 14px; line-height: 1.7;
+    color: rgba(255,255,255,0.78); }
+  .eacct__address p { margin: 0; }
+  .eacct__sublabel { margin: 0 0 10px; font-family: var(--ep-sans); font-size: 10px; font-weight: 500;
+    letter-spacing: 0.28em; text-transform: uppercase; color: var(--ep-champ); }
+
+  /* ── Detalle de pedido ────────────────────────────────────────────────── */
+  .eacct__order-meta { margin: clamp(14px,1.6vw,20px) 0 0; font-size: 14px; line-height: 1.7;
+    color: rgba(255,255,255,0.62); }
+  .eacct__order-meta p { margin: 0; }
+  .eacct__order-meta strong { color: rgba(255,255,255,0.85); font-weight: 500; }
+  .eacct__order-table tfoot td { border-bottom: 0; padding-top: 14px; padding-bottom: 6px;
+    color: rgba(255,255,255,0.7); }
+  .eacct__order-table tfoot tr:last-child td { font-family: var(--ep-serif); font-size: 20px;
+    color: #fff; padding-top: 20px; border-top: 1px solid var(--ea-hair-champ); }
+  .eacct__order-table .properties span, .eacct__order-table .fulfillment span,
+  .eacct__order-table .properties, .eacct__order-table .fulfillment {
+    display: block; font-size: 12.5px; color: rgba(255,255,255,0.55); margin-top: 4px; }
+  .eacct__order-table dl { margin: 0; }
+  .eacct__order-table .regular-price s { color: rgba(255,255,255,0.4); }
+  .eacct__order-table .svg-wrapper { display: none; }
+  .eacct__order-addresses { display: grid; grid-template-columns: 1fr; gap: clamp(24px,3vw,40px);
+    margin-top: clamp(32px,4vw,48px); }
+  @media (min-width: 760px) { .eacct__order-addresses { grid-template-columns: 1fr 1fr; } }
+
+  /* ── Direcciones CRUD ─────────────────────────────────────────────────── */
+  .eacct__addr-list { list-style: none; margin: clamp(28px,4vw,44px) 0 0; padding: 0;
+    display: grid; grid-template-columns: 1fr; gap: 20px; }
+  @media (min-width: 760px) { .eacct__addr-list { grid-template-columns: 1fr 1fr; } }
+  .eacct__addr-item { background: var(--ea-surface); border-radius: 18px; padding: clamp(22px,2.6vw,30px);
+    box-shadow: 0 20px 60px rgba(5,22,19,0.4), inset 0 0 0 1px rgba(255,255,255,0.06); }
+  /* Fila de acciones edit/delete — botones hermanos directos (sin wrapper). El borde
+     superior nace en el botón Edit; el Delete lo acompaña en la misma línea. */
+  .eacct__addr-item > .eacct__addr-toggle--edit { display: inline-flex; margin-top: 20px;
+    padding-top: 18px; border-top: 1px solid var(--ea-hair); }
+  .eacct__addr-item > .eacct__addr-del { display: inline-flex; margin-top: 20px; margin-left: 22px;
+    padding-top: 18px; color: rgba(255,255,255,0.5); }
+  .eacct__addr-item > .eacct__addr-del:hover { color: var(--ea-error); }
+  /* Colapso add/edit — espejo del mecanismo de Dawn (customer.css usa el combinador
+     hermano general `~`): el botón toggle es hermano DIRECTO del div colapsable dentro
+     de [data-address], y customer.js solo voltea aria-expanded. NO anidar el botón en
+     un wrapper, o se rompe la relación de hermanos. */
+  .eacct [data-address] [aria-expanded] ~ div[id] { display: none; }
+  .eacct [data-address] [aria-expanded='true'] ~ div[id] { display: block; }
+  .eacct [data-address] > div[id] { margin-top: 24px; padding-top: 24px;
+    border-top: 1px solid var(--ea-hair-champ); }
+  .eacct__addr-new { margin-top: clamp(8px,1vw,12px); }
+  .eacct__addr-new > .eacct__addr-toggle { margin-top: clamp(20px,3vw,32px); }
+  .eacct__addr-fields { display: grid; grid-template-columns: 1fr; gap: 0 18px; }
+  @media (min-width: 640px) { .eacct__addr-fields { grid-template-columns: 1fr 1fr; } }
+  .eacct__addr-fields .eacct__field--full { grid-column: 1 / -1; }
+
+  /* Revelado escalonado de la columna (sutil, respeta reduced-motion). */
+  .eacct__reveal { opacity: 0; transform: translateY(14px);
+    animation: eacct-rise 720ms cubic-bezier(0.05,0.7,0.1,1) both; }
+  @keyframes eacct-rise { to { opacity: 1; transform: none; } }
+
+  @media (max-width: 640px) {
+    .eacct__actions { gap: 14px; }
+    .eacct__btn { width: 100%; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .eacct__reveal { opacity: 1; transform: none; animation: none; }
+    .eacct__btn, .eacct__link svg, .eacct__table a { transition: none; }
+  }
+</style>
+
+{%- comment -%} ══════════════════════════════════════════════════════════════
+   RAMA 1 — LOGIN  (recover_customer_password + customer_login + Sign in with Shop)
+   ══════════════════════════════════════════════════════════════ {%- endcomment -%}
+{%- if p contains '/account/login' -%}
+  {%- if section.settings.enable_shop_login_button == false -%}
+    {%- assign hide_shop_login_button = true -%}
+  {%- endif -%}
+
+  <section class="eacct eacct--narrow eacct__reveal">
+    {%- comment -%} Recuperar contraseña — anclada en #recover, el enlace "olvidé" la activa. {%- endcomment -%}
+    <div id="recover" tabindex="-1">
+      <p class="eacct__eyebrow">{% if is_en %}Sacred Waters{% else %}Aguas Sagradas{% endif %}</p>
+      <h1 class="eacct__title">{% if is_en %}Reset your password{% else %}Recupera tu contraseña{% endif %}</h1>
+      <div class="eacct__lede"><p>{% if is_en %}We will send a link to restore access to your account.{% else %}Te enviaremos un enlace para restaurar el acceso a tu cuenta.{% endif %}</p></div>
+
+      {%- form 'recover_customer_password' -%}
+        {% assign recover_success = form.posted_successfully? %}
+        <div class="eacct__form">
+          <div class="eacct__field">
+            <label for="RecoverEmail">{% if is_en %}Email{% else %}Correo electrónico{% endif %}</label>
+            <input
+              type="email"
+              value=""
+              name="email"
+              id="RecoverEmail"
+              autocorrect="off"
+              autocapitalize="off"
+              autocomplete="email"
+              {% if form.errors %}
+                aria-invalid="true"
+                aria-describedby="RecoverEmail-email-error"
+                autofocus
+              {% endif %}
+              placeholder="{% if is_en %}you@example.com{% else %}tu@ejemplo.com{% endif %}"
+            >
+          </div>
+          {%- if form.errors -%}
+            <small id="RecoverEmail-email-error" class="eacct__field-error">
+              <span class="svg-wrapper">{{- 'icon-error.svg' | inline_asset_content -}}</span>
+              {{ form.errors.messages.form }}
+            </small>
+          {%- endif -%}
+
+          <div class="eacct__actions">
+            <button class="eacct__btn" type="submit">{% if is_en %}Send link{% else %}Enviar enlace{% endif %}</button>
+            <a class="eacct__link eacct__link--back" href="#login">
+              <svg width="13" height="9" viewBox="0 0 13 9" fill="none" aria-hidden="true"><path d="M1 4.5h10M7.5 1L11 4.5 7.5 8" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              {% if is_en %}Back to sign in{% else %}Volver a iniciar sesión{% endif %}
+            </a>
+          </div>
+        </div>
+      {%- endform -%}
+    </div>
+
+    <hr class="eacct__rule">
+
+    {%- comment -%} Iniciar sesión — anclada en #login. {%- endcomment -%}
+    <div id="login" tabindex="-1" style="margin-top: clamp(32px,4vw,48px);">
+      <p class="eacct__eyebrow">{% if is_en %}Your Account{% else %}Tu Cuenta{% endif %}</p>
+      <h1 class="eacct__title">{% if is_en %}Sign in{% else %}Iniciar sesión{% endif %}</h1>
+
+      {%- if recover_success == true -%}
+        <div class="eacct__msg eacct__msg--success" tabindex="-1" autofocus role="status">
+          <span class="eacct__msg-title">{% if is_en %}Link sent{% else %}Enlace enviado{% endif %}</span>
+          {% if is_en %}We sent you an email with a link to update your password.{% else %}Te enviamos un correo con un enlace para actualizar tu contraseña.{% endif %}
+        </div>
+      {%- endif -%}
+
+      {%- form 'customer_login', novalidate: 'novalidate' -%}
+        {%- if form.errors -%}
+          <div class="eacct__msg eacct__msg--error" tabindex="-1" autofocus role="alert">
+            <span class="visually-hidden">{{ 'accessibility.error' | t }} </span>
+            <span class="eacct__msg-title">{% if is_en %}We could not sign you in{% else %}No pudimos iniciar tu sesión{% endif %}</span>
+            {{ form.errors | default_errors }}
+          </div>
+        {%- endif -%}
+
+        <div class="eacct__form">
+          {%- comment -%} Sign in with Shop — bloque nativo. Se renderiza tal cual lo emite Shopify. {%- endcomment -%}
+          {%- if shop.features.login_with_shop_classic_customer_accounts? -%}
+            <section name="sign-in-with-shop-provider" class="eacct__shop">
+              {{ shop | login_button: hide_button: hide_shop_login_button }}
+
+              {%- unless hide_shop_login_button -%}
+                <p class="eacct__shop-sep">{% if is_en %}or{% else %}o{% endif %}</p>
+              {%- endunless -%}
+            </section>
+          {%- endif -%}
+
+          <div class="eacct__field">
+            <label for="CustomerEmail">{% if is_en %}Email{% else %}Correo electrónico{% endif %}</label>
+            <input
+              type="email"
+              name="customer[email]"
+              id="CustomerEmail"
+              autocomplete="email"
+              autocorrect="off"
+              autocapitalize="off"
+              {% if form.errors contains 'form' %}aria-invalid="true"{% endif %}
+              placeholder="{% if is_en %}you@example.com{% else %}tu@ejemplo.com{% endif %}"
+            >
+          </div>
+
+          {%- if form.password_needed -%}
+            <div class="eacct__field">
+              <label for="CustomerPassword">{% if is_en %}Password{% else %}Contraseña{% endif %}</label>
+              <input
+                type="password"
+                value=""
+                name="customer[password]"
+                id="CustomerPassword"
+                autocomplete="current-password"
+                {% if form.errors contains 'form' %}aria-invalid="true"{% endif %}
+                placeholder="{% if is_en %}Your password{% else %}Tu contraseña{% endif %}"
+              >
+            </div>
+
+            <a class="eacct__link" href="#recover">{% if is_en %}Forgot your password?{% else %}¿Olvidaste tu contraseña?{% endif %}</a>
+          {%- endif -%}
+
+          <div class="eacct__actions">
+            <button class="eacct__btn" type="submit">{% if is_en %}Sign in{% else %}Entrar{% endif %}</button>
+            <a class="eacct__link" href="{{ routes.account_register_url }}">
+              {% if is_en %}Create account{% else %}Crear cuenta{% endif %}
+              <svg width="13" height="9" viewBox="0 0 13 9" fill="none" aria-hidden="true"><path d="M1 4.5h10M7.5 1L11 4.5 7.5 8" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </a>
+          </div>
+        </div>
+      {%- endform -%}
+
+      {%- comment -%} Continuar como invitado (si el checkout lo permite). {%- endcomment -%}
+      {%- if shop.checkout.guest_login -%}
+        <hr class="eacct__rule">
+        <div style="margin-top: clamp(28px,4vw,40px);">
+          <h2 class="eacct__card-title" style="font-size: clamp(22px,2.4vw,28px);">{% if is_en %}Continue as guest{% else %}Continuar como invitado{% endif %}</h2>
+          {%- form 'guest_login' -%}
+            <div class="eacct__actions">
+              <button class="eacct__btn eacct__btn--ghost" type="submit">{% if is_en %}Continue{% else %}Continuar{% endif %}</button>
+            </div>
+          {%- endform -%}
+        </div>
+      {%- endif -%}
+    </div>
+  </section>
+
+{%- comment -%} ══════════════════════════════════════════════════════════════
+   RAMA 2 — REGISTER  (create_customer)
+   ══════════════════════════════════════════════════════════════ {%- endcomment -%}
+{%- elsif p contains '/account/register' -%}
+  <section class="eacct eacct--narrow eacct__reveal">
+    <p class="eacct__eyebrow">{% if is_en %}Join ELYXIE{% else %}Únete a ELYXIE{% endif %}</p>
+    <h1 class="eacct__title">{% if is_en %}Create your account{% else %}Crea tu cuenta{% endif %}</h1>
+    <div class="eacct__lede"><p>{% if is_en %}Keep your pieces, your orders and your editions in one place.{% else %}Guarda tus piezas, tus pedidos y tus ediciones en un solo lugar.{% endif %}</p></div>
+
+    {%- form 'create_customer', novalidate: 'novalidate' -%}
+      <div class="eacct__form">
+        {%- if form.errors -%}
+          <div class="eacct__msg eacct__msg--error" tabindex="-1" autofocus role="alert">
+            <span class="eacct__msg-title">{% if is_en %}Please review the form{% else %}Revisa el formulario{% endif %}</span>
+            <ul>
+              {%- for field in form.errors -%}
+                <li>
+                  {%- if field == 'form' -%}
+                    {{ form.errors.messages[field] }}
+                  {%- else -%}
+                    <a href="#RegisterForm-{{ field }}">
+                      {{ form.errors.translated_fields[field] | capitalize }}
+                      {{ form.errors.messages[field] }}
+                    </a>
+                  {%- endif -%}
+                </li>
+              {%- endfor -%}
+            </ul>
+          </div>
+        {%- endif -%}
+
+        <div class="eacct__addr-fields">
+          <div class="eacct__field">
+            <label for="RegisterForm-FirstName">{% if is_en %}First name{% else %}Nombre{% endif %}</label>
+            <input
+              type="text"
+              name="customer[first_name]"
+              id="RegisterForm-FirstName"
+              {% if form.first_name %}value="{{ form.first_name }}"{% endif %}
+              autocomplete="given-name"
+              placeholder="{% if is_en %}First name{% else %}Nombre{% endif %}"
+            >
+          </div>
+          <div class="eacct__field">
+            <label for="RegisterForm-LastName">{% if is_en %}Last name{% else %}Apellido{% endif %}</label>
+            <input
+              type="text"
+              name="customer[last_name]"
+              id="RegisterForm-LastName"
+              {% if form.last_name %}value="{{ form.last_name }}"{% endif %}
+              autocomplete="family-name"
+              placeholder="{% if is_en %}Last name{% else %}Apellido{% endif %}"
+            >
+          </div>
+        </div>
+
+        <div class="eacct__field">
+          <label for="RegisterForm-email">{% if is_en %}Email{% else %}Correo electrónico{% endif %}</label>
+          <input
+            type="email"
+            name="customer[email]"
+            id="RegisterForm-email"
+            {% if form.email %}value="{{ form.email }}"{% endif %}
+            spellcheck="false"
+            autocapitalize="off"
+            autocomplete="email"
+            aria-required="true"
+            {% if form.errors contains 'email' %}
+              aria-invalid="true"
+              aria-describedby="RegisterForm-email-error"
+            {% endif %}
+            placeholder="{% if is_en %}you@example.com{% else %}tu@ejemplo.com{% endif %}"
+          >
+          {%- if form.errors contains 'email' -%}
+            <span id="RegisterForm-email-error" class="eacct__field-error">
+              <span class="svg-wrapper">{{- 'icon-error.svg' | inline_asset_content -}}</span>
+              {{ form.errors.translated_fields.email | capitalize }}
+              {{ form.errors.messages.email }}.
+            </span>
+          {%- endif -%}
+        </div>
+
+        <div class="eacct__field">
+          <label for="RegisterForm-password">{% if is_en %}Password{% else %}Contraseña{% endif %}</label>
+          <input
+            type="password"
+            name="customer[password]"
+            id="RegisterForm-password"
+            aria-required="true"
+            {% if form.errors contains 'password' %}
+              aria-invalid="true"
+              aria-describedby="RegisterForm-password-error"
+            {% endif %}
+            placeholder="{% if is_en %}Choose a password{% else %}Elige una contraseña{% endif %}"
+          >
+          {%- if form.errors contains 'password' -%}
+            <span id="RegisterForm-password-error" class="eacct__field-error">
+              <span class="svg-wrapper">{{- 'icon-error.svg' | inline_asset_content -}}</span>
+              {{ form.errors.translated_fields.password | capitalize }}
+              {{ form.errors.messages.password }}.
+            </span>
+          {%- endif -%}
+        </div>
+
+        <div class="eacct__actions">
+          <button class="eacct__btn" type="submit">{% if is_en %}Create account{% else %}Crear cuenta{% endif %}</button>
+          <a class="eacct__link eacct__link--back" href="{{ routes.account_login_url }}">
+            <svg width="13" height="9" viewBox="0 0 13 9" fill="none" aria-hidden="true"><path d="M1 4.5h10M7.5 1L11 4.5 7.5 8" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            {% if is_en %}I already have an account{% else %}Ya tengo cuenta{% endif %}
+          </a>
+        </div>
+      </div>
+    {%- endform -%}
+  </section>
+
+{%- comment -%} ══════════════════════════════════════════════════════════════
+   RAMA 3 — DIRECCIONES  (customer_address CRUD — depende de customer.js)
+   ══════════════════════════════════════════════════════════════ {%- endcomment -%}
+{%- elsif p contains '/account/addresses' -%}
+  {%- paginate customer.addresses by 5 -%}
+    <section class="eacct eacct__reveal" data-customer-addresses>
+      <p class="eacct__eyebrow">{% if is_en %}Your Account{% else %}Tu Cuenta{% endif %}</p>
+      <h1 class="eacct__title">{% if is_en %}Addresses{% else %}Direcciones{% endif %}</h1>
+      <div class="eacct__lede" style="margin-bottom: 18px;">
+        <a class="eacct__link eacct__link--back" href="{{ routes.account_url }}">
+          <svg width="13" height="9" viewBox="0 0 13 9" fill="none" aria-hidden="true"><path d="M1 4.5h10M7.5 1L11 4.5 7.5 8" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          {% if is_en %}Back to account{% else %}Volver a la cuenta{% endif %}
+        </a>
+      </div>
+
+      {%- comment -%} Botón "añadir" + formulario colapsable nuevo (data-address envuelve ambos). {%- endcomment -%}
+      <div data-address class="eacct__addr-new">
+        {%- comment -%} El botón toggle es hermano DIRECTO de #AddAddress (combinador `~`). {%- endcomment -%}
+        <button class="eacct__btn eacct__btn--ghost eacct__addr-toggle" type="button" aria-expanded="false" aria-controls="AddAddress">
+          {% if is_en %}Add a new address{% else %}Añadir nueva dirección{% endif %}
+        </button>
+        <div id="AddAddress">
+          <h2 id="AddressNewHeading" class="eacct__card-title" style="margin-bottom: 6px;">{% if is_en %}New address{% else %}Nueva dirección{% endif %}</h2>
+          {%- form 'customer_address', customer.new_address, aria-labelledBy: 'AddressNewHeading' -%}
+            <div class="eacct__addr-fields">
+              <div class="eacct__field">
+                <label for="AddressFirstNameNew">{% if is_en %}First name{% else %}Nombre{% endif %}</label>
+                <input type="text" id="AddressFirstNameNew" name="address[first_name]" value="{{ form.first_name }}" autocomplete="given-name" placeholder="{% if is_en %}First name{% else %}Nombre{% endif %}">
+              </div>
+              <div class="eacct__field">
+                <label for="AddressLastNameNew">{% if is_en %}Last name{% else %}Apellido{% endif %}</label>
+                <input type="text" id="AddressLastNameNew" name="address[last_name]" value="{{ form.last_name }}" autocomplete="family-name" placeholder="{% if is_en %}Last name{% else %}Apellido{% endif %}">
+              </div>
+              <div class="eacct__field eacct__field--full">
+                <label for="AddressCompanyNew">{% if is_en %}Company{% else %}Empresa{% endif %}</label>
+                <input type="text" id="AddressCompanyNew" name="address[company]" value="{{ form.company }}" autocomplete="organization" placeholder="{% if is_en %}Company{% else %}Empresa{% endif %}">
+              </div>
+              <div class="eacct__field eacct__field--full">
+                <label for="AddressAddress1New">{% if is_en %}Address{% else %}Dirección{% endif %}</label>
+                <input type="text" id="AddressAddress1New" name="address[address1]" value="{{ form.address1 }}" autocomplete="address-line1" placeholder="{% if is_en %}Address{% else %}Dirección{% endif %}">
+              </div>
+              <div class="eacct__field eacct__field--full">
+                <label for="AddressAddress2New">{% if is_en %}Apartment, suite, etc.{% else %}Departamento, piso, etc.{% endif %}</label>
+                <input type="text" id="AddressAddress2New" name="address[address2]" value="{{ form.address2 }}" autocomplete="address-line2" placeholder="{% if is_en %}Apartment, suite, etc.{% else %}Departamento, piso, etc.{% endif %}">
+              </div>
+              <div class="eacct__field">
+                <label for="AddressCityNew">{% if is_en %}City{% else %}Ciudad{% endif %}</label>
+                <input type="text" id="AddressCityNew" name="address[city]" value="{{ form.city }}" autocomplete="address-level2" placeholder="{% if is_en %}City{% else %}Ciudad{% endif %}">
+              </div>
+              <div class="eacct__field eacct__select">
+                <label for="AddressCountryNew">{% if is_en %}Country / Region{% else %}País / Región{% endif %}</label>
+                <select id="AddressCountryNew" name="address[country]" data-default="{{ form.country }}" autocomplete="country">
+                  {{ all_country_option_tags }}
+                </select>
+                <span class="svg-wrapper">{{- 'icon-caret.svg' | inline_asset_content -}}</span>
+              </div>
+              <div class="eacct__field eacct__select eacct__field--full" id="AddressProvinceContainerNew" style="display: none">
+                <label for="AddressProvinceNew">{% if is_en %}Province{% else %}Provincia{% endif %}</label>
+                <select id="AddressProvinceNew" name="address[province]" data-default="{{ form.province }}" autocomplete="address-level1"></select>
+                <span class="svg-wrapper">{{- 'icon-caret.svg' | inline_asset_content -}}</span>
+              </div>
+              <div class="eacct__field">
+                <label for="AddressZipNew">{% if is_en %}Postal / ZIP code{% else %}Código postal{% endif %}</label>
+                <input type="text" id="AddressZipNew" name="address[zip]" value="{{ form.zip }}" autocapitalize="characters" autocomplete="postal-code" placeholder="{% if is_en %}Postal / ZIP code{% else %}Código postal{% endif %}">
+              </div>
+              <div class="eacct__field">
+                <label for="AddressPhoneNew">{% if is_en %}Phone{% else %}Teléfono{% endif %}</label>
+                <input type="tel" id="AddressPhoneNew" name="address[phone]" value="{{ form.phone }}" autocomplete="tel" placeholder="{% if is_en %}Phone{% else %}Teléfono{% endif %}">
+              </div>
+            </div>
+            <div class="eacct__checkbox">
+              {{ form.set_as_default_checkbox }}
+              <label for="address_default_address_new">{% if is_en %}Set as default address{% else %}Usar como dirección predeterminada{% endif %}</label>
+            </div>
+            <div class="eacct__actions">
+              <button class="eacct__btn" type="submit">{% if is_en %}Add address{% else %}Añadir dirección{% endif %}</button>
+              <button class="eacct__link" type="reset">{% if is_en %}Cancel{% else %}Cancelar{% endif %}</button>
+            </div>
+          {%- endform -%}
+        </div>
+      </div>
+
+      {%- comment -%} Lista de direcciones existentes — cada una con edit/delete inline. {%- endcomment -%}
+      {%- if customer.addresses.size > 0 -%}
+        <ul class="eacct__addr-list" role="list">
+          {%- for address in customer.addresses -%}
+            <li class="eacct__addr-item" data-address>
+              {%- if address == customer.default_address -%}
+                <p class="eacct__sublabel">{% if is_en %}Default{% else %}Predeterminada{% endif %}</p>
+              {%- endif -%}
+              <div class="eacct__address">{{ address | format_address }}</div>
+              {%- comment -%} Los botones edit/delete son hermanos DIRECTOS de #EditAddress_
+                (el combinador `~` de Dawn los necesita sin wrapper). La fila de acciones
+                se compone con CSS (.eacct__addr-toggle/.eacct__addr-del) sin envoltorio. {%- endcomment -%}
+              <button
+                class="eacct__link eacct__addr-toggle eacct__addr-toggle--edit"
+                type="button"
+                id="EditFormButton_{{ address.id }}"
+                aria-label="{% if is_en %}Edit address{% else %}Editar dirección{% endif %} {{ forloop.index }}"
+                aria-controls="EditAddress_{{ address.id }}"
+                aria-expanded="false"
+                data-address-id="{{ address.id }}"
+              >
+                {% if is_en %}Edit{% else %}Editar{% endif %}
+              </button>
+              <button
+                class="eacct__link eacct__addr-del"
+                type="button"
+                aria-label="{% if is_en %}Delete address{% else %}Eliminar dirección{% endif %} {{ forloop.index }}"
+                data-target="{{ address.url }}"
+                data-confirm-message="{% if is_en %}Are you sure you want to delete this address?{% else %}¿Seguro que quieres eliminar esta dirección?{% endif %}"
+              >
+                {% if is_en %}Delete{% else %}Eliminar{% endif %}
+              </button>
+              <div id="EditAddress_{{ address.id }}">
+                <h2 class="eacct__card-title" style="margin-bottom: 6px;">{% if is_en %}Edit address{% else %}Editar dirección{% endif %}</h2>
+                {%- form 'customer_address', address -%}
+                  <div class="eacct__addr-fields">
+                    <div class="eacct__field">
+                      <label for="AddressFirstName_{{ form.id }}">{% if is_en %}First name{% else %}Nombre{% endif %}</label>
+                      <input type="text" id="AddressFirstName_{{ form.id }}" name="address[first_name]" value="{{ form.first_name }}" autocomplete="given-name" placeholder="{% if is_en %}First name{% else %}Nombre{% endif %}">
+                    </div>
+                    <div class="eacct__field">
+                      <label for="AddressLastName_{{ form.id }}">{% if is_en %}Last name{% else %}Apellido{% endif %}</label>
+                      <input type="text" id="AddressLastName_{{ form.id }}" name="address[last_name]" value="{{ form.last_name }}" autocomplete="family-name" placeholder="{% if is_en %}Last name{% else %}Apellido{% endif %}">
+                    </div>
+                    <div class="eacct__field eacct__field--full">
+                      <label for="AddressCompany_{{ form.id }}">{% if is_en %}Company{% else %}Empresa{% endif %}</label>
+                      <input type="text" id="AddressCompany_{{ form.id }}" name="address[company]" value="{{ form.company }}" autocomplete="organization" placeholder="{% if is_en %}Company{% else %}Empresa{% endif %}">
+                    </div>
+                    <div class="eacct__field eacct__field--full">
+                      <label for="AddressAddress1_{{ form.id }}">{% if is_en %}Address{% else %}Dirección{% endif %}</label>
+                      <input type="text" id="AddressAddress1_{{ form.id }}" name="address[address1]" value="{{ form.address1 }}" autocomplete="address-line1" placeholder="{% if is_en %}Address{% else %}Dirección{% endif %}">
+                    </div>
+                    <div class="eacct__field eacct__field--full">
+                      <label for="AddressAddress2_{{ form.id }}">{% if is_en %}Apartment, suite, etc.{% else %}Departamento, piso, etc.{% endif %}</label>
+                      <input type="text" id="AddressAddress2_{{ form.id }}" name="address[address2]" value="{{ form.address2 }}" autocomplete="address-line2" placeholder="{% if is_en %}Apartment, suite, etc.{% else %}Departamento, piso, etc.{% endif %}">
+                    </div>
+                    <div class="eacct__field">
+                      <label for="AddressCity_{{ form.id }}">{% if is_en %}City{% else %}Ciudad{% endif %}</label>
+                      <input type="text" id="AddressCity_{{ form.id }}" name="address[city]" value="{{ form.city }}" autocomplete="address-level2" placeholder="{% if is_en %}City{% else %}Ciudad{% endif %}">
+                    </div>
+                    <div class="eacct__field eacct__select">
+                      <label for="AddressCountry_{{ form.id }}">{% if is_en %}Country / Region{% else %}País / Región{% endif %}</label>
+                      <select id="AddressCountry_{{ form.id }}" name="address[country]" data-address-country-select data-default="{{ form.country }}" data-form-id="{{ form.id }}" autocomplete="country">
+                        {{ all_country_option_tags }}
+                      </select>
+                      <span class="svg-wrapper">{{- 'icon-caret.svg' | inline_asset_content -}}</span>
+                    </div>
+                    <div class="eacct__field eacct__select eacct__field--full" id="AddressProvinceContainer_{{ form.id }}" style="display:none;">
+                      <label for="AddressProvince_{{ form.id }}">{% if is_en %}Province{% else %}Provincia{% endif %}</label>
+                      <select id="AddressProvince_{{ form.id }}" name="address[province]" data-default="{{ form.province }}" autocomplete="address-level1"></select>
+                      <span class="svg-wrapper">{{- 'icon-caret.svg' | inline_asset_content -}}</span>
+                    </div>
+                    <div class="eacct__field">
+                      <label for="AddressZip_{{ form.id }}">{% if is_en %}Postal / ZIP code{% else %}Código postal{% endif %}</label>
+                      <input type="text" id="AddressZip_{{ form.id }}" name="address[zip]" value="{{ form.zip }}" autocapitalize="characters" autocomplete="postal-code" placeholder="{% if is_en %}Postal / ZIP code{% else %}Código postal{% endif %}">
+                    </div>
+                    <div class="eacct__field">
+                      <label for="AddressPhone_{{ form.id }}">{% if is_en %}Phone{% else %}Teléfono{% endif %}</label>
+                      <input type="tel" id="AddressPhone_{{ form.id }}" name="address[phone]" value="{{ form.phone }}" autocomplete="tel" placeholder="{% if is_en %}Phone{% else %}Teléfono{% endif %}">
+                    </div>
+                  </div>
+                  <div class="eacct__checkbox">
+                    {{ form.set_as_default_checkbox }}
+                    <label for="address_default_address_{{ form.id }}">{% if is_en %}Set as default address{% else %}Usar como dirección predeterminada{% endif %}</label>
+                  </div>
+                  <div class="eacct__actions">
+                    <button class="eacct__btn" type="submit">{% if is_en %}Update address{% else %}Actualizar dirección{% endif %}</button>
+                    <button class="eacct__link" type="reset">{% if is_en %}Cancel{% else %}Cancelar{% endif %}</button>
+                  </div>
+                {%- endform -%}
+              </div>
+            </li>
+          {%- endfor -%}
+        </ul>
+      {%- else -%}
+        <p class="eacct__empty" style="margin-top: clamp(28px,4vw,40px);">{% if is_en %}You have no saved addresses yet.{% else %}Aún no tienes direcciones guardadas.{% endif %}</p>
+      {%- endif -%}
+
+      {%- if paginate.pages > 1 and paginate.parts.size > 0 -%}
+        <nav class="pagination" role="navigation" aria-label="{{ 'general.pagination.label' | t }}">
+          <ul class="eacct__pager" role="list">
+            {%- if paginate.previous -%}
+              <li><a href="{{ paginate.previous.url }}" aria-label="{{ 'general.pagination.previous' | t }}"><span class="svg-wrapper">{{- 'icon-caret.svg' | inline_asset_content -}}</span></a></li>
+            {%- endif -%}
+            {%- for part in paginate.parts -%}
+              <li>
+                {%- if part.is_link -%}
+                  <a href="{{ part.url }}" aria-label="{{ 'general.pagination.page' | t: number: part.title }}">{{- part.title -}}</a>
+                {%- else -%}
+                  {%- if part.title == paginate.current_page -%}
+                    <span aria-current="page" aria-label="{{ 'general.pagination.page' | t: number: part.title }}">{{- part.title -}}</span>
+                  {%- else -%}
+                    <span>{{ part.title }}</span>
+                  {%- endif -%}
+                {%- endif -%}
+              </li>
+            {%- endfor -%}
+            {%- if paginate.next -%}
+              <li><a href="{{ paginate.next.url }}" aria-label="{{ 'general.pagination.next' | t }}"><span class="svg-wrapper">{{- 'icon-caret.svg' | inline_asset_content -}}</span></a></li>
+            {%- endif -%}
+          </ul>
+        </nav>
+      {%- endif -%}
+    </section>
+  {%- endpaginate -%}
+
+  <script src="{{ 'customer.js' | asset_url }}" defer></script>
+  <script>
+    window.addEventListener('load', () => {
+      typeof CustomerAddresses !== 'undefined' && new CustomerAddresses();
+    });
+  </script>
+
+{%- comment -%} ══════════════════════════════════════════════════════════════
+   RAMA 4 — RESET  (reset_customer_password)
+   ══════════════════════════════════════════════════════════════ {%- endcomment -%}
+{%- elsif p contains '/account/reset' -%}
+  <section class="eacct eacct--narrow eacct__reveal">
+    <p class="eacct__eyebrow">{% if is_en %}Your Account{% else %}Tu Cuenta{% endif %}</p>
+    <h1 class="eacct__title">{% if is_en %}Set a new password{% else %}Define una nueva contraseña{% endif %}</h1>
+    <div class="eacct__lede"><p>{% if is_en %}Enter a new password to restore access to your account.{% else %}Ingresa una nueva contraseña para restaurar el acceso a tu cuenta.{% endif %}</p></div>
+
+    {%- form 'reset_customer_password' -%}
+      <div class="eacct__form">
+        {%- if form.errors -%}
+          <div class="eacct__msg eacct__msg--error" tabindex="-1" autofocus role="alert">
+            <span class="visually-hidden">{{ 'accessibility.error' | t }} </span>
+            <span class="eacct__msg-title">{% if is_en %}Please review the form{% else %}Revisa el formulario{% endif %}</span>
+            <ul>
+              {%- for field in form.errors -%}
+                <li>
+                  {%- if field == 'form' -%}
+                    {{ form.errors.messages[field] }}
+                  {%- else -%}
+                    <a href="#{{ field }}">
+                      {{ form.errors.translated_fields[field] | capitalize }}
+                      {{ form.errors.messages[field] }}
+                    </a>
+                  {%- endif -%}
+                </li>
+              {%- endfor -%}
+            </ul>
+          </div>
+        {%- endif -%}
+
+        <div class="eacct__field">
+          <label for="password">{% if is_en %}New password{% else %}Nueva contraseña{% endif %}</label>
+          <input
+            type="password"
+            name="customer[password]"
+            id="password"
+            autocomplete="new-password"
+            {% if form.errors contains 'password' %}aria-invalid="true" aria-describedby="password-error"{% endif %}
+            placeholder="{% if is_en %}New password{% else %}Nueva contraseña{% endif %}"
+          >
+          {%- if form.errors contains 'password' -%}
+            <small id="password-error" class="eacct__field-error">
+              <span class="svg-wrapper">{{- 'icon-error.svg' | inline_asset_content -}}</span>
+              {{ form.errors.translated_fields.password | capitalize }}
+              {{ form.errors.messages.password }}
+            </small>
+          {%- endif -%}
+        </div>
+
+        <div class="eacct__field">
+          <label for="password_confirmation">{% if is_en %}Confirm password{% else %}Confirmar contraseña{% endif %}</label>
+          <input
+            type="password"
+            name="customer[password_confirmation]"
+            id="password_confirmation"
+            autocomplete="new-password"
+            {% if form.errors contains 'password_confirmation' %}aria-invalid="true" aria-describedby="password_confirmation-error"{% endif %}
+            placeholder="{% if is_en %}Confirm password{% else %}Confirmar contraseña{% endif %}"
+          >
+          {%- if form.errors contains 'password_confirmation' -%}
+            <small id="password_confirmation-error" class="eacct__field-error">
+              <span class="svg-wrapper">{{- 'icon-error.svg' | inline_asset_content -}}</span>
+              {{ form.errors.translated_fields.password_confirmation | capitalize }}
+              {{ form.errors.messages.password_confirmation }}
+            </small>
+          {%- endif -%}
+        </div>
+
+        <div class="eacct__actions">
+          <button class="eacct__btn" type="submit">{% if is_en %}Reset password{% else %}Restablecer contraseña{% endif %}</button>
+        </div>
+      </div>
+    {%- endform -%}
+  </section>
+
+{%- comment -%} ══════════════════════════════════════════════════════════════
+   RAMA 5 — ACTIVATE  (activate_customer_password)
+   ══════════════════════════════════════════════════════════════ {%- endcomment -%}
+{%- elsif p contains '/account/activate' -%}
+  <section class="eacct eacct--narrow eacct__reveal">
+    <p class="eacct__eyebrow">{% if is_en %}Welcome{% else %}Bienvenida{% endif %}</p>
+    <h1 class="eacct__title">{% if is_en %}Activate your account{% else %}Activa tu cuenta{% endif %}</h1>
+    <div class="eacct__lede"><p>{% if is_en %}Create a password to activate your account.{% else %}Crea una contraseña para activar tu cuenta.{% endif %}</p></div>
+
+    {%- form 'activate_customer_password' -%}
+      <div class="eacct__form">
+        {%- if form.errors -%}
+          <div class="eacct__msg eacct__msg--error" tabindex="-1" autofocus role="alert">
+            <span class="eacct__msg-title">{% if is_en %}Please review the form{% else %}Revisa el formulario{% endif %}</span>
+            <ul>
+              {%- for field in form.errors -%}
+                <li>
+                  {%- if field == 'form' -%}
+                    {{ form.errors.messages[field] }}
+                  {%- else -%}
+                    <a href="#{{ field }}">
+                      {{ form.errors.translated_fields[field] | capitalize }}
+                      {{ form.errors.messages[field] }}
+                    </a>
+                  {%- endif -%}
+                </li>
+              {%- endfor -%}
+            </ul>
+          </div>
+        {%- endif -%}
+
+        <div class="eacct__field">
+          <label for="password">{% if is_en %}Password{% else %}Contraseña{% endif %}</label>
+          <input
+            type="password"
+            name="customer[password]"
+            id="password"
+            autocomplete="new-password"
+            placeholder="{% if is_en %}Password{% else %}Contraseña{% endif %}"
+            {% if form.errors contains 'password' %}aria-invalid="true" aria-describedby="password-error"{% endif %}
+          >
+          {%- if form.errors contains 'password' -%}
+            <small id="password-error" class="eacct__field-error">
+              <span class="svg-wrapper">{{- 'icon-error.svg' | inline_asset_content -}}</span>
+              {{ form.errors.translated_fields.password | capitalize }}
+              {{ form.errors.messages.password }}
+            </small>
+          {%- endif -%}
+        </div>
+
+        <div class="eacct__field">
+          <label for="password_confirmation">{% if is_en %}Confirm password{% else %}Confirmar contraseña{% endif %}</label>
+          <input
+            type="password"
+            name="customer[password_confirmation]"
+            id="password_confirmation"
+            autocomplete="new-password"
+            placeholder="{% if is_en %}Confirm password{% else %}Confirmar contraseña{% endif %}"
+            {% if form.errors contains 'password' %}aria-invalid="true" aria-describedby="password_confirmation-error"{% endif %}
+          >
+          {%- if form.errors contains 'password_confirmation' -%}
+            <small id="password_confirmation-error" class="eacct__field-error">
+              <span class="svg-wrapper">{{- 'icon-error.svg' | inline_asset_content -}}</span>
+              {{ form.errors.translated_fields.password_confirmation | capitalize }}
+              {{ form.errors.messages.password_confirmation }}
+            </small>
+          {%- endif -%}
+        </div>
+
+        <div class="eacct__actions">
+          <button class="eacct__btn" type="submit">{% if is_en %}Activate account{% else %}Activar cuenta{% endif %}</button>
+          <button class="eacct__link" name="decline" type="submit">{% if is_en %}Decline invitation{% else %}Rechazar invitación{% endif %}</button>
+        </div>
+      </div>
+    {%- endform -%}
+  </section>
+
+{%- comment -%} ══════════════════════════════════════════════════════════════
+   RAMA 6 — DETALLE DE PEDIDO  (objeto `order`)
+   Coincide en /account/orders/<id> (un pedido suelto), no en el listado raíz.
+   ══════════════════════════════════════════════════════════════ {%- endcomment -%}
+{%- elsif order != blank -%}
+  <section class="eacct eacct__reveal">
+    <p class="eacct__eyebrow">{% if is_en %}Order{% else %}Pedido{% endif %}</p>
+    <h1 class="eacct__title">{% if is_en %}Order {{ order.name }}{% else %}Pedido {{ order.name }}{% endif %}</h1>
+    <div class="eacct__lede" style="margin-bottom: 16px;">
+      <a class="eacct__link eacct__link--back" href="{{ routes.account_url }}">
+        <svg width="13" height="9" viewBox="0 0 13 9" fill="none" aria-hidden="true"><path d="M1 4.5h10M7.5 1L11 4.5 7.5 8" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        {% if is_en %}Back to account{% else %}Volver a la cuenta{% endif %}
+      </a>
+    </div>
+
+    {%- assign order_date = order.created_at | time_tag: format: 'date_at_time' -%}
+    <div class="eacct__order-meta">
+      <p>{{ 'customer.order.date_html' | t: date: order_date }}</p>
+      {%- if order.cancelled -%}
+        {%- assign cancelled_at = order.cancelled_at | time_tag: format: 'date_at_time' -%}
+        <p>{{ 'customer.order.cancelled_html' | t: date: cancelled_at }}</p>
+        <p>{{ 'customer.order.cancelled_reason' | t: reason: order.cancel_reason_label }}</p>
+      {%- endif -%}
+    </div>
+
+    <div class="eacct__table-wrap" style="margin-top: clamp(28px,4vw,40px);">
+      <table role="table" class="eacct__table eacct__order-table">
+        <caption class="visually-hidden">{{ 'customer.order.title' | t: name: order.name }}</caption>
+        <thead role="rowgroup">
+          <tr role="row">
+            <th id="ColumnProduct" scope="col" role="columnheader">{% if is_en %}Product{% else %}Producto{% endif %}</th>
+            <th id="ColumnSku" scope="col" role="columnheader">{% if is_en %}SKU{% else %}SKU{% endif %}</th>
+            <th id="ColumnPrice" scope="col" role="columnheader" data-num>{% if is_en %}Price{% else %}Precio{% endif %}</th>
+            <th id="ColumnQuantity" scope="col" role="columnheader" data-num>{% if is_en %}Qty{% else %}Cant.{% endif %}</th>
+            <th id="ColumnTotal" scope="col" role="columnheader" data-num>{% if is_en %}Total{% else %}Total{% endif %}</th>
+          </tr>
+        </thead>
+        <tbody role="rowgroup">
+          {%- for line_item in order.line_items -%}
+            <tr role="row">
+              <td id="Row{{ line_item.key }}" headers="ColumnProduct" role="rowheader" scope="row" data-label="{% if is_en %}Product{% else %}Producto{% endif %}">
+                <div>
+                  {%- if line_item.url != blank -%}
+                    <a href="{{ line_item.url }}">{{ line_item.title | escape }}</a>
+                  {%- else -%}
+                    <p>{{ line_item.title | escape }}</p>
+                  {%- endif -%}
+                  {%- assign property_size = line_item.properties | size -%}
+                  {%- unless line_item.selling_plan_allocation == null and property_size == 0 -%}
+                    <div class="properties">
+                      {%- unless line_item.product.has_only_default_variant -%}
+                        <span>{{ line_item.variant.title | escape }}</span>
+                      {%- endunless -%}
+                      {%- unless line_item.selling_plan_allocation == null -%}
+                        <span>{{ line_item.selling_plan_allocation.selling_plan.name }}</span>
+                      {%- endunless -%}
+                      {%- if property_size != 0 -%}
+                        {%- for property in line_item.properties -%}
+                          {% assign property_first_char = property.first | slice: 0 %}
+                          {%- if property.last != blank and property_first_char != '_' -%}
+                            <span>{{ property.first }}:</span>
+                            <span>
+                              {%- if property.last contains '/uploads/' -%}
+                                <a href="{{ property.last }}">{{ property.last | split: '/' | last }}</a>
+                              {%- else -%}
+                                {{ property.last }}
+                              {%- endif -%}
+                            </span>
+                          {%- endif -%}
+                        {%- endfor -%}
+                      {%- endif -%}
+                    </div>
+                  {%- endunless -%}
+
+                  {%- if line_item.line_level_discount_allocations != blank -%}
+                    <ul role="list" aria-label="{% if is_en %}Discount{% else %}Descuento{% endif %}">
+                      {%- for discount_allocation in line_item.line_level_discount_allocations -%}
+                        <li>
+                          <span class="svg-wrapper">{{- 'icon-discount.svg' | inline_asset_content -}}</span>
+                          {{- discount_allocation.discount_application.title | escape }} (-
+                          {{- discount_allocation.amount | money -}})
+                        </li>
+                      {%- endfor -%}
+                    </ul>
+                  {%- endif -%}
+
+                  {%- if line_item.fulfillment -%}
+                    <div class="fulfillment">
+                      {%- assign created_at = line_item.fulfillment.created_at | time_tag: format: 'date' -%}
+                      <span>{{ 'customer.order.fulfilled_at_html' | t: date: created_at }}</span>
+                      {%- if line_item.fulfillment.tracking_url -%}
+                        <a href="{{ line_item.fulfillment.tracking_url }}">{{ 'customer.order.track_shipment' | t }}</a>
+                      {%- endif -%}
+                      <span>
+                        {{ line_item.fulfillment.tracking_company }}
+                        {%- if line_item.fulfillment.tracking_number -%}#{{ line_item.fulfillment.tracking_number }}{%- endif -%}
+                      </span>
+                    </div>
+                  {%- endif -%}
+                </div>
+              </td>
+              <td headers="Row{{ line_item.key }} ColumnSku" role="cell" data-label="{% if is_en %}SKU{% else %}SKU{% endif %}">{{ line_item.sku }}</td>
+              <td headers="Row{{ line_item.key }} ColumnPrice" role="cell" data-num data-label="{% if is_en %}Price{% else %}Precio{% endif %}">
+                {%- if line_item.original_price != line_item.final_price or line_item.unit_price_measurement -%}
+                  <dl>
+                    {%- if line_item.original_price != line_item.final_price -%}
+                      <dt><span class="visually-hidden">{{ 'products.product.price.regular_price' | t }}</span></dt>
+                      <dd class="regular-price"><s>{{ line_item.original_price | money }}</s></dd>
+                      <dt><span class="visually-hidden">{{ 'products.product.price.sale_price' | t }}</span></dt>
+                      <dd><span>{{ line_item.final_price | money }}</span></dd>
+                    {%- else -%}
+                      <dt><span class="visually-hidden">{{ 'products.product.price.regular_price' | t }}</span></dt>
+                      <dd>{{ line_item.original_price | money }}</dd>
+                    {%- endif -%}
+                    {%- if line_item.unit_price_measurement -%}
+                      <dt><span class="visually-hidden">{{ 'products.product.price.unit_price' | t }}</span></dt>
+                      <dd class="unit-price">{% render 'unit-price', price: line_item.unit_price, measurement: line_item.unit_price_measurement, hide_accessibility_label: true %}</dd>
+                    {%- endif -%}
+                  </dl>
+                {%- else -%}
+                  <span>{{ line_item.final_price | money }}</span>
+                {%- endif -%}
+              </td>
+              <td headers="Row{{ line_item.key }} ColumnQuantity" role="cell" data-num data-label="{% if is_en %}Qty{% else %}Cant.{% endif %}">{{ line_item.quantity }}</td>
+              <td headers="Row{{ line_item.key }} ColumnTotal" role="cell" data-num data-label="{% if is_en %}Total{% else %}Total{% endif %}">
+                {%- if line_item.original_line_price != line_item.final_line_price -%}
+                  <dl>
+                    <dt><span class="visually-hidden">{{ 'products.product.price.regular_price' | t }}</span></dt>
+                    <dd class="regular-price"><s>{{ line_item.original_line_price | money }}</s></dd>
+                    <dt><span class="visually-hidden">{{ 'products.product.price.sale_price' | t }}</span></dt>
+                    <dd><span>{{ line_item.final_line_price | money }}</span></dd>
+                  </dl>
+                {%- else -%}
+                  {{ line_item.original_line_price | money }}
+                {%- endif -%}
+              </td>
+            </tr>
+          {%- endfor -%}
+        </tbody>
+        <tfoot role="rowgroup">
+          <tr role="row">
+            <td id="RowSubtotal" role="rowheader" scope="row" colspan="4">{% if is_en %}Subtotal{% else %}Subtotal{% endif %}</td>
+            <td headers="RowSubtotal" role="cell" data-num data-label="{% if is_en %}Subtotal{% else %}Subtotal{% endif %}">{{ order.line_items_subtotal_price | money }}</td>
+          </tr>
+          {%- if order.cart_level_discount_applications != blank -%}
+            <tr role="row">
+              {%- for discount_application in order.cart_level_discount_applications -%}
+                <td id="RowDiscount" role="rowheader" scope="row" colspan="4">
+                  {% if is_en %}Discount{% else %}Descuento{% endif %}
+                  <span class="cart-discount">
+                    <span class="svg-wrapper">{{- 'icon-discount.svg' | inline_asset_content -}}</span>
+                    {{- discount_application.title | escape -}}
+                  </span>
+                </td>
+                <td headers="RowDiscount" role="cell" data-num data-label="{% if is_en %}Discount{% else %}Descuento{% endif %}">
+                  <div>
+                    <span>-{{ discount_application.total_allocated_amount | money }}</span>
+                    <span class="cart-discount">
+                      <span class="svg-wrapper">{{- 'icon-discount.svg' | inline_asset_content -}}</span>
+                      {{- discount_application.title | escape -}}
+                    </span>
+                  </div>
+                </td>
+              {%- endfor -%}
+            </tr>
+          {%- endif -%}
+          {%- for shipping_method in order.shipping_methods -%}
+            <tr role="row">
+              <td id="RowShipping" role="rowheader" scope="row" colspan="4">{% if is_en %}Shipping{% else %}Envío{% endif %} ({{ shipping_method.title | escape }})</td>
+              <td headers="RowShipping" role="cell" data-num data-label="{% if is_en %}Shipping{% else %}Envío{% endif %} ({{ shipping_method.title | escape }})">{{ shipping_method.price | money }}</td>
+            </tr>
+          {%- endfor -%}
+          {%- for tax_line in order.tax_lines -%}
+            <tr role="row">
+              <td id="RowTax" role="rowheader" scope="row" colspan="4">{% if is_en %}Tax{% else %}Impuestos{% endif %} ({{ tax_line.title | escape }} {{ tax_line.rate | times: 100 }}%)</td>
+              <td headers="RowTax" role="cell" data-num data-label="{% if is_en %}Tax{% else %}Impuestos{% endif %} ({{ tax_line.title | escape }} {{ tax_line.rate | times: 100 }}%)">{{ tax_line.price | money }}</td>
+            </tr>
+          {%- endfor -%}
+          {%- if order.total_duties -%}
+            <tr role="row">
+              <td id="RowDuties" role="rowheader" scope="row" colspan="4">{% if is_en %}Duties{% else %}Aranceles{% endif %}</td>
+              <td headers="RowDuties" role="cell" data-num data-label="{% if is_en %}Duties{% else %}Aranceles{% endif %}">{{ order.total_duties | money }}</td>
+            </tr>
+          {%- endif -%}
+          {%- if order.total_refunded_amount > 0 -%}
+            <tr role="row">
+              <td id="RowTotalRefund" role="rowheader" scope="row" colspan="3">{% if is_en %}Refunded{% else %}Reembolsado{% endif %}</td>
+              <td headers="RowTotalRefund" role="cell" colspan="2" data-num data-label="{% if is_en %}Refunded{% else %}Reembolsado{% endif %}">-{{ order.total_refunded_amount | money_with_currency }}</td>
+            </tr>
+          {%- endif -%}
+          <tr role="row">
+            <td id="RowTotal" role="rowheader" scope="row" colspan="3">{% if is_en %}Total{% else %}Total{% endif %}</td>
+            <td headers="RowTotal" role="cell" colspan="2" data-num data-label="{% if is_en %}Total{% else %}Total{% endif %}">{{ order.total_net_amount | money_with_currency }}</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+
+    <div class="eacct__order-addresses">
+      <div class="eacct__card">
+        <h2 class="eacct__card-title" style="margin-bottom: 16px;">{% if is_en %}Billing address{% else %}Dirección de facturación{% endif %}</h2>
+        <p class="eacct__order-meta" style="margin: 0 0 14px;"><strong>{% if is_en %}Payment status{% else %}Estado del pago{% endif %}:</strong> {{ order.financial_status_label }}</p>
+        <div class="eacct__address">{{ order.billing_address | format_address }}</div>
+      </div>
+      <div class="eacct__card">
+        <h2 class="eacct__card-title" style="margin-bottom: 16px;">{% if is_en %}Shipping address{% else %}Dirección de envío{% endif %}</h2>
+        <p class="eacct__order-meta" style="margin: 0 0 14px;"><strong>{% if is_en %}Fulfillment status{% else %}Estado del envío{% endif %}:</strong> {{ order.fulfillment_status_label }}</p>
+        <div class="eacct__address">{{ order.shipping_address | format_address }}</div>
+      </div>
+    </div>
+  </section>
+
+{%- comment -%} ══════════════════════════════════════════════════════════════
+   RAMA 7 (else) — PANEL DE CUENTA  (bienvenida + pedidos + direcciones + salir)
+   ══════════════════════════════════════════════════════════════ {%- endcomment -%}
+{%- else -%}
+  <section class="eacct eacct__reveal">
+    <header>
+      <p class="eacct__eyebrow">{% if is_en %}Your Account{% else %}Tu Cuenta{% endif %}</p>
+      <h1 class="eacct__title">
+        {%- if customer.first_name != blank -%}
+          {% if is_en %}Welcome, {{ customer.first_name }}{% else %}Bienvenida, {{ customer.first_name }}{% endif %}
+        {%- else -%}
+          {% if is_en %}Your account{% else %}Tu cuenta{% endif %}
+        {%- endif -%}
+      </h1>
+      <div class="eacct__lede" style="margin-bottom: 4px;">
+        <a class="eacct__link" href="{{ routes.account_logout_url }}">
+          {% if is_en %}Sign out{% else %}Cerrar sesión{% endif %}
+          <svg width="13" height="9" viewBox="0 0 13 9" fill="none" aria-hidden="true"><path d="M1 4.5h10M7.5 1L11 4.5 7.5 8" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </a>
+      </div>
+    </header>
+
+    <div class="eacct__grid">
+      {%- comment -%} Pedidos recientes. {%- endcomment -%}
+      <div class="eacct__card">
+        <div class="eacct__card-head">
+          <h2 class="eacct__card-title">{% if is_en %}Orders{% else %}Pedidos{% endif %}</h2>
+        </div>
+
+        {%- paginate customer.orders by 20 -%}
+          {%- if customer.orders.size > 0 -%}
+            <div class="eacct__table-wrap">
+              <table role="table" class="eacct__table">
+                <caption class="visually-hidden">{% if is_en %}Orders{% else %}Pedidos{% endif %}</caption>
+                <thead role="rowgroup">
+                  <tr role="row">
+                    <th id="ColumnOrder" scope="col" role="columnheader">{% if is_en %}Order{% else %}Pedido{% endif %}</th>
+                    <th id="ColumnDate" scope="col" role="columnheader">{% if is_en %}Date{% else %}Fecha{% endif %}</th>
+                    <th id="ColumnPayment" scope="col" role="columnheader">{% if is_en %}Payment{% else %}Pago{% endif %}</th>
+                    <th id="ColumnFulfillment" scope="col" role="columnheader">{% if is_en %}Fulfillment{% else %}Envío{% endif %}</th>
+                    <th id="ColumnTotal" scope="col" role="columnheader" data-num>{% if is_en %}Total{% else %}Total{% endif %}</th>
+                  </tr>
+                </thead>
+                <tbody role="rowgroup">
+                  {%- for order in customer.orders -%}
+                    <tr role="row">
+                      <td id="RowOrder" role="cell" headers="ColumnOrder" data-label="{% if is_en %}Order{% else %}Pedido{% endif %}">
+                        <a href="{{ order.customer_url }}" aria-label="{{ 'customer.orders.order_number_link' | t: number: order.name }}">{{ order.name }}</a>
+                      </td>
+                      <td headers="RowOrder ColumnDate" role="cell" data-label="{% if is_en %}Date{% else %}Fecha{% endif %}">{{ order.created_at | time_tag: format: 'date' }}</td>
+                      <td headers="RowOrder ColumnPayment" role="cell" data-label="{% if is_en %}Payment{% else %}Pago{% endif %}">{{ order.financial_status_label }}</td>
+                      <td headers="RowOrder ColumnFulfillment" role="cell" data-label="{% if is_en %}Fulfillment{% else %}Envío{% endif %}">{{ order.fulfillment_status_label }}</td>
+                      <td headers="RowOrder ColumnTotal" role="cell" data-num data-label="{% if is_en %}Total{% else %}Total{% endif %}">{{ order.total_net_amount | money_with_currency }}</td>
+                    </tr>
+                  {%- endfor -%}
+                </tbody>
+              </table>
+            </div>
+          {%- else -%}
+            <p class="eacct__empty">{% if is_en %}You have no orders yet.{% else %}Aún no tienes pedidos.{% endif %}</p>
+          {%- endif -%}
+
+          {%- if paginate.pages > 1 and paginate.parts.size > 0 -%}
+            <nav class="pagination" role="navigation" aria-label="{{ 'general.pagination.label' | t }}">
+              <ul class="eacct__pager" role="list">
+                {%- if paginate.previous -%}
+                  <li><a href="{{ paginate.previous.url }}" aria-label="{{ 'general.pagination.previous' | t }}"><span class="svg-wrapper">{{- 'icon-caret.svg' | inline_asset_content -}}</span></a></li>
+                {%- endif -%}
+                {%- for part in paginate.parts -%}
+                  <li>
+                    {%- if part.is_link -%}
+                      <a href="{{ part.url }}" aria-label="{{ 'general.pagination.page' | t: number: part.title }}">{{- part.title -}}</a>
+                    {%- else -%}
+                      {%- if part.title == paginate.current_page -%}
+                        <span aria-current="page" aria-label="{{ 'general.pagination.page' | t: number: part.title }}">{{- part.title -}}</span>
+                      {%- else -%}
+                        <span>{{ part.title }}</span>
+                      {%- endif -%}
+                    {%- endif -%}
+                  </li>
+                {%- endfor -%}
+                {%- if paginate.next -%}
+                  <li><a href="{{ paginate.next.url }}" aria-label="{{ 'general.pagination.next' | t }}"><span class="svg-wrapper">{{- 'icon-caret.svg' | inline_asset_content -}}</span></a></li>
+                {%- endif -%}
+              </ul>
+            </nav>
+          {%- endif -%}
+        {%- endpaginate -%}
+      </div>
+
+      {%- comment -%} Direcciones (predeterminada) + enlace a la gestión completa. {%- endcomment -%}
+      <div class="eacct__card">
+        <div class="eacct__card-head">
+          <h2 class="eacct__card-title">{% if is_en %}Details{% else %}Datos{% endif %}</h2>
+        </div>
+
+        {%- if customer.default_address != blank -%}
+          <p class="eacct__sublabel">{% if is_en %}Default address{% else %}Dirección predeterminada{% endif %}</p>
+          <div class="eacct__address">{{ customer.default_address | format_address }}</div>
+        {%- else -%}
+          <p class="eacct__empty" style="font-size: 17px;">{% if is_en %}No saved address yet.{% else %}Sin dirección guardada.{% endif %}</p>
+        {%- endif -%}
+
+        <div class="eacct__actions" style="margin-top: 24px;">
+          <a class="eacct__btn eacct__btn--ghost" href="{{ routes.account_addresses_url }}">
+            {% if is_en %}View addresses ({{ customer.addresses_count }}){% else %}Ver direcciones ({{ customer.addresses_count }}){% endif %}
+          </a>
+        </div>
+      </div>
+    </div>
+  </section>
+{%- endif -%}
+
+{% schema %}
+{
+  "name": "Cuenta ELYXIE",
+  "settings": [
+    {
+      "type": "paragraph",
+      "content": "Una sola sección sirve login, registro, panel, direcciones, pedido, reset y activación, ramificando por la URL. Reemplaza a todas las secciones main-* de cliente."
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_shop_login_button",
+      "label": "Mostrar 'Iniciar sesión con Shop'",
+      "info": "Botón nativo de Shop en la pantalla de login (si la tienda lo soporta).",
+      "default": true
+    }
+  ],
+  "presets": [{ "name": "Cuenta ELYXIE" }]
+}
+{% endschema %}

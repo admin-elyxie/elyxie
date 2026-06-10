@@ -1,7 +1,8 @@
 {
+  "layout": "elyxie-page",
   "sections": {
     "main": {
-      "type": "main-activate-account"
+      "type": "elyxie-account"
     }
   },
   "order": [
