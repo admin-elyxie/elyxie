@@ -35,6 +35,12 @@
        isn't loaded here, so an undefined token would void the whole declaration). */
     :root { --font-body-scale: 1; --font-heading-scale: 1; --border-radius: 0; --border-width: 0; --image-padding: 0; }
     * { box-sizing: border-box; }
+    /* Dawn a11y utility — base.css no se carga aquí; sin esto, los labels de
+       lector de pantalla (steppers de cantidad, conteo del carrito, etc.) se
+       renderizan como texto VISIBLE y rompen el layout. */
+    .visually-hidden { position: absolute !important; overflow: hidden; width: 1px; height: 1px;
+      margin: -1px; padding: 0; border: 0; clip: rect(0 0 0 0); white-space: nowrap; word-wrap: normal !important; }
+    .svg-wrapper { display: inline-flex; }
     /* Dawn's cart CSS is authored on the 1rem = 10px convention; match it so the
        reused component-cart-*.css renders at the intended scale. elyxie's own
        styles are all px/em, so this is inert for them. */

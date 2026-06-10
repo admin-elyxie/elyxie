@@ -186,9 +186,18 @@ class CartItems extends HTMLElement {
             const elementToReplace =
               document.getElementById(section.id).querySelector(section.selector) ||
               document.getElementById(section.id);
+            // ELYXIE: la página /cart funde #main-cart-items y #main-cart-footer en
+            // UNA sección (mismo section_id), así que el HTML re-renderizado trae DOS
+            // '.js-contents'. getSectionInnerHTML usa querySelector (primer match) y
+            // devolvía los ítems para AMBOS → el resumen se duplicaba. Acotamos la
+            // fuente al id correcto para esos dos objetivos (inerte para el drawer).
+            const sourceSelector =
+              section.id === 'main-cart-items' || section.id === 'main-cart-footer'
+                ? `#${section.id} ${section.selector}`
+                : section.selector;
             elementToReplace.innerHTML = this.getSectionInnerHTML(
               parsedState.sections[section.section],
-              section.selector
+              sourceSelector
             );
           });
           const updatedValue = parsedState.items[line - 1] ? parsedState.items[line - 1].quantity : undefined;
