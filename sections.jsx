@@ -595,12 +595,12 @@ function SectionCertificate({ lang }) {
   const t = lang === 'es' ? {
     eyebrow: 'CERTIFICADO  ·  PRIMERA EDICIÓN',
     title: 'Numerado. Reservado. Atestiguado.',
-    body: 'Cada pieza lleva un número de serie grabado a mano, firmado por el maestro joyero, acompañado de un certificado en papel sellado con el monograma de elyxie.',
+    body: 'Cada pieza lleva un número de serie grabado a mano, firmado por el maestro joyero, acompañado de un certificado en papel sellado con el monograma de Elyxie.',
     issued: 'Emitido', by: 'Maestro joyero', seal: 'Sellado',
   } : {
     eyebrow: 'CERTIFICATE  ·  FIRST EDITION',
     title: 'Numbered. Reserved. Witnessed.',
-    body: 'Each piece carries a hand-engraved serial, signed by the master jeweler, accompanied by a paper certificate sealed with the elyxie monogram.',
+    body: 'Each piece carries a hand-engraved serial, signed by the master jeweler, accompanied by a paper certificate sealed with the Elyxie monogram.',
     issued: 'Issued', by: 'Master jeweler', seal: 'Sealed',
   };
 
@@ -615,7 +615,7 @@ function SectionCertificate({ lang }) {
         <div className="Cert">
           <div className="Cert__bg" aria-hidden></div>
           <div className="Cert__head">
-            <div className="Cert__brand"><span className="elyxie-logo" role="img" aria-label="elyxie"></span></div>
+            <div className="Cert__brand"><span className="elyxie-logo" role="img" aria-label="Elyxie"></span></div>
             <div className="Cert__tag">Sacred Waters<br/>Ancestral Jewelry</div>
           </div>
           <div className="Cert__name">Ángel de la Laguna Negra</div>
@@ -759,7 +759,7 @@ const FOOT_COPY = {
       { title: 'SHOP',   links: ['Ángel de la Laguna Negra', 'Coming soon', 'Care', 'Returns'] },
       { title: 'REACH',  links: ['WhatsApp', 'Email', 'Instagram', 'Lima · Perú'] },
     ],
-    copy: '© 2026 elyxie  ·  Sacred water from the Black Lagoon of Huancabamba',
+    copy: '© 2026 Elyxie  ·  Sacred water from the Black Lagoon of Huancabamba',
   },
   es: {
     eyebrow: 'ÚNETE AL CÍRCULO',
@@ -775,7 +775,7 @@ const FOOT_COPY = {
       { title: 'TIENDA', links: ['Ángel de la Laguna Negra', 'Próximamente', 'Cuidado', 'Devoluciones'] },
       { title: 'CONTACTO', links: ['WhatsApp', 'Correo', 'Instagram', 'Lima · Perú'] },
     ],
-    copy: '© 2026 elyxie  ·  Agua sagrada de la Laguna Negra de Huancabamba',
+    copy: '© 2026 Elyxie  ·  Agua sagrada de la Laguna Negra de Huancabamba',
   },
 };
 
@@ -822,7 +822,7 @@ function Footer({ lang }) {
 
         <div className="FootLower">
           <div className="FootBrand">
-            <div className="FootBrand__name"><span className="elyxie-logo" role="img" aria-label="elyxie"></span></div>
+            <div className="FootBrand__name"><span className="elyxie-logo" role="img" aria-label="Elyxie"></span></div>
             <div className="FootBrand__tag">SACRED WATERS</div>
             <div className="FootBrand__body">{t.brandBody}</div>
             <div className="FootSocials">
@@ -845,7 +845,7 @@ function Footer({ lang }) {
 
         <div className="FootCopy">
           <div className="FootCopy__text">{t.copy}</div>
-          <div className="FootCopy__name"><span className="elyxie-logo" role="img" aria-label="elyxie"></span></div>
+          <div className="FootCopy__name"><span className="elyxie-logo" role="img" aria-label="Elyxie"></span></div>
         </div>
       </div>
     </footer>

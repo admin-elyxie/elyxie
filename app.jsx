@@ -1102,7 +1102,7 @@ function Nav({ lang, setLang }) {
   return (
     <>
       <nav className="nav" data-drawer-open={drawerOpen}>
-        <a className="nav__brand" href="#" aria-label="elyxie"><span className="elyxie-logo" aria-hidden></span></a>
+        <a className="nav__brand" href="#" aria-label="Elyxie"><span className="elyxie-logo" aria-hidden></span></a>
 
         {/* Desktop inline links + language switcher (hidden on mobile via CSS) */}
         <div className="nav__links">
