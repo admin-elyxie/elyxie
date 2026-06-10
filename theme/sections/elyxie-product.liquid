@@ -4,7 +4,7 @@
   ella→él) + precio en vivo + buy-now (Cart AJAX). Borde redondeado (no la esquina
   viva de la Vitrina) por pedido.
 {%- endcomment -%}
-{%- assign tparts = product.title | split: '—' -%}
+{%- assign tparts = product.title | split: '·' -%}
 {%- assign tname = tparts[0] | strip -%}
 {%- assign tfinish = tparts[1] | strip | default: '' -%}
 {%- comment -%} detección por SKU (…-ELLA / …-EL), independiente del idioma (la variante se traduce) {%- endcomment -%}
@@ -178,7 +178,7 @@
 
     <div class="eprod__info">
       <div class="eprod__eyebrow">{% if is_en %}THE PIECE{% else %}LA PIEZA{% endif %}{% if tfinish != blank %} · {{ tfinish | upcase }}{% endif %}</div>
-      <h1 class="eprod__title">{{ tname }}{% if tfinish != blank %} <em>{{ tfinish }}</em>{% endif %}</h1>
+      <h1 class="eprod__title">{{ tname }}</h1>
       <div class="eprod__desc">{% if is_en %}A sanctuary you wear. Living water from the Black Lagoon, suspended in blown glass.{% else %}Un santuario que se lleva puesto. Agua viva de la Laguna Negra, suspendida en cristal soplado.{% endif %}</div>
 
       {%- if product.variants.size > 1 -%}
