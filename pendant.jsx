@@ -775,81 +775,6 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
           }
           stateRef.current.materials.centerSpinner = centerSpinner;
 
-          // ===== Cáusticas — «agua viva» dentro de la esfera =====
-          // Un cascarón esférico (SphereGeometry propia: la malla CAD del orbe
-          // no garantiza UVs sanas) apenas mayor que el orbe, con una textura
-          // procedural de cáusticas en blending aditivo. El animate loop
-          // deriva su offset UV muy despacio (~8 s/ciclo) y modula opacidad y
-          // tinte por las gaussianas de fase; en ALMA-noche la deriva se
-          // congela y el tinte vira a ámbar pálido (el agua emite, no fluye).
-          // prefers-reduced-motion la deja estática desde el arranque.
-          if (sphereMeshes.length) {
-            const orbMesh = sphereMeshes[0];
-            orbMesh.geometry.computeBoundingSphere();
-            const bs = orbMesh.geometry.boundingSphere;
-            // Centro y radio del orbe en el espacio del padre (la malla puede
-            // traer offset en la geometría + escala propia).
-            const shellCenter = bs.center.clone()
-              .multiply(orbMesh.scale)
-              .applyQuaternion(orbMesh.quaternion)
-              .add(orbMesh.position);
-            const shellR = bs.radius * Math.max(orbMesh.scale.x, orbMesh.scale.y, orbMesh.scale.z) * 1.012;
-            // Textura procedural: red de arcos brillantes sobre negro, dibujada
-            // con copias desplazadas ±256 para que el tile repita sin costuras.
-            // PRNG con semilla fija → el agua es la MISMA en cada visita.
-            const cnv = document.createElement('canvas');
-            cnv.width = 256; cnv.height = 256;
-            const ctx = cnv.getContext('2d');
-            ctx.fillStyle = '#000';
-            ctx.fillRect(0, 0, 256, 256);
-            let seed = 73;
-            const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
-            ctx.strokeStyle = 'rgba(255,255,255,0.75)';
-            ctx.shadowColor = 'rgba(255,255,255,0.9)';
-            ctx.shadowBlur = 4;
-            ctx.lineWidth = 1.3;
-            for (let i = 0; i < 34; i++) {
-              const x0 = rnd() * 256, y0 = rnd() * 256;
-              const segs = 3 + Math.floor(rnd() * 3);
-              for (const [ox, oy] of [[0,0],[256,0],[-256,0],[0,256],[0,-256],[256,256],[-256,-256],[256,-256],[-256,256]]) {
-                ctx.beginPath();
-                ctx.moveTo(x0 + ox, y0 + oy);
-                let px = x0, py = y0;
-                let a = rnd() * Math.PI * 2;
-                for (let s = 0; s < segs; s++) {
-                  a += (rnd() - 0.5) * 1.6;
-                  const len = 18 + rnd() * 30;
-                  const cx = px + Math.cos(a) * len * 0.5 + (rnd() - 0.5) * 14;
-                  const cy = py + Math.sin(a) * len * 0.5 + (rnd() - 0.5) * 14;
-                  px += Math.cos(a) * len; py += Math.sin(a) * len;
-                  ctx.quadraticCurveTo(cx + ox, cy + oy, px + ox, py + oy);
-                }
-                ctx.stroke();
-              }
-            }
-            const causticsTex = new THREE.CanvasTexture(cnv);
-            causticsTex.wrapS = causticsTex.wrapT = THREE.RepeatWrapping;
-            causticsTex.repeat.set(2, 1);
-            const causticsMat = new THREE.MeshBasicMaterial({
-              map: causticsTex,
-              transparent: true,
-              opacity: 0,
-              blending: THREE.AdditiveBlending,
-              depthWrite: false,
-              color: 0xbfeede, // agua fría; el loop lo lerpea a ámbar en ALMA-noche
-            });
-            const causticsShell = new THREE.Mesh(new THREE.SphereGeometry(shellR, 48, 32), causticsMat);
-            causticsShell.position.copy(shellCenter);
-            causticsShell.renderOrder = 2; // tras el orbe emisivo, antes del glow
-            orbMesh.parent.add(causticsShell);
-            stateRef.current.materials.caustics = {
-              mat: causticsMat,
-              tex: causticsTex,
-              cold: new THREE.Color(0xbfeede),
-              amber: new THREE.Color(0xe8c89a),
-              prm: window.matchMedia('(prefers-reduced-motion: reduce)').matches,
-            };
-          }
           // EDICIÓN finale material cycling: the center body meshes + the metal
           // material sets, so the animate loop can re-skin the angel
           // gold→rhodium→silver on each completed revolution. Silver/rhodium are
@@ -1082,6 +1007,92 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
             stateRef.current.materials.materiaSideGroups = { left: groupLeft, right: groupRight };
             stateRef.current.materials.materiaSideMaterials = { left: leftMaterials, right: rightMaterials };
           })();
+
+          // ===== Cáusticas — «agua viva» dentro de la esfera =====
+          // Un cascarón esférico (SphereGeometry propia: la malla CAD del orbe
+          // no garantiza UVs sanas) apenas mayor que el orbe, con una textura
+          // procedural de cáusticas en blending aditivo. El animate loop
+          // deriva su offset UV muy despacio (~8 s/ciclo) y modula opacidad y
+          // tinte por las gaussianas de fase; en ALMA-noche la deriva se
+          // congela y el tinte vira a ámbar pálido (el agua emite, no fluye).
+          // prefers-reduced-motion la deja estática desde el arranque.
+          //
+          // ORDEN CRÍTICO: este bloque debe correr DESPUÉS de
+          // spawnMateriaSideAngels. El cascarón se cuelga dentro de `model`;
+          // si existiera antes de los `model.clone(true)` de los laterales,
+          // cada clon arrastraría una copia del cascarón con matrixWorld
+          // identidad (unidades CAD, sin el scaleFactor del modelo). Esa
+          // copia inflaba `cGlobalSize` en la re-detección de esferas del
+          // clon, el orbe real caía bajo el umbral sizeFrac>0.10 y recibía
+          // el material metálico del cuerpo — las esferas de plata y rodio
+          // se veían como bolas de cromo apagadas en vez de orbes emisivos.
+          if (sphereMeshes.length) {
+            const orbMesh = sphereMeshes[0];
+            orbMesh.geometry.computeBoundingSphere();
+            const bs = orbMesh.geometry.boundingSphere;
+            // Centro y radio del orbe en el espacio del padre (la malla puede
+            // traer offset en la geometría + escala propia).
+            const shellCenter = bs.center.clone()
+              .multiply(orbMesh.scale)
+              .applyQuaternion(orbMesh.quaternion)
+              .add(orbMesh.position);
+            const shellR = bs.radius * Math.max(orbMesh.scale.x, orbMesh.scale.y, orbMesh.scale.z) * 1.012;
+            // Textura procedural: red de arcos brillantes sobre negro, dibujada
+            // con copias desplazadas ±256 para que el tile repita sin costuras.
+            // PRNG con semilla fija → el agua es la MISMA en cada visita.
+            const cnv = document.createElement('canvas');
+            cnv.width = 256; cnv.height = 256;
+            const ctx = cnv.getContext('2d');
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, 256, 256);
+            let seed = 73;
+            const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+            ctx.strokeStyle = 'rgba(255,255,255,0.75)';
+            ctx.shadowColor = 'rgba(255,255,255,0.9)';
+            ctx.shadowBlur = 4;
+            ctx.lineWidth = 1.3;
+            for (let i = 0; i < 34; i++) {
+              const x0 = rnd() * 256, y0 = rnd() * 256;
+              const segs = 3 + Math.floor(rnd() * 3);
+              for (const [ox, oy] of [[0,0],[256,0],[-256,0],[0,256],[0,-256],[256,256],[-256,-256],[256,-256],[-256,256]]) {
+                ctx.beginPath();
+                ctx.moveTo(x0 + ox, y0 + oy);
+                let px = x0, py = y0;
+                let a = rnd() * Math.PI * 2;
+                for (let s = 0; s < segs; s++) {
+                  a += (rnd() - 0.5) * 1.6;
+                  const len = 18 + rnd() * 30;
+                  const cx = px + Math.cos(a) * len * 0.5 + (rnd() - 0.5) * 14;
+                  const cy = py + Math.sin(a) * len * 0.5 + (rnd() - 0.5) * 14;
+                  px += Math.cos(a) * len; py += Math.sin(a) * len;
+                  ctx.quadraticCurveTo(cx + ox, cy + oy, px + ox, py + oy);
+                }
+                ctx.stroke();
+              }
+            }
+            const causticsTex = new THREE.CanvasTexture(cnv);
+            causticsTex.wrapS = causticsTex.wrapT = THREE.RepeatWrapping;
+            causticsTex.repeat.set(2, 1);
+            const causticsMat = new THREE.MeshBasicMaterial({
+              map: causticsTex,
+              transparent: true,
+              opacity: 0,
+              blending: THREE.AdditiveBlending,
+              depthWrite: false,
+              color: 0xbfeede, // agua fría; el loop lo lerpea a ámbar en ALMA-noche
+            });
+            const causticsShell = new THREE.Mesh(new THREE.SphereGeometry(shellR, 48, 32), causticsMat);
+            causticsShell.position.copy(shellCenter);
+            causticsShell.renderOrder = 2; // tras el orbe emisivo, antes del glow
+            orbMesh.parent.add(causticsShell);
+            stateRef.current.materials.caustics = {
+              mat: causticsMat,
+              tex: causticsTex,
+              cold: new THREE.Color(0xbfeede),
+              amber: new THREE.Color(0xe8c89a),
+              prm: window.matchMedia('(prefers-reduced-motion: reduce)').matches,
+            };
+          }
 
           modelLoaded = true;
           // Cache the model's VISIBLE vertical bbox midpoint in angel-local

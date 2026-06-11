@@ -579,7 +579,7 @@ body[data-nav-halo] .nav .elyxie-logo {
 /* ---------- Phase 04 (ALMA) temple backdrop ----------
    Two stacked layers (day + night). Both sit at the same z-index 0 as
    .laguna-bg; only one is at opacity > 0 at any moment. app.jsx toggles
-   the `--alma-night` flag every 5 s (only while ALMA is visible), and
+   the `--alma-night` flag every 7 s (only while ALMA is visible), and
    each layer's inline opacity = phaseSoulProximity × (active ? 1 : 0).
    The 1100 ms CSS transition gives a smooth cross-fade between the two
    temple photos and avoids a hard cut at the moment of the toggle. */

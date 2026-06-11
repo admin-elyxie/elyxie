@@ -463,7 +463,7 @@ function Hero({ lang, tweaks, pendantRef }) {
     pendantRef.current.setLang(lang);
   }, [lang, pendantRef]);
 
-  // Phase 04 (ALMA) day/night cycle. Two temple photos cross-fade every 10 s
+  // Phase 04 (ALMA) day/night cycle. Two temple photos cross-fade every 7 s
   // while the user is parked inside ALMA's gaussian window. The flag also
   // drives the orb glow + color + the angel-rig dimming in pendant.jsx
   // (setAlmaNight bridge) so background + lighting + orb hue move together:
@@ -505,10 +505,10 @@ function Hero({ lang, tweaks, pendantRef }) {
   const editionGeoVis = smootherstep((progress - 0.80) / 0.10);
   useEffect(() => {
     if (!almaIsVisible) return;
-    // Respect reduced-motion: skip the automatic 10s day/night cross-fade for
+    // Respect reduced-motion: skip the automatic 7s day/night cross-fade for
     // users who asked for less motion (WCAG 2.3.3). The day frame stays put.
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-    const id = setInterval(() => setAlmaNight(n => !n), 10000);
+    const id = setInterval(() => setAlmaNight(n => !n), 7000);
     return () => clearInterval(id);
   }, [almaIsVisible]);
   // Sync the night flag down to the 3D scene so the orb emissive + the
