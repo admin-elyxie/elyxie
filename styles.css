@@ -4140,3 +4140,158 @@ section[data-section="outro"] {
   .FootBrand__name { font-size: 34px; }
   .FootCopy { flex-direction: column; gap: 14px; align-items: flex-start; }
 }
+
+/* ===========================================================
+   Consentimiento de cookies (Shopify Customer Privacy)
+   ───────────────────────────────────────────────────────────
+   El banner (#shopify-pc__banner) y el modal de preferencias
+   (#shopify-pc__prefs) los inyecta el script de Shopify con su
+   propio CSS de ids — por eso cada regla lleva !important.
+   Esta capa los reviste con la piel de la casa: esmeralda
+   profundo, serif itálica champagne, botones Elyxie (aceptar
+   dorado / rechazar ghost), checkboxes en oro.
+   =========================================================== */
+#shopify-pc__banner.shopify-pc__banner__dialog {
+  background: rgba(7, 26, 22, 0.96) !important;
+  -webkit-backdrop-filter: blur(20px) !important;
+  backdrop-filter: blur(20px) !important;
+  color: rgba(255, 255, 255, 0.75) !important;
+  border: 1px solid rgba(233, 215, 177, 0.22) !important;
+  border-radius: 6px !important;
+  box-shadow: 0 30px 90px rgba(0, 0, 0, 0.6) !important;
+  font-family: var(--font-body) !important;
+}
+#shopify-pc__banner__body-title {
+  font-family: var(--font-display) !important;
+  font-style: italic !important;
+  font-weight: 300 !important;
+  font-size: 26px !important;
+  line-height: 1.15 !important;
+  letter-spacing: 0 !important;
+  color: var(--gold-300) !important;
+}
+#shopify-pc__banner p {
+  font-family: var(--font-body) !important;
+  font-size: 13.5px !important;
+  font-weight: 300 !important;
+  line-height: 1.65 !important;
+  color: rgba(255, 255, 255, 0.72) !important;
+}
+#shopify-pc__banner__body-policy-link {
+  color: var(--gold-300) !important;
+  text-decoration: underline !important;
+  text-underline-offset: 3px !important;
+  text-decoration-color: rgba(233, 215, 177, 0.5) !important;
+}
+
+/* Botones — la pareja de la casa */
+#shopify-pc__banner__btn-accept,
+#shopify-pc__prefs__header-accept,
+#shopify-pc__prefs__header-save {
+  background: linear-gradient(180deg, #E9D7B1, #C9A66B) !important;
+  color: #0A2620 !important;
+  border: 0 !important;
+  border-radius: 999px !important;
+  padding: 13px 26px !important;
+  font-family: var(--font-body) !important;
+  font-size: 11px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.28em !important;
+  text-indent: 0.28em !important;
+  text-transform: uppercase !important;
+  box-shadow: 0 0 30px rgba(233, 215, 177, 0.18) !important;
+  cursor: pointer !important;
+}
+#shopify-pc__banner__btn-decline,
+#shopify-pc__prefs__header-decline {
+  background: transparent !important;
+  color: rgba(255, 255, 255, 0.85) !important;
+  border: 1px solid rgba(255, 255, 255, 0.30) !important;
+  border-radius: 999px !important;
+  padding: 13px 26px !important;
+  font-family: var(--font-body) !important;
+  font-size: 11px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.28em !important;
+  text-indent: 0.28em !important;
+  text-transform: uppercase !important;
+  cursor: pointer !important;
+}
+#shopify-pc__banner__btn-decline:hover,
+#shopify-pc__prefs__header-decline:hover {
+  border-color: var(--gold-300) !important;
+  color: var(--gold-300) !important;
+}
+#shopify-pc__banner__btn-manage-prefs {
+  background: transparent !important;
+  border: 0 !important;
+  color: rgba(255, 255, 255, 0.55) !important;
+  font-family: var(--font-body) !important;
+  font-size: 11px !important;
+  letter-spacing: 0.22em !important;
+  text-transform: uppercase !important;
+  text-decoration: underline !important;
+  text-underline-offset: 4px !important;
+  text-decoration-color: rgba(255, 255, 255, 0.3) !important;
+  cursor: pointer !important;
+}
+#shopify-pc__banner__btn-manage-prefs:hover { color: var(--gold-300) !important; }
+
+/* Modal de preferencias */
+#shopify-pc__prefs__overlay {
+  background: rgba(2, 10, 8, 0.72) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+  backdrop-filter: blur(8px) !important;
+}
+#shopify-pc__prefs__dialog {
+  background: #071a16 !important;
+  color: rgba(255, 255, 255, 0.75) !important;
+  border: 1px solid rgba(233, 215, 177, 0.22) !important;
+  border-radius: 6px !important;
+  box-shadow: 0 40px 120px rgba(0, 0, 0, 0.65) !important;
+  font-family: var(--font-body) !important;
+}
+#shopify-pc__prefs__header-title {
+  font-family: var(--font-display) !important;
+  font-style: italic !important;
+  font-weight: 300 !important;
+  font-size: 24px !important;
+  color: var(--gold-300) !important;
+}
+#shopify-pc__prefs__header-close {
+  background: transparent !important;
+  border: 0 !important;
+  color: rgba(255, 255, 255, 0.7) !important;
+  cursor: pointer !important;
+}
+#shopify-pc__prefs__header-close:hover { color: var(--gold-300) !important; }
+#shopify-pc__prefs__dialog h3 {
+  font-family: var(--font-body) !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.18em !important;
+  text-transform: uppercase !important;
+  color: rgba(255, 255, 255, 0.92) !important;
+}
+#shopify-pc__prefs__dialog p {
+  font-family: var(--font-body) !important;
+  font-size: 13px !important;
+  font-weight: 300 !important;
+  line-height: 1.6 !important;
+  color: rgba(255, 255, 255, 0.65) !important;
+}
+#shopify-pc__prefs__dialog a { color: var(--gold-300) !important; }
+.shopify-pc__prefs__option {
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+#shopify-pc__prefs__dialog input[type="checkbox"] {
+  accent-color: #C9A66B !important;
+}
+/* Los títulos de categoría del modal son <label> sin clase que Shopify pinta
+   en #1f1f1f — invisibles sobre el esmeralda. */
+#shopify-pc__prefs__dialog .shopify-pc__prefs__option > label {
+  color: rgba(255, 255, 255, 0.92) !important;
+  font-family: var(--font-body) !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+}
