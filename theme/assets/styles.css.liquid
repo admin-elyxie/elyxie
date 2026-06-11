@@ -2909,24 +2909,35 @@ section[data-section="outro"] {
 }
 
 /* ---- Modo galería (theme): refleja la galería de medios de Shopify ----
-   Las fotos del producto vienen en proporciones mixtas (dije 4:5, caja
-   apaisada, cadena vertical). object-fit:contain las muestra ENTERAS, sin
-   recortar lo que el equipo curó, flotando sobre el panel oscuro como una
-   pieza en vitrina. La tira admite N miniaturas (envuelve en varias filas). */
+   PARIDAD CON EL PDP (theme/sections/elyxie-product.liquid · .eprod__panel /
+   .eprod__thumb): la imagen principal y las miniaturas LLENAN su marco con
+   object-fit:cover (auto-zoom, jamás letterbox); se recorta lo mínimo. El
+   recuadro del recorte se ancla al focal point nativo de Shopify
+   (image.presentation.focal_point → object-position inline desde img.focal),
+   así una pieza descentrada nunca se corta. La tira admite N miniaturas
+   (envuelve en varias filas; el PDP nunca desborda porque solo tiene 2). */
 .Vitrina__panel[data-gallery="true"] .Vitrina__shot img {
-  object-fit: contain;
-  object-position: center;
+  object-fit: cover;
+  object-position: center;   /* fallback; el focal real llega inline desde Shopify */
 }
+/* Foto a sangre → panel limpio como el PDP: la viñeta pesada y las cruces
+   esmeralda enmarcaban el espacio negativo del modo contain; sobre una foto
+   que llena el marco se leen como manchas. Las reducimos a un hairline claro. */
+.Vitrina__panel[data-gallery="true"]::after {
+  border-color: rgba(255, 255, 255, 0.06);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+.Vitrina__panel[data-gallery="true"] .Vitrina__cc { display: none; }
 .Vitrina__thumbs[data-gallery="true"] {
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 12px;                 /* = PDP .eprod__thumbs */
 }
 .Vitrina__thumbs[data-gallery="true"] .Vitrina__thumb {
-  width: 72px;
+  width: 76px;               /* = PDP .eprod__thumb */
+  border-radius: 10px;       /* = PDP */
 }
 .Vitrina__thumbs[data-gallery="true"] .Vitrina__thumb img {
-  object-fit: contain;
-  padding: 5px;
+  object-fit: cover;         /* = PDP: sin letterbox dentro de la celda */
 }
 
 /* ---- Inscription column ---- */

@@ -720,6 +720,24 @@ function SectionVitrina({ lang }) {
   // Al cambiar de acabado la galería es otra: vuelve a la primera foto.
   useE(() => { setShotIdx(0); }, [finish]);
 
+  // Navegación por teclado de la tira de miniaturas (patrón radiogroup, solo
+  // galería): flechas mueven selección + foco, Home/End a los extremos. Las
+  // miniaturas usan roving tabindex (solo la activa entra en el orden de tab).
+  const onThumbKey = (e) => {
+    if (!galleryMode) return;
+    const n = gallery.length;
+    let next = null;
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown') next = (shotIdx + 1) % n;
+    else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') next = (shotIdx - 1 + n) % n;
+    else if (e.key === 'Home') next = 0;
+    else if (e.key === 'End') next = n - 1;
+    if (next === null) return;
+    e.preventDefault();
+    setShotIdx(next);
+    const btns = e.currentTarget.querySelectorAll('.Vitrina__thumb');
+    if (btns[next]) btns[next].focus();
+  };
+
   // Buy-now: inside the Shopify theme, add the selected acabado×cadena variant
   // to the cart (Ajax API — same-origin, no token, locale-aware root) and go to
   // checkout. On the standalone page window.Shopify/__ELYXIE are absent,
@@ -791,8 +809,11 @@ function SectionVitrina({ lang }) {
               /* Galería Shopify: TODAS las fotos del producto del acabado activo,
                  en el orden del admin. Solo la activa es opaca → el cambio de
                  foto o de acabado cruza por opacity (GPU), sin flash de carga
-                 porque las capas ya están en el DOM. object-fit:contain (CSS)
-                 respeta cada foto sin recortarla, sea cual sea su proporción. */
+                 porque las capas ya están en el DOM. PARIDAD CON EL PDP
+                 (theme/sections/elyxie-product.liquid · .eprod__panel): la imagen
+                 LLENA el marco con object-fit:cover (CSS), anclada al focal point
+                 nativo de Shopify (img.focal → object-position inline), nunca
+                 letterbox; centro como fallback si el medio no trae focal. */
               gallery.map((img, i) => (
                 <picture key={i} className="Vitrina__shot" data-on={i === shotIdx} aria-hidden={i !== shotIdx}>
                   <img
@@ -803,6 +824,7 @@ function SectionVitrina({ lang }) {
                     loading={i === 0 ? 'eager' : 'lazy'}
                     decoding="async"
                     draggable="false"
+                    style={{ objectPosition: img.focal || '50% 50%' }}
                   />
                 </picture>
               ))
@@ -847,7 +869,7 @@ function SectionVitrina({ lang }) {
               In gallery mode it lists EVERY product photo in Shopify order; in
               legacy mode the two canonical shots (piece / chain). */}
           <div className="Vitrina__thumbs" role="radiogroup" aria-label={t.viewsLabel}
-               data-gallery={galleryMode ? 'true' : undefined}>
+               data-gallery={galleryMode ? 'true' : undefined} onKeyDown={onThumbKey}>
             {galleryMode ? (
               gallery.map((img, i) => (
                 <button
@@ -855,12 +877,13 @@ function SectionVitrina({ lang }) {
                   type="button"
                   role="radio"
                   aria-checked={i === shotIdx}
+                  tabIndex={i === shotIdx ? 0 : -1}
                   className="Vitrina__thumb"
                   data-on={i === shotIdx}
                   onClick={() => setShotIdx(i)}
                   aria-label={`${t.viewsLabel} · ${i + 1}`}
                 >
-                  <img src={img.thumb || img.src} alt="" loading="lazy" decoding="async" draggable="false"/>
+                  <img src={img.thumb || img.src} alt="" loading="lazy" decoding="async" draggable="false" style={{ objectPosition: img.focal || '50% 50%' }}/>
                 </button>
               ))
             ) : (
