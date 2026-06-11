@@ -190,6 +190,57 @@ body[data-nav-halo] .nav .elyxie-logo {
   position: absolute;
   inset: -12px 0;
 }
+
+/* ---------- Nav: cuenta + bolsa (header unificado) ----------
+   Iconos nativos de Shopify (icon-account / icon-cart) en trazo fino,
+   a la derecha de la píldora ES/EN. El badge del carrito viste el oro
+   de la casa. El snippet elyxie-nav.liquid es quien los emite. */
+.nav__right {
+  display: inline-flex;
+  align-items: center;
+  gap: clamp(12px, 1.6vw, 22px);
+}
+.nav__lang { margin: 0; }
+.nav__actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+}
+.nav__action {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px; height: 34px;
+  color: inherit;
+  opacity: 0.78;
+  transition: opacity 200ms ease;
+}
+.nav__action:hover,
+.nav__action:focus-visible { opacity: 1; }
+.nav__action::after { content: ''; position: absolute; inset: -6px; } /* táctil ≥44px */
+.nav__action .svg-wrapper { display: inline-flex; }
+.nav__action svg { width: 18px; height: 18px; }
+/* icon-cart-* (viewBox 40) trae mucho aire interno: se compensa con caja mayor. */
+.nav__action--cart svg { width: 38px; height: 38px; margin: -10px; }
+.nav__action .cart-count-bubble {
+  position: absolute;
+  top: 0; right: -3px;
+  min-width: 14px; height: 14px;
+  padding: 0 3px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, var(--gold-300), var(--gold-500));
+  color: var(--emerald-800);
+  font-family: var(--font-body);
+  font-size: 9px;
+  font-weight: 500;
+  line-height: 14px;
+  text-align: center;
+}
+/* Burger ⇄ ✕: el snippet emite ambos SVG; CSS muestra el que corresponde. */
+.nav .nav__icon-close { display: none; }
+.nav[data-drawer-open="true"] .nav__icon-burger { display: none; }
+.nav[data-drawer-open="true"] .nav__icon-close { display: block; }
 /* Sliding indicator pill behind the active button. We position it via a
    CSS custom property `--lang-pos` set by the React component (0 or 1). */
 .nav__lang::before {

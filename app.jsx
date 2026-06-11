@@ -122,10 +122,6 @@ const EDITIONS = [
   },
 ];
 
-const NAV_LINKS = {
-  es: ['INICIO', 'RELATO', 'CUSTODIA', 'EDICIONES', 'CONTACTO'],
-  en: ['HOME',   'STORY',  'CUSTODY',  'EDITIONS',  'CONTACT' ],
-};
 
 // ---------- Theme color interpolation ----------
 // 0 = dark canvas, 1 = ivory canvas. We interpolate body bg + fg in RGB.
@@ -1013,190 +1009,6 @@ function FooterMini({ lang }) {
 }
 
 // ===========================================================
-//  Nav  (desktop + mobile drawer)
-// ===========================================================
-const MOBILE_MENU = {
-  es: [
-    { label: 'INICIO',    href: '#' },
-    { label: 'RELATO',    href: '#' },
-    { label: 'CUSTODIA',  href: '#' },
-    { label: 'EDICIONES', href: '#', children: [
-        'ÁNGEL DE LA LAGUNA NEGRA', 'MAMAYACU', 'HUARINGA', 'UKU PACHA',
-    ]},
-    { label: 'CONTACTO',  href: '#' },
-  ],
-  en: [
-    { label: 'HOME',      href: '#' },
-    { label: 'STORY',     href: '#' },
-    { label: 'CUSTODY',   href: '#' },
-    { label: 'EDITIONS',  href: '#', children: [
-        'ANGEL OF THE BLACK LAGOON', 'MAMAYACU', 'HUARINGA', 'UKU PACHA',
-    ]},
-    { label: 'CONTACT',   href: '#' },
-  ],
-};
-
-function MobileNavDrawer({ lang, setLang, open, onClose }) {
-  const [openIdx, setOpenIdx] = useState(-1);
-
-  // Mismo origen que el nav de escritorio: los link lists de Shopify
-  // (elyxie-header-es/en) que la sección emite en window.__ELYXIE.nav.
-  // Se mergea por índice sobre MOBILE_MENU (mismos 5 ítems, mismo orden)
-  // para conservar el submenú de EDICIONES, que los link lists no traen.
-  // Solo se adopta la URL real cuando no es '/' — los ítems aún sin página
-  // (CUSTODIA, etc.) apuntan a '/' en el Admin y deben seguir como '#'
-  // (cerrar el drawer sin recargar el one-pager); en cuanto se les asigne
-  // página en Navegación, el drawer los recoge solo.
-  const themeNav = (typeof window !== 'undefined') && window.__ELYXIE && window.__ELYXIE.nav && window.__ELYXIE.nav[lang];
-  const menuItems = MOBILE_MENU[lang].map((item, i) => {
-    const link = themeNav && themeNav[i];
-    return (link && link.url && link.url !== '/') ? { ...item, href: link.url } : item;
-  });
-
-  // Lock body scroll + Esc-to-close while drawer is open
-  useEffect(() => {
-    if (!open) return;
-    const prevHtml = document.documentElement.style.overflow;
-    const prevBody = document.body.style.overflow;
-    document.documentElement.style.overflow = 'hidden';
-    document.body.style.overflow = 'hidden';
-    const onKey = (e) => { if (e.key === 'Escape') onClose(); };
-    document.addEventListener('keydown', onKey);
-    return () => {
-      document.documentElement.style.overflow = prevHtml;
-      document.body.style.overflow = prevBody;
-      document.removeEventListener('keydown', onKey);
-    };
-  }, [open, onClose]);
-
-  const t = lang === 'es'
-    ? { contact: 'CONTÁCTANOS', copy: '© 2026 ELYXIE · Custodios de Mamayacu' }
-    : { contact: 'CONTACT US',  copy: '© 2026 ELYXIE · Custodians of Mamayacu' };
-
-  return (
-    <div className="mobile-drawer" data-open={open} aria-hidden={!open}>
-      <div className="mobile-drawer__inner">
-        <ul className="mobile-drawer__list">
-          {menuItems.map((item, i) => {
-            const hasChildren = !!item.children;
-            const isOpen = openIdx === i;
-            return (
-              <li key={item.label} className="mobile-drawer__item" data-open={isOpen}>
-                {hasChildren ? (
-                  <button
-                    type="button"
-                    className="mobile-drawer__row"
-                    onClick={() => setOpenIdx(isOpen ? -1 : i)}
-                    aria-expanded={isOpen}
-                  >
-                    <span>{item.label}</span>
-                    <span className="mobile-drawer__chev" aria-hidden>{isOpen ? '−' : '+'}</span>
-                  </button>
-                ) : (
-                  <a className="mobile-drawer__row" href={item.href} onClick={onClose}>
-                    <span>{item.label}</span>
-                    <span className="mobile-drawer__chev" aria-hidden>→</span>
-                  </a>
-                )}
-                {hasChildren && (
-                  <ul className="mobile-drawer__sub">
-                    {item.children.map((c) => (
-                      <li key={c}><a href="#" onClick={onClose}>{c}</a></li>
-                    ))}
-                  </ul>
-                )}
-              </li>
-            );
-          })}
-        </ul>
-
-        <div className="mobile-drawer__lang" role="group" aria-label={lang === 'es' ? 'Idioma' : 'Language'}>
-          <button data-active={lang === 'es'} aria-pressed={lang === 'es'} onClick={() => setLang('es')}>ES</button>
-          <span aria-hidden>·</span>
-          <button data-active={lang === 'en'} aria-pressed={lang === 'en'} onClick={() => setLang('en')}>EN</button>
-        </div>
-
-        <div className="mobile-drawer__phones">
-          <a href="https://wa.me/51976616514" target="_blank" rel="noopener">WhatsApp · +51 976 616 514</a>
-          <a href="mailto:mkt@elyxie.com">mkt@elyxie.com</a>
-        </div>
-
-        <a className="mobile-drawer__cta Button Button--ghost" href={lang === 'en' ? '/en/pages/contact' : '/pages/contact'} onClick={onClose}>
-          {t.contact}
-          <span className="Button__arrow">→</span>
-        </a>
-
-        {/* Solo perfiles que existen de verdad — FB/YT/Pinterest eran href="#". */}
-        <ul className="mobile-drawer__social" aria-label="Social">
-          <li><a href="https://www.instagram.com/elyxie.es/" target="_blank" rel="noopener" aria-label="Instagram"><InstaSvg/></a></li>
-        </ul>
-
-        <p className="mobile-drawer__copy">{t.copy}</p>
-      </div>
-    </div>
-  );
-}
-
-// Tiny inline icon set so the drawer is self-contained
-function InstaSvg() { return <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor"/></svg>; }
-
-function Nav({ lang, setLang }) {
-  const [drawerOpen, setDrawerOpen] = useState(false);
-
-  // Close drawer if viewport grows past mobile breakpoint
-  useEffect(() => {
-    const mq = window.matchMedia('(min-width: 768px)');
-    const handler = (e) => { if (e.matches) setDrawerOpen(false); };
-    mq.addEventListener('change', handler);
-    return () => mq.removeEventListener('change', handler);
-  }, []);
-
-  return (
-    <>
-      <nav className="nav" data-drawer-open={drawerOpen}>
-        <a className="nav__brand" href="#" aria-label="Elyxie"><span className="elyxie-logo" aria-hidden></span></a>
-
-        {/* Desktop inline links + language switcher (hidden on mobile via CSS) */}
-        <div className="nav__links">
-          {(((typeof window !== 'undefined') && window.__ELYXIE && window.__ELYXIE.nav && window.__ELYXIE.nav[lang]) || NAV_LINKS[lang].map((l) => ({ label: l, url: '#' }))).map((l, i) => (
-            <a key={l.label + i} className="nav__link" href={l.url || '#'}>{l.label}</a>
-          ))}
-        </div>
-        <div className="nav__lang" style={{ '--lang-pos': lang === 'en' ? 1 : 0 }} role="group" aria-label={lang === 'es' ? 'Idioma' : 'Language'}>
-          <button data-active={lang === 'es'} onClick={() => setLang('es')} aria-pressed={lang === 'es'}>ES</button>
-          <button data-active={lang === 'en'} onClick={() => setLang('en')} aria-pressed={lang === 'en'}>EN</button>
-        </div>
-
-        {/* Mobile icon buttons (hidden on desktop via CSS) */}
-        <div className="nav__mobile-actions" aria-hidden={false}>
-          <button
-            className="nav__icon-btn nav__icon-btn--menu"
-            aria-label={drawerOpen
-              ? (lang === 'es' ? 'Cerrar menú' : 'Close menu')
-              : (lang === 'es' ? 'Abrir menú' : 'Open menu')}
-            aria-expanded={drawerOpen}
-            type="button"
-            onClick={() => setDrawerOpen((v) => !v)}
-          >
-            {drawerOpen ? (
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
-                <path d="M5 5l14 14M19 5L5 19"/>
-              </svg>
-            ) : (
-              <svg width="18" height="14" viewBox="0 0 24 18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
-                <path d="M3 3h18M3 9h18M3 15h18"/>
-              </svg>
-            )}
-          </button>
-        </div>
-      </nav>
-
-      <MobileNavDrawer lang={lang} setLang={setLang} open={drawerOpen} onClose={() => setDrawerOpen(false)} />
-    </>
-  );
-}
-
-// ===========================================================
 //  Tweaks panel
 // ===========================================================
 const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
@@ -1256,18 +1068,9 @@ function App() {
       return l.indexOf('en') === 0 ? 'en' : 'es';
     } catch (e) { return 'es'; }
   });
-  // The ES/EN toggle switches the REAL Shopify locale (navigates to the localized URL)
-  // and records the explicit choice so the geolocation auto-default won't override it.
-  // Off-Shopify it degrades to the old client-side swap.
-  const chooseLang = (target) => {
-    try { localStorage.setItem('elyxie_lang_choice', target); } catch (e) {}
-    try {
-      if (typeof window === 'undefined' || !window.__ELYXIE) { setLang(target); return; }
-      const p = window.location.pathname.replace(/^\/en(\/|$)/, '/');
-      const url = target === 'en' ? ('/en' + (p === '/' ? '/' : p)) : p;
-      window.location.assign(url + window.location.search);
-    } catch (e) { setLang(target); }
-  };
+  // (El toggle ES/EN vive ahora en el header liquid — snippets/elyxie-nav.liquid —
+  // como form de localization de Shopify: navega al locale real conservando la
+  // ruta y guarda la elección en localStorage, igual que hacía chooseLang aquí.)
   const [tweaks, setTweak] = useTweaks(TWEAK_DEFAULTS);
   const pendantRef = useRef(null);
 
@@ -1339,7 +1142,10 @@ function App() {
 
   return (
     <>
-      <Nav lang={lang} setLang={chooseLang} />
+      {/* El header es ahora liquid (snippets/elyxie-nav.liquid), renderizado
+          por el layout — fuente única de verdad compartida con el resto de
+          plantillas. El ES/EN del header navega el locale real de Shopify
+          (form de localization), el mismo mecanismo que usaba chooseLang. */}
       <main>
         <h1 className="sr-only">
           {lang === 'es'

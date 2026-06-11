@@ -50,6 +50,30 @@
   {{ 'colors_and_type.css' | asset_url | stylesheet_tag }}
   {{ 'styles.css' | asset_url | stylesheet_tag }}
 
+  {%- comment -%} Cart drawer nativo (mismo stack que elyxie-page.liquid): el
+    icono de bolsa del header unificado lo abre también en la home. {%- endcomment -%}
+  {{ 'component-cart-items.css' | asset_url | stylesheet_tag }}
+  {{ 'component-cart-drawer.css' | asset_url | stylesheet_tag }}
+  {{ 'component-cart.css' | asset_url | stylesheet_tag }}
+  {{ 'component-totals.css' | asset_url | stylesheet_tag }}
+  {{ 'component-price.css' | asset_url | stylesheet_tag }}
+  {{ 'component-discounts.css' | asset_url | stylesheet_tag }}
+  {{ 'elyxie-cart.css' | asset_url | stylesheet_tag }}
+  <script src="{{ 'constants.js' | asset_url }}" defer="defer"></script>
+  <script src="{{ 'pubsub.js' | asset_url }}" defer="defer"></script>
+  <script src="{{ 'global.js' | asset_url }}" defer="defer"></script>
+  <style>
+    /* Guardas para el CSS de carrito de Dawn (autorado a 1rem = 10px y con
+       tokens de base.css que aquí no cargan). styles.css es 100% px/em, así
+       que el 62.5% le es inerte; body 16px restaura la herencia de texto. */
+    html { font-size: 62.5%; }
+    body { font-size: 16px; }
+    :root { --font-body-scale: 1; --font-heading-scale: 1; --border-radius: 0; --border-width: 0; --image-padding: 0; }
+    .visually-hidden { position: absolute !important; overflow: hidden; width: 1px; height: 1px;
+      margin: -1px; padding: 0; border: 0; clip: rect(0 0 0 0); white-space: nowrap; word-wrap: normal !important; }
+    .svg-wrapper { display: inline-flex; }
+  </style>
+
   {{ content_for_header }}
   {%- comment -%} Default por geolocalización (IP): US/no-hispano → /en, antes de pintar. {%- endcomment -%}
   {% render 'elyxie-lang-geo' %}
@@ -223,6 +247,32 @@
   <script src="{{ 'pendant.js' | asset_url }}" defer></script>
   <script src="{{ 'sections.js' | asset_url }}" defer></script>
   <script src="{{ 'app.js' | asset_url }}" defer></script>
+
+  {%- comment -%} Bootstrap AJAX del carrito + drawer nativo (espejo de
+    elyxie-page.liquid; sin product-form.js — la home no tiene formulario
+    de producto, su CTA añade vía cart/add.js y va a checkout). {%- endcomment -%}
+  <script>
+    window.shopUrl = '{{ request.origin }}';
+    window.routes = {
+      cart_add_url: '{{ routes.cart_add_url }}',
+      cart_change_url: '{{ routes.cart_change_url }}',
+      cart_update_url: '{{ routes.cart_update_url }}',
+      cart_url: '{{ routes.cart_url }}',
+    };
+    window.cartStrings = {
+      error: `{{ 'sections.cart.cart_error' | t }}`,
+      quantityError: `{{ 'sections.cart.cart_quantity_error_html' | t: quantity: '[quantity]' }}`,
+    };
+    window.variantStrings = {
+      addToCart: `{{ 'products.product.add_to_cart' | t }}`,
+      soldOut: `{{ 'products.product.sold_out' | t }}`,
+      unavailable: `{{ 'products.product.unavailable' | t }}`,
+      unavailable_with_option: `{{ 'products.product.value_unavailable' | t: option_value: '[value]' }}`,
+    };
+    window.accessibilityStrings = {};
+  </script>
+  {%- render 'cart-drawer' -%}
+  <script src="{{ 'cart-drawer.js' | asset_url }}" defer="defer"></script>
 
   {%- comment -%} Loader controller: hold splash until pendant fires angel-ready. {%- endcomment -%}
   <script>

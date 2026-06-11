@@ -24,6 +24,10 @@
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&display=swap"/>
   <link rel="stylesheet" href="https://api.fontshare.com/v2/css?f[]=satoshi@300,400,500&display=swap"/>
   {{ 'colors_and_type.css' | asset_url | stylesheet_tag }}
+  {%- comment -%} styles.css = la hoja del one-pager: trae el header unificado
+    (.nav, .nav__lang, .mobile-drawer…) que el snippet elyxie-nav renderiza.
+    Misma hoja en home y páginas = header idéntico por construcción. {%- endcomment -%}
+  {{ 'styles.css' | asset_url | stylesheet_tag }}
 
   {%- comment -%} Native Shopify cart drawer — machinery + elyxie re-skin (elyxie-cart.css). {%- endcomment -%}
   {{ 'component-cart-items.css' | asset_url | stylesheet_tag }}
@@ -65,18 +69,12 @@
       color: var(--ep-ink); font-family: var(--ep-sans); font-weight: 400; -webkit-font-smoothing: antialiased;
       min-height: 100vh; display: flex; flex-direction: column;
     }
-    .epage-shell { flex: 1 0 auto; }
-    /* ── Nav ── */
-    .epage-nav { display: flex; align-items: center; justify-content: space-between;
-      padding: 28px clamp(20px,5vw,64px); }
-    .epage-mark { display: inline-block; width: 132px; height: 32px; background-color: var(--ep-champ);
-      -webkit-mask: url("{{ 'elyxie-wordmark.svg' | asset_url }}") no-repeat left center / contain;
-              mask: url("{{ 'elyxie-wordmark.svg' | asset_url }}") no-repeat left center / contain; }
-    .epage-nav nav { display: flex; gap: 28px; }
-    .epage-nav a.epage-link { color: rgba(255,255,255,0.72); text-decoration: none; font-size: 11px;
-      letter-spacing: 0.28em; text-transform: uppercase; transition: color 240ms ease; }
-    .epage-nav a.epage-link:hover { color: var(--ep-champ); }
-    @media (max-width: 720px){ .epage-nav nav { display: none; } }
+    /* El header ahora es el unificado (.nav, fixed): el shell deja sitio
+       bajo la barra — 76px desktop, 60px + safe-area en móvil (styles.css). */
+    .epage-shell { flex: 1 0 auto; padding-top: 76px; }
+    @media (max-width: 767px) {
+      .epage-shell { padding-top: calc(60px + env(safe-area-inset-top, 0px)); }
+    }
     /* ── Footer ── */
     .epage-foot { flex-shrink: 0; border-top: 1px solid rgba(255,255,255,0.08);
       padding: 56px clamp(20px,5vw,64px) 40px; display: grid; gap: 40px;
@@ -92,63 +90,16 @@
     .epage-copy { grid-column: 1 / -1; margin-top: 24px; padding-top: 24px; border-top: 1px solid rgba(255,255,255,0.06);
       font-size: 11px; letter-spacing: 0.2em; color: rgba(255,255,255,0.4); }
     @media (max-width: 720px){ .epage-foot { grid-template-columns: 1fr 1fr; } }
-    /* ── Toggle de idioma ES/EN (espejo del home, ES por defecto) ── */
-    .epage-nav__right { display: flex; align-items: center; gap: clamp(20px,3vw,40px); }
-    .epage-lang { display: inline-flex; align-items: center; padding: 4px; margin: 0;
-      background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.14); border-radius: 999px; }
-    .epage-lang__btn { appearance: none; -webkit-appearance: none; background: transparent; border: 0;
-      cursor: pointer; width: 46px; padding: 7px 0; border-radius: 999px; font-family: var(--ep-sans);
-      font-size: 11px; font-weight: 500; letter-spacing: 0.22em; text-transform: uppercase;
-      color: rgba(255,255,255,0.55); text-align: center; text-indent: 0.22em;
-      transition: color 240ms ease, background 240ms ease; }
-    .epage-lang__btn[data-active="true"] { color: #fff; background: rgba(255,255,255,0.14); }
-    .epage-lang__btn:hover { color: var(--ep-champ); }
-    @media (max-width: 720px){ .epage-nav__right { gap: 14px; } }
   </style>
 </head>
 <body class="epage" data-theme="dark">
   {%- if request.locale.iso_code == 'en' -%}
-    {%- assign nav = linklists['elyxie-header-en'] -%}
     {%- assign foot = linklists['elyxie-footer-en'] -%}
   {%- else -%}
-    {%- assign nav = linklists['elyxie-header-es'] -%}
     {%- assign foot = linklists['elyxie-footer-es'] -%}
   {%- endif -%}
-  <header class="epage-nav">
-    <a href="{{ routes.root_url }}" class="epage-mark" aria-label="Elyxie"></a>
-    <div class="epage-nav__right">
-      <nav>
-        {%- for l in nav.links -%}<a class="epage-link" href="{{ l.url }}">{{ l.title }}</a>{%- endfor -%}
-      </nav>
-      {%- comment -%} Toggle ES/EN — refleja el locale real de Shopify (es por defecto); botones lo cambian {%- endcomment -%}
-      {%- assign cur_iso = localization.language.iso_code | downcase -%}
-      {%- assign lang_es = nil -%}{%- assign lang_en = nil -%}
-      {%- for language in localization.available_languages -%}
-        {%- assign _iso = language.iso_code | downcase -%}
-        {%- if _iso == 'es' -%}{%- assign lang_es = language -%}{%- elsif _iso == 'en' -%}{%- assign lang_en = language -%}{%- endif -%}
-      {%- endfor -%}
-      {%- form 'localization', class: 'epage-lang' -%}
-        {%- if lang_es -%}<button type="submit" name="locale_code" value="{{ lang_es.iso_code }}" class="epage-lang__btn" data-lang="es" data-active="{% if cur_iso == 'es' %}true{% else %}false{% endif %}" aria-label="Español" onclick="try{localStorage.setItem('elyxie_lang_choice','es')}catch(e){}">ES</button>{%- endif -%}
-        {%- if lang_en -%}<button type="submit" name="locale_code" value="{{ lang_en.iso_code }}" class="epage-lang__btn" data-lang="en" data-active="{% if cur_iso == 'en' %}true{% else %}false{% endif %}" aria-label="English" onclick="try{localStorage.setItem('elyxie_lang_choice','en')}catch(e){}">EN</button>{%- endif -%}
-      {%- endform -%}
-      {%- comment -%} Carrito — abre el cart drawer nativo (cart-drawer.js engancha #cart-icon-bubble).
-        Markup inline (igual que el header Dawn); cart-icon-bubble solo existe como sección
-        para la Section Rendering API, que reemplaza este innerHTML al actualizar el carrito. {%- endcomment -%}
-      <a href="{{ routes.cart_url }}" id="cart-icon-bubble" class="epage-cart" aria-label="{{ 'templates.cart.cart' | t }}">
-        {%- if cart == empty -%}
-          <span class="svg-wrapper">{{ 'icon-cart-empty.svg' | inline_asset_content }}</span>
-        {%- else -%}
-          <span class="svg-wrapper">{{ 'icon-cart.svg' | inline_asset_content }}</span>
-        {%- endif -%}
-        {%- if cart != empty -%}
-          <div class="cart-count-bubble">
-            {%- if cart.item_count < 100 -%}<span aria-hidden="true">{{ cart.item_count }}</span>{%- endif -%}
-            <span class="visually-hidden">{{ 'sections.header.cart_count' | t: count: cart.item_count }}</span>
-          </div>
-        {%- endif -%}
-      </a>
-    </div>
-  </header>
+  {%- comment -%} Header unificado del sitio — el mismo snippet que la home. {%- endcomment -%}
+  {% render 'elyxie-nav' %}
 
   <div class="epage-shell">{{ content_for_layout }}</div>
 
