@@ -221,8 +221,13 @@ body[data-nav-halo] .nav .elyxie-logo {
 .nav__action::after { content: ''; position: absolute; inset: -6px; } /* táctil ≥44px */
 .nav__action .svg-wrapper { display: inline-flex; }
 .nav__action svg { width: 18px; height: 18px; }
-/* icon-cart-* (viewBox 40) trae mucho aire interno: se compensa con caja mayor. */
-.nav__action--cart svg { width: 38px; height: 38px; margin: -10px; }
+/* icon-cart-* (viewBox 40) trae mucho aire interno: se compensa con caja mayor
+   para que la silueta lea igual de grande que la cuenta. max-width:none es
+   IMPRESCINDIBLE: el reset global de colors_and_type.css (img,svg,video{max-width:100%})
+   capaba el ancho al del contenedor (~18px) y preserveAspectRatio reescalaba todo
+   el icono a esa proporción → la bolsa salía a la mitad. El margen negativo deja
+   su huella en 18px (36−9−9), igual que la cuenta, para un espaciado parejo. */
+.nav__action--cart svg { width: 36px; height: 36px; max-width: none; margin: -9px; }
 .nav__action .cart-count-bubble {
   position: absolute;
   top: 0; right: -3px;
