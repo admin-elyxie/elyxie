@@ -753,7 +753,6 @@ const FOOT_COPY = {
     button: 'Reserve',
     discreet: 'We do not share addresses. Ever.',
     success: 'Thank you. The lagoon will find you.',
-    error: 'Something went wrong — please try again.',
     brandBody: 'A single piece, hand-crafted in Lima, with water gathered from the Black Lagoon of Huancabamba.',
     columns: [
       { title: 'ELYXIE', links: ['Story', 'The lagoon', 'Master jeweler', 'Press'] },
@@ -770,7 +769,6 @@ const FOOT_COPY = {
     button: 'Reservar',
     discreet: 'No compartimos direcciones. Nunca.',
     success: 'Gracias. La laguna te encontrará.',
-    error: 'No se pudo enviar. Inténtalo de nuevo.',
     brandBody: 'Una sola pieza, hecha a mano en Lima, con agua recolectada de la Laguna Negra de Huancabamba.',
     columns: [
       { title: 'ELYXIE', links: ['Relato', 'La laguna', 'Maestro joyero', 'Prensa'] },
@@ -791,25 +789,12 @@ const FootMailIcon = () => <FootIcon><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9
 
 function Footer({ lang }) {
   const t = FOOT_COPY[lang];
-  // Captura nativa de Shopify: POST /contact con form_type=customer crea/actualiza
-  // el customer como suscriptor (tag newsletter). En la página standalone no hay
-  // backend → el fetch falla y mostramos el estado de error.
-  const [status, setStatus] = useS('idle'); // idle | sending | sent | error
-  const onSubmit = (e) => {
-    e.preventDefault();
-    if (status === 'sending') return;
-    const email = e.currentTarget.email.value;
-    const root = ((typeof window !== 'undefined') && window.Shopify && window.Shopify.routes && window.Shopify.routes.root) || '/';
-    setStatus('sending');
-    const body = new URLSearchParams();
-    body.set('form_type', 'customer');
-    body.set('utf8', '✓');
-    body.set('contact[email]', email);
-    body.set('contact[tags]', 'newsletter');
-    fetch(root + 'contact', { method: 'POST', body })
-      .then((r) => setStatus(r.ok ? 'sent' : 'error'))
-      .catch(() => setStatus('error'));
-  };
+  // Captura nativa de Shopify: POST de página completa a /contact con
+  // form_type=customer (el POST AJAX devuelve 400 cuando la verificación
+  // anti-spam de Shopify exige challenge; el submit nativo pasa por /challenge
+  // y vuelve con ?customer_posted=true). En la standalone no hay backend.
+  const root = ((typeof window !== 'undefined') && window.Shopify && window.Shopify.routes && window.Shopify.routes.root) || '/';
+  const posted = (typeof window !== 'undefined') && /[?&]customer_posted=true/.test(window.location.search);
   return (
     <footer className="SiteFooter" data-theme="dark" data-section="footer" data-screen-label="07 Footer">
       <div className="SiteFooter__halo" aria-hidden></div>
@@ -820,12 +805,15 @@ function Footer({ lang }) {
             <h2 className="FootNews__title">{t.title}</h2>
             <p className="FootNews__body">{t.body}</p>
           </div>
-          <form className="FootForm" onSubmit={onSubmit}>
+          <form className="FootForm" method="post" action={root + 'contact#FootForm'} id="FootForm">
+            <input type="hidden" name="form_type" value="customer"/>
+            <input type="hidden" name="utf8" value="✓"/>
+            <input type="hidden" name="contact[tags]" value="newsletter"/>
             <div className="FootForm__row">
               <input
                 className="FootForm__input"
                 type="email"
-                name="email"
+                name="contact[email]"
                 autoComplete="email"
                 required
                 aria-label={t.placeholder}
@@ -834,7 +822,7 @@ function Footer({ lang }) {
               <button className="FootForm__submit" type="submit">{t.button}</button>
             </div>
             <div className="FootForm__discreet" role="status" aria-live="polite">
-              {status === 'sent' ? t.success : status === 'error' ? t.error : t.discreet}
+              {posted ? t.success : t.discreet}
             </div>
           </form>
         </div>
