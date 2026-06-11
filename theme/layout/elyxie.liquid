@@ -3,9 +3,36 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>elyxie — un santuario que se lleva puesto</title>
+  {%- comment -%} Title/description bilingües (el layout solo lo usa la home, sin page_title útil). {%- endcomment -%}
+  {%- if request.locale.iso_code == 'en' -%}
+    {%- assign meta_title = 'Elyxie — a sanctuary you wear' -%}
+    {%- assign meta_desc = 'Sacred water from the Black Lagoon of Huancabamba, sealed inside a hand-blown glass sphere. A limited-edition talisman in silver, rhodium or gold. Handmade in Lima, Peru.' -%}
+  {%- else -%}
+    {%- assign meta_title = 'Elyxie — un santuario que se lleva puesto' -%}
+    {%- assign meta_desc = 'Agua sagrada de la Laguna Negra de Huancabamba, sellada en una esfera de cristal soplado. Talismán de edición limitada en plata, rodio u oro. Hecho a mano en Lima, Perú.' -%}
+  {%- endif -%}
+  <title>{{ meta_title }}</title>
+  <meta name="description" content="{{ meta_desc }}">
+  <meta property="og:site_name" content="{{ shop.name }}">
+  <meta property="og:title" content="{{ meta_title }}">
+  <meta property="og:description" content="{{ meta_desc }}">
+  <meta property="og:url" content="{{ canonical_url }}">
+  <meta property="og:type" content="website">
+  {%- comment -%} El scraper de FB/WhatsApp exige URL absoluta con esquema (asset_url emite //…). {%- endcomment -%}
+  <meta property="og:image" content="https:{{ 'story-og.jpg' | asset_url }}">
+  <meta name="twitter:card" content="summary_large_image">
   <link rel="canonical" href="{{ canonical_url }}"/>
   <link rel="icon" href="{{ 'elyxie-mark.svg' | asset_url }}"/>
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    "name": "Elyxie",
+    "url": {{ shop.url | json }},
+    "logo": "https:{{ 'elyxie-mark.svg' | asset_url }}",
+    "sameAs": ["https://www.instagram.com/elyxie.es/"]
+  }
+  </script>
 
   {%- comment -%} Open TCP+TLS to cross-origins on the critical path early. {%- endcomment -%}
   <link rel="preconnect" href="https://unpkg.com" crossorigin>
@@ -157,7 +184,7 @@
   <script type="importmap">
   {
     "imports": {
-      "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+      "three": "https://unpkg.com/three@0.160.0/build/three.module.min.js",
       "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
     }
   }

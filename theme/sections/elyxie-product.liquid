@@ -281,6 +281,12 @@
   <div class="estory-inner">{{ product.description }}</div>
 </section>
 
+{%- comment -%} Datos estructurados Product (precio, moneda, disponibilidad) — mismo
+  filtro que usa Dawn en main-product.liquid; el re-skin lo había perdido. {%- endcomment -%}
+<script type="application/ld+json">
+  {{ product | structured_data }}
+</script>
+
 {% schema %}
 { "name": "Producto ELYXIE", "settings": [] }
 {% endschema %}

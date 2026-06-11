@@ -798,7 +798,9 @@ function Hero({ lang, tweaks, pendantRef }) {
                             : <>A sanctuary<br/><span className="accent">you carry</span></>}
                         </h2>
                         <p className="phase-sub">{p.sub[lang]}</p>
-                        <a className="Button Button--ghost edition-cta" href="#contact">
+                        {/* «Solicitar la custodia» = intención de compra → ancla a la
+                            Vitrina (#ediciones), la sección de reserva bajo el hero. */}
+                        <a className="Button Button--ghost edition-cta" href="#ediciones">
                           {lang === 'es' ? 'Solicitar la custodia' : 'Request custody'}
                           <span className="Button__arrow">→</span>
                         </a>
@@ -1060,20 +1062,18 @@ function MobileNavDrawer({ lang, setLang, open, onClose }) {
         </div>
 
         <div className="mobile-drawer__phones">
-          <a href="tel:+51138899012">+51 1 388 9912</a>
-          <a href="tel:+5113889955">+51 1 388 9955</a>
+          <a href="https://wa.me/51976616514" target="_blank" rel="noopener">WhatsApp · +51 976 616 514</a>
+          <a href="mailto:mkt@elyxie.com">mkt@elyxie.com</a>
         </div>
 
-        <a className="mobile-drawer__cta Button Button--ghost" href="#contact" onClick={onClose}>
+        <a className="mobile-drawer__cta Button Button--ghost" href={lang === 'en' ? '/en/pages/contact' : '/pages/contact'} onClick={onClose}>
           {t.contact}
           <span className="Button__arrow">→</span>
         </a>
 
+        {/* Solo perfiles que existen de verdad — FB/YT/Pinterest eran href="#". */}
         <ul className="mobile-drawer__social" aria-label="Social">
-          <li><a href="#" aria-label="Instagram"><InstaSvg/></a></li>
-          <li><a href="#" aria-label="Facebook"><FbSvg/></a></li>
-          <li><a href="#" aria-label="YouTube"><YtSvg/></a></li>
-          <li><a href="#" aria-label="Pinterest"><PinSvg/></a></li>
+          <li><a href="https://www.instagram.com/elyxie.es/" target="_blank" rel="noopener" aria-label="Instagram"><InstaSvg/></a></li>
         </ul>
 
         <p className="mobile-drawer__copy">{t.copy}</p>
@@ -1084,9 +1084,6 @@ function MobileNavDrawer({ lang, setLang, open, onClose }) {
 
 // Tiny inline icon set so the drawer is self-contained
 function InstaSvg() { return <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor"/></svg>; }
-function FbSvg()    { return <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M13.5 21v-8h2.7l.4-3.1h-3.1V7.9c0-.9.3-1.5 1.5-1.5h1.7V3.6c-.3 0-1.3-.1-2.4-.1-2.4 0-4 1.4-4 4.1V9.9H7.6V13h2.6v8h3.3z"/></svg>; }
-function YtSvg()    { return <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M22 8.2a3 3 0 0 0-2-2c-1.8-.5-9-.5-9-.5s-7.2 0-9 .5a3 3 0 0 0-2 2c-.4 1.8-.4 3.8-.4 3.8s0 2 .4 3.8a3 3 0 0 0 2 2c1.8.5 9 .5 9 .5s7.2 0 9-.5a3 3 0 0 0 2-2c.4-1.8.4-3.8.4-3.8s0-2-.4-3.8zM9.5 15.5v-7l6 3.5-6 3.5z"/></svg>; }
-function PinSvg()   { return <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.5 2 2 6.5 2 12c0 4.2 2.6 7.8 6.2 9.3-.1-.8-.2-2 0-2.9.2-.8 1.2-5.1 1.2-5.1s-.3-.6-.3-1.5c0-1.4.8-2.5 1.9-2.5.9 0 1.3.7 1.3 1.5 0 .9-.6 2.3-.9 3.6-.3 1.1.5 2 1.6 2 1.9 0 3.4-2 3.4-5 0-2.6-1.9-4.4-4.6-4.4-3.1 0-5 2.3-5 4.8 0 1 .4 2 .8 2.6.1.1.1.2.1.3-.1.3-.2 1-.3 1.1 0 .2-.2.2-.4.1-1.2-.6-2-2.4-2-3.8 0-3.1 2.3-6 6.5-6 3.4 0 6.1 2.4 6.1 5.7 0 3.4-2.1 6.2-5.1 6.2-1 0-2-.5-2.3-1.1l-.6 2.4c-.2.9-.8 2-1.2 2.6.9.3 1.9.4 2.9.4 5.5 0 10-4.5 10-10S17.5 2 12 2z"/></svg>; }
 
 function Nav({ lang, setLang }) {
   const [drawerOpen, setDrawerOpen] = useState(false);

@@ -427,7 +427,7 @@ function SectionVitrina({ lang }) {
   };
 
   return (
-    <section className="Section theme-dark Vitrina" data-theme="dark" data-section="vitrina" data-screen-label="Vitrina (configurador)">
+    <section id="ediciones" className="Section theme-dark Vitrina" data-theme="dark" data-section="vitrina" data-screen-label="Vitrina (configurador)">
       <Container className="Vitrina__inner">
 
         {/* ── Viewer: spotlit display panel ───────────────────────────── */}
@@ -605,7 +605,7 @@ function SectionCertificate({ lang }) {
   };
 
   return (
-    <section className="Section theme-dark Certificate" data-theme="dark" data-section="certificate" data-screen-label="04 Certificate">
+    <section id="custodia" className="Section theme-dark Certificate" data-theme="dark" data-section="certificate" data-screen-label="04 Certificate">
       <div className="Certificate__halo" aria-hidden></div>
       <div className="Container Certificate__inner">
         <div className="Certificate__eyebrow">{t.eyebrow}</div>
@@ -753,6 +753,7 @@ const FOOT_COPY = {
     button: 'Reserve',
     discreet: 'We do not share addresses. Ever.',
     success: 'Thank you. The lagoon will find you.',
+    error: 'Something went wrong — please try again.',
     brandBody: 'A single piece, hand-crafted in Lima, with water gathered from the Black Lagoon of Huancabamba.',
     columns: [
       { title: 'ELYXIE', links: ['Story', 'The lagoon', 'Master jeweler', 'Press'] },
@@ -769,6 +770,7 @@ const FOOT_COPY = {
     button: 'Reservar',
     discreet: 'No compartimos direcciones. Nunca.',
     success: 'Gracias. La laguna te encontrará.',
+    error: 'No se pudo enviar. Inténtalo de nuevo.',
     brandBody: 'Una sola pieza, hecha a mano en Lima, con agua recolectada de la Laguna Negra de Huancabamba.',
     columns: [
       { title: 'ELYXIE', links: ['Relato', 'La laguna', 'Maestro joyero', 'Prensa'] },
@@ -789,8 +791,25 @@ const FootMailIcon = () => <FootIcon><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9
 
 function Footer({ lang }) {
   const t = FOOT_COPY[lang];
-  const [sent, setSent] = useS(false);
-  const onSubmit = (e) => { e.preventDefault(); setSent(true); };
+  // Captura nativa de Shopify: POST /contact con form_type=customer crea/actualiza
+  // el customer como suscriptor (tag newsletter). En la página standalone no hay
+  // backend → el fetch falla y mostramos el estado de error.
+  const [status, setStatus] = useS('idle'); // idle | sending | sent | error
+  const onSubmit = (e) => {
+    e.preventDefault();
+    if (status === 'sending') return;
+    const email = e.currentTarget.email.value;
+    const root = ((typeof window !== 'undefined') && window.Shopify && window.Shopify.routes && window.Shopify.routes.root) || '/';
+    setStatus('sending');
+    const body = new URLSearchParams();
+    body.set('form_type', 'customer');
+    body.set('utf8', '✓');
+    body.set('contact[email]', email);
+    body.set('contact[tags]', 'newsletter');
+    fetch(root + 'contact', { method: 'POST', body })
+      .then((r) => setStatus(r.ok ? 'sent' : 'error'))
+      .catch(() => setStatus('error'));
+  };
   return (
     <footer className="SiteFooter" data-theme="dark" data-section="footer" data-screen-label="07 Footer">
       <div className="SiteFooter__halo" aria-hidden></div>
@@ -815,7 +834,7 @@ function Footer({ lang }) {
               <button className="FootForm__submit" type="submit">{t.button}</button>
             </div>
             <div className="FootForm__discreet" role="status" aria-live="polite">
-              {sent ? t.success : t.discreet}
+              {status === 'sent' ? t.success : status === 'error' ? t.error : t.discreet}
             </div>
           </form>
         </div>
@@ -827,8 +846,8 @@ function Footer({ lang }) {
             <div className="FootBrand__body">{t.brandBody}</div>
             <div className="FootSocials">
               <a className="FootSocial" href="https://www.instagram.com/elyxie.es/" target="_blank" rel="noopener" aria-label="Instagram"><FootIgIcon/></a>
-              <a className="FootSocial" href="#contact" aria-label="WhatsApp"><FootWaIcon/></a>
-              <a className="FootSocial" href="#contact" aria-label="Email"><FootMailIcon/></a>
+              <a className="FootSocial" href="https://wa.me/51976616514" target="_blank" rel="noopener" aria-label="WhatsApp"><FootWaIcon/></a>
+              <a className="FootSocial" href="mailto:mkt@elyxie.com" aria-label="Email"><FootMailIcon/></a>
             </div>
           </div>
           {(((typeof window !== 'undefined') && window.__ELYXIE && window.__ELYXIE.footerColumns && window.__ELYXIE.footerColumns[lang]) || t.columns.map((c) => ({ title: c.title, links: c.links.map((l) => ({ label: l, url: '' })) }))).map((col, ci) => (

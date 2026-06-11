@@ -13,7 +13,8 @@
   <meta property="og:url" content="{{ canonical_url }}">
   <meta property="og:type" content="website">
   {%- if template.suffix == 'story' -%}
-    <meta property="og:image" content="{{ 'story-og.jpg' | asset_url }}">
+    {%- comment -%} https: explícito — el scraper de FB/WhatsApp rechaza URLs //relativas. {%- endcomment -%}
+    <meta property="og:image" content="https:{{ 'story-og.jpg' | asset_url }}">
     {%- comment -%} Story carga Three.js desde unpkg al acercarse la escena 3D. {%- endcomment -%}
     <link rel="preconnect" href="https://unpkg.com" crossorigin>
   {%- endif -%}
