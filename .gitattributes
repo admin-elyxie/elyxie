@@ -1,0 +1,14 @@
+# Bundles compilados (salida de esbuild en build.js) y CSS generado.
+# Se COMMITEAN a propósito —Shopify sirve theme/assets/*.js tal cual y el
+# standalone sirve dist/*.js— pero son artefactos: una sola línea minificada,
+# así que cualquier cambio aparece como un diff gigante e ilegible.
+# `linguist-generated` hace que GitHub los COLAPSE en los diffs de PR (siguen
+# siendo expandibles) y los excluye de las estadísticas de lenguaje.
+# El fuente real y revisable vive en *.jsx y styles.css.
+
+dist/*.js               linguist-generated=true
+theme/assets/app.js          linguist-generated=true
+theme/assets/sections.js     linguist-generated=true
+theme/assets/pendant.js      linguist-generated=true
+theme/assets/tweaks-panel.js linguist-generated=true
+theme/assets/styles.css.liquid linguist-generated=true
