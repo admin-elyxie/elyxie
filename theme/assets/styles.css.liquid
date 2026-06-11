@@ -1703,28 +1703,6 @@ input:focus-visible,
   position: relative;
 }
 
-/* ---------- CornerCrosses ---------- */
-.cc {
-  position: absolute; inset: 0;
-  pointer-events: none;
-  color: var(--theme-fg);
-  z-index: 2;
-}
-.cc__cross {
-  position: absolute;
-  width: 9px; height: 9px;
-  opacity: 0.55;
-}
-.cc__cross::before, .cc__cross::after {
-  content: ""; position: absolute; background: currentColor;
-}
-.cc__cross::before { top: 50%; left: 0; right: 0; height: 1px; transform: translateY(-50%); }
-.cc__cross::after  { left: 50%; top: 0; bottom: 0; width: 1px; transform: translateX(-50%); }
-.cc__cross--tl { top: 22px;    left: 22px; }
-.cc__cross--tr { top: 22px;    right: 22px; }
-.cc__cross--bl { bottom: 22px; left: 22px; }
-.cc__cross--br { bottom: 22px; right: 22px; }
-
 /* ===========================================================
    Section 2 — Video full-width + Play button
    =========================================================== */
@@ -1789,10 +1767,6 @@ input:focus-visible,
    la barra de scroll en desktop y desborda los safe-areas en notched phones. */
 .MediaPlayer:fullscreen { width: 100% !important; height: 100% !important; border: 0; background: #000; }
 .MediaPlayer:fullscreen .MediaPlayer__video { object-fit: contain; }
-.MediaPlayer .cc {
-  /* Use the same cross color reference but force inverted (we're over an image) */
-  color: #fff;
-}
 
 /* ── Controls (sound + fullscreen) ── */
 .MediaPlayer__controls {

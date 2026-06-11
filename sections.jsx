@@ -2,23 +2,9 @@
 // Sections 2–7 (post-hero). Structure mirrors the lightweight.info homepage
 // (video → instagram grid → full-bleed statement → newsletter → outro
 // wordmark → 6-col footer), but every byte of copy, imagery and chrome is
-// Elyxie's. CornerCrosses is rendered inside every section except the footer
-// (where only the top pair appears).
+// Elyxie's.
 
 const { useState: useS, useEffect: useE, useRef: useR } = React;
-
-// ── CornerCrosses ─────────────────────────────────────────────────────────
-// Four tiny "+" decorations at section corners. `topOnly` for the footer.
-function CornerCrosses({ topOnly = false }) {
-  return (
-    <div className="cc" aria-hidden>
-      <span className="cc__cross cc__cross--tl"></span>
-      <span className="cc__cross cc__cross--tr"></span>
-      {!topOnly && <span className="cc__cross cc__cross--bl"></span>}
-      {!topOnly && <span className="cc__cross cc__cross--br"></span>}
-    </div>
-  );
-}
 
 // ── Container ────────────────────────────────────────────────────────────
 function Container({ children, className = '' }) {
@@ -205,8 +191,6 @@ function SectionVideoHero({ lang }) {
               </svg>
             </button>
           </div>
-
-          <CornerCrosses />
         </figure>
 
         {caption && <figcaption className="MediaPlayer__caption">{caption}</figcaption>}
@@ -277,8 +261,6 @@ function SectionProvenance({ lang }) {
             );
           })}
         </ul>
-
-        <CornerCrosses/>
       </Container>
     </section>
   );
@@ -470,7 +452,7 @@ function SectionVitrina({ lang }) {
               );
             })))}
             {/* Edition chip (top-left) + emerald corner crosses struck on the
-                bright panel (the section-level white CornerCrosses vanish here). */}
+                bright panel. */}
             <span className="Vitrina__chip">{t.chip}</span>
             <span className="Vitrina__cc Vitrina__cc--tr" aria-hidden></span>
             <span className="Vitrina__cc Vitrina__cc--bl" aria-hidden></span>
@@ -586,7 +568,6 @@ function SectionVitrina({ lang }) {
         </div>
 
       </Container>
-      <CornerCrosses/>
     </section>
   );
 }
@@ -661,7 +642,6 @@ function SectionCertificate({ lang }) {
           </div>
         </div>
       </div>
-      <CornerCrosses/>
     </section>
   );
 }
@@ -755,8 +735,6 @@ function SectionInstagramGrid({ lang }) {
             );
           })}
         </ul>
-
-        <CornerCrosses />
       </Container>
     </section>
   );
@@ -886,7 +864,7 @@ function Footer({ lang }) {
 
 // ── Export to window so app.jsx can consume ────────────────────
 Object.assign(window, {
-  CornerCrosses, Container,
+  Container,
   SectionVideoHero, SectionProvenance, SectionVitrina, SectionCertificate,
   SectionInstagramGrid, Footer,
 });
