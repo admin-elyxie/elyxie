@@ -141,7 +141,9 @@ function SectionVideoHero({ lang }) {
   const caption = (activeFilm.caption && activeFilm.caption[lang]) || '';
 
   return (
-    <section className="Section theme-light" data-theme="light" data-section="hero-video" data-screen-label="02 Video">
+    // id="relato": destino del item RELATO/STORY de los link lists del Admin
+    // (apuntan a /#relato) — el filme ES el relato de la marca.
+    <section id="relato" className="Section theme-light" data-theme="light" data-section="hero-video" data-screen-label="02 Video">
       <Container>
         <div className="VideoSection__eyebrow">
           <span className="VideoSection__line"></span>
@@ -370,7 +372,8 @@ function SectionVitrina({ lang }) {
   // Buy-now: inside the Shopify theme, add the selected acabado×cadena variant
   // to the cart (Ajax API — same-origin, no token, locale-aware root) and go to
   // checkout. On the standalone page window.Shopify/__ELYXIE are absent,
-  // so the anchor keeps its #contact fallback (we don't preventDefault).
+  // so the anchor keeps its #FootForm fallback (we don't preventDefault):
+  // it lands on the newsletter form, the only real contact point on-page.
   const handleBuy = (e) => {
     const root  = (typeof window !== 'undefined') && window.Shopify && window.Shopify.routes && window.Shopify.routes.root;
     const map   = (typeof window !== 'undefined') && window.__ELYXIE && window.__ELYXIE.variants;
@@ -380,7 +383,7 @@ function SectionVitrina({ lang }) {
       window.location.href = 'mailto:mkt@elyxie.com?subject=' + encodeURIComponent('Avísame · El Ángel ' + finish);
       return;
     }
-    if (!root || !entry) return; // not in the theme → let <a href="#contact"> behave
+    if (!root || !entry) return; // not in the theme → let <a href="#FootForm"> behave
     e.preventDefault();
     if (buying) return;
     setBuying(true);
@@ -569,7 +572,7 @@ function SectionVitrina({ lang }) {
             <span className="Vitrina__meta">{t.meta}</span>
           </p>
           <div className="Vitrina__foot">
-            <a className="Button Button--primary Vitrina__cta" href="#contact"
+            <a className="Button Button--primary Vitrina__cta" href="#FootForm"
                onClick={handleBuy}
                style={buying ? { pointerEvents: 'none', opacity: 0.7 } : undefined}>
               {buying ? (lang === 'es' ? 'Creando checkout…' : 'Creating checkout…') : (soldOut ? (lang === 'es' ? 'Avísame' : 'Notify me') : t.cta)}

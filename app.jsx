@@ -264,7 +264,11 @@ function Hero({ lang, tweaks, pendantRef }) {
     // pull the user off the SNAP_POINT they explicitly chose.
     function tweenTo(targetProgress, duration, isUserClick) {
       cancelSnap();
-      const endY = progressY(targetProgress);
+      // Clamp + finite guard: a target outside [0,1] (or NaN geometry from a
+      // mid-resize probe) must never become a scrollTo() outside the pin —
+      // the failure mode is an instant jump to the top of the page.
+      const endY = progressY(Math.max(0, Math.min(1, targetProgress)));
+      if (!isFinite(endY)) return;
       if (PRM) {
         window.scrollTo({ top: endY });
         lastY = endY;
@@ -1254,6 +1258,17 @@ function App() {
         const r = s.getBoundingClientRect();
         if (r.top <= probeY && r.bottom > probeY) { under = s; break; }
       }
+      // Light surfaces that live INSIDE dark sections (the cream certificate
+      // card, the vitrina photography) defeat per-section theming: the bar
+      // stays white-on-dark while they slide beneath it and the chrome melts
+      // into them. Flag the overlap so the CSS can back the chrome with a
+      // dark halo only while one of those surfaces is actually under the bar.
+      let halo = false;
+      for (const el of document.querySelectorAll('.Cert, .Vitrina__shot[data-on="true"]')) {
+        const r = el.getBoundingClientRect();
+        if (r.top <= probeY && r.bottom > probeY) { halo = true; break; }
+      }
+      document.body.toggleAttribute('data-nav-halo', halo);
       // pin-wrap (hero) owns its theme; nothing under the bar → keep last theme.
       if (!under || under.classList.contains('pin-wrap')) return;
       if (under.dataset.theme) applyTheme(under.dataset.theme);
