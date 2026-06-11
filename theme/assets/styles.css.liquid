@@ -2419,7 +2419,26 @@ section[data-section="outro"] {
 }
 
 /* ===========================================================
-   Section 3 — Provenance ("what the sphere holds")
+   Section 3 — Procedencia · «Descenso por estratos»
+   Motion-first: las tres cards son estratos de profundidad de la Laguna
+   Negra y el scroll es la inmersión. El elemento firma es la LÍNEA DE
+   SONDA — 1px dorado que se dibuja con el scroll por el margen izquierdo,
+   como una plomada midiendo profundidad — con un nodo-rombo por estrato.
+   Una única luz cálida (One Light Rule) cabalga la punta de la línea e
+   ilumina el borde del estrato activo. Los one-shot (titular, secuencia de
+   cada estrato, conteos) los dispara la propia línea desde initStrataMotion
+   (sections.jsx); aquí solo viven los estados y su stagger.
+
+   Disciplina de animación:
+   · Continuas (scroll): SOLO transform/opacity (línea scaleY, luz
+     translate3d) — escritas inline por el driver, smootherstep.
+   · One-shot (disparadas): transform/opacity + el trazado del anillo por
+     stroke-dashoffset y máscaras clip-path ESTÁTICAS (el clip no se anima;
+     lo que se mueve es el inner, por transform). Easing expo-out.
+   · Los estados pre-revelado solo se arman bajo [data-strata-ready] (lo
+     pone el init) Y prefers-reduced-motion: no-preference → sin JS o con
+     reduce, la sección pinta completa y estática. Sin estados ocultos
+     huérfanos, sin conteos, línea llena.
    =========================================================== */
 /* Shared eyebrow used by Provenance + Certificate (champagne, no rule) */
 .eyebrow-label {
@@ -2431,6 +2450,24 @@ section[data-section="outro"] {
   color: var(--gold-300);
   opacity: 0.82;
 }
+.Provenance {
+  /* Profundidad de fondo: el primer estrato respira ~6% más luminoso que el
+     tercero — vende el descenso sin que se registre conscientemente. Es un
+     gradiente ESPACIAL estático (no animado): coste cero. */
+  background:
+    linear-gradient(180deg, rgba(236, 226, 201, 0.05) 0%, rgba(236, 226, 201, 0.022) 46%, rgba(236, 226, 201, 0) 88%),
+    var(--theme-bg);
+  /* La luz de sonda (--lamp-d de diámetro, centrada en una línea pegada al
+     margen) no debe sangrar a las secciones vecinas ni crear scroll-x. */
+  overflow: hidden;
+  --strata-gutter: 48px;   /* canal izquierdo donde vive la línea */
+  --lamp-d: 520px;         /* diámetro de la única fuente de luz */
+  --ease-exp: cubic-bezier(0.16, 1, 0.3, 1); /* expo-out — one-shots */
+}
+/* Columna estrecha centrada: preserva la metáfora del descenso (una fila de
+   tres rompería la inmersión) y repite el ancho ceremonial del acta del
+   certificado (720px) — la página ya lee ese ancho como «documento». */
+.Provenance__col { max-width: 720px; margin: 0 auto; }
 .Provenance__eyebrow { margin: 0 0 26px; }
 .Provenance__head {
   font-family: var(--font-display);
@@ -2440,7 +2477,7 @@ section[data-section="outro"] {
   line-height: 1.02;
   letter-spacing: -0.02em;
   color: #fff;
-  margin: 0 0 44px;
+  margin: 0 0 64px;
   max-width: 28ch;
   text-wrap: balance;
 }
@@ -2448,47 +2485,193 @@ section[data-section="outro"] {
   font-style: italic;
   color: var(--gold-300);
 }
-.ProvenanceGrid {
+/* Máscara de línea del titular: clip ESTÁTICO por línea; el inner sube desde
+   abajo (solo transform). Insets negativos para que descendentes
+   («energético») y voladizos del itálico respiren una vez asentado. */
+.Provenance__headLine {
+  display: block;
+  clip-path: inset(-0.12em -0.15em -0.22em -0.15em);
+}
+.Provenance__headLineInner {
+  display: block;
+  transition:
+    transform 1150ms var(--ease-exp),
+    opacity 600ms var(--ease-exp);
+  transition-delay: calc(var(--line-i, 0) * 140ms);
+}
+
+/* ── La línea de sonda ─────────────────────────────────────── */
+.Strata {
+  position: relative;
+  padding-left: var(--strata-gutter);
+}
+.Strata__list {
   list-style: none;
   margin: 0; padding: 0;
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 28px;
-}
-.ProvenanceCard {
   display: flex;
   flex-direction: column;
-  padding: 40px 36px 44px;
+  /* Aire entre estratos: la línea debe verse VIAJANDO entre uno y otro. */
+  gap: 64px;
+}
+.Strata__rail {
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 1px;
+}
+.Strata__railTrack {
+  position: absolute; inset: 0;
+  background: rgba(233, 215, 177, 0.10); /* el camino aún no medido */
+}
+.Strata__railFill {
+  position: absolute; inset: 0;
+  /* La punta (extremo inferior del tramo dibujado) siempre es lo más
+     brillante: el gradiente viaja comprimido dentro del scaleY. */
+  background: linear-gradient(180deg, rgba(233, 215, 177, 0.28), rgba(233, 215, 177, 0.62));
+  transform-origin: top center;
+  transform: scaleY(1); /* sin JS: línea completa (estado digno) */
+}
+.Strata__lamp {
+  position: absolute;
+  top: 0; left: 0.5px;
+  width: var(--lamp-d); height: var(--lamp-d);
+  margin-left: calc(var(--lamp-d) / -2);
+  margin-top: calc(var(--lamp-d) / -2);
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(233, 215, 177, 0.13) 0%, rgba(233, 215, 177, 0.05) 38%, transparent 66%);
+  opacity: 0; /* la enciende el driver con los primeros cm de línea */
+  pointer-events: none;
+}
+/* will-change quirúrgico: el driver arma [data-strata-live] solo mientras la
+   sección ronda el viewport, y lo retira al alejarse. */
+[data-strata-live] .Strata__railFill,
+[data-strata-live] .Strata__lamp { will-change: transform; }
+
+/* ── Estrato ───────────────────────────────────────────────── */
+.Stratum {
+  position: relative;
+  --pad-top: 38px;
+  padding: var(--pad-top) 40px 42px;
   background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.07);
   border-radius: 20px;
-  transition: background-color 260ms ease, border-color 260ms ease, transform 260ms ease;
+  /* Sin lift en hover: todo se mantiene quieto y disciplinado alrededor de
+     la línea — solo el borde responde. La misma transition cubre la
+     materialización del chrome al revelarse (one-shot, paint-only). */
+  transition: border-color 600ms var(--ease-exp), background-color 800ms var(--ease-exp);
 }
-.ProvenanceCard:hover {
-  background: rgba(255, 255, 255, 0.035);
-  border-color: rgba(233, 215, 177, 0.26);
-  transform: translateY(-3px);
+.Stratum:hover { border-color: rgba(233, 215, 177, 0.22); }
+
+/* Nodo de profundidad: rombo de 7px sobre la línea, a la altura del centro
+   del icono. Se enciende (driver → data-lit) cuando la plomada lo cruza;
+   apagado/encendido es reversible porque sigue al scroll. */
+.Stratum__node {
+  position: absolute;
+  left: calc(-1 * var(--strata-gutter) - 3px);
+  top: calc(var(--pad-top) + 24px - 3.5px);
+  width: 7px; height: 7px;
+  border: 1px solid rgba(233, 215, 177, 0.5);
+  transform: rotate(45deg);
+  opacity: 0.45;
+  transition: opacity 500ms var(--ease-exp);
 }
-.ProvenanceCard__icon {
+/* El relleno dorado vive en un ::before apilado y se enciende SOLO por
+   opacity (el estado lit sigue al scroll, es continuo/reversible — nada de
+   animar background-color en ese camino). */
+.Stratum__node::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--gold-300);
+  opacity: 0;
+  transition: opacity 500ms var(--ease-exp);
+}
+.Stratum__node[data-lit="true"] { opacity: 1; }
+.Stratum__node[data-lit="true"]::before { opacity: 1; }
+
+/* Borde iluminado del estrato activo: anillo-gradiente de 1px orientado
+   hacia la línea (105deg: nace en el flanco izquierdo, donde está la luz —
+   es REFLEJO de esa única fuente, no una fuente nueva). El ::after añade la
+   respiración: muy lenta, casi imperceptible, y solo transform/opacity. Su
+   arranque queda enmascarado por el fade del padre. */
+.Stratum__glow,
+.Stratum__glow::after {
+  position: absolute;
+  border-radius: 21px;
+  padding: 1px;
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+          mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+          mask-composite: exclude;
+  pointer-events: none;
+}
+.Stratum__glow {
+  inset: -1px;
+  background: linear-gradient(105deg, rgba(233, 215, 177, 0.5), rgba(233, 215, 177, 0.08) 38%, transparent 62%);
+  opacity: 0;
+  transition: opacity 1100ms var(--ease-exp);
+}
+.Stratum[data-active="true"] .Stratum__glow { opacity: 1; }
+.Stratum__glow::after {
+  content: '';
+  inset: 0;
+  background: linear-gradient(105deg, rgba(233, 215, 177, 0.6), transparent 55%);
+  opacity: 0;
+}
+@keyframes stratumBreath {
+  from { opacity: 0; }
+  to   { opacity: 0.55; }
+}
+
+/* Icono: el anillo se traza a sí mismo (stroke-dashoffset, pathLength=1,
+   rotado -90° para que el trazo nazca arriba); el glifo aparece después. */
+.Stratum__icon {
+  position: relative;
   display: inline-flex;
   align-items: center; justify-content: center;
   width: 48px; height: 48px;
-  border-radius: 50%;
-  background: color-mix(in srgb, var(--gold-300) 9%, transparent);
-  border: 1px solid rgba(233, 215, 177, 0.22);
   color: var(--gold-300);
-  margin-bottom: 60px;
 }
-.ProvenanceCard__label {
+.Stratum__ring {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  transform: rotate(-90deg);
+}
+.Stratum__ring circle {
+  stroke: rgba(233, 215, 177, 0.38);
+  stroke-width: 1;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 0;
+  transition: stroke-dashoffset 950ms var(--ease-exp);
+}
+.Stratum__iconGlyph {
+  display: inline-flex;
+  transition: opacity 600ms var(--ease-exp) 150ms;
+}
+
+/* Etiqueta «tracking-in»: el layout final está reservado desde el primer
+   frame (cada carácter ya ocupa su sitio natural); lo que anima es el
+   transform de cada uno desde tracking comprimido → CLS 0 por construcción
+   y fidelidad tipográfica intacta (nada de escalar glifos). */
+.Stratum__label {
+  display: block;
   font-family: var(--font-body);
   font-size: 10px;
   font-weight: 500;
   letter-spacing: 0.3em;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.45);
-  margin-bottom: 16px;
+  color: rgba(255, 255, 255, 0.5); /* 0.45 quedaba al filo de AA sobre el gradiente de profundidad */
+  margin: 22px 0 16px;
 }
-.ProvenanceCard__title {
+.Stratum__chars { display: inline-block; }
+.Stratum__ch {
+  display: inline-block;
+  transition: transform 800ms var(--ease-exp) 260ms, opacity 500ms var(--ease-exp) 260ms;
+}
+
+/* Título serif: máscara estática (clip-path en el h3) + inner que sube
+   ~una línea (transform). La cifra viva cuenta dentro, con el ancho ya
+   reservado por el ghost. */
+.Stratum__title {
   font-family: var(--font-display);
   font-style: italic;
   font-weight: 400;
@@ -2496,14 +2679,112 @@ section[data-section="outro"] {
   line-height: 1.1;
   letter-spacing: -0.01em;
   color: #fff;
-  margin: 0 0 18px;
+  margin: 0 0 16px;
+  clip-path: inset(-0.15em -0.1em -0.18em -0.1em);
 }
-.ProvenanceCard__body {
+.Stratum__titleInner {
+  display: block;
+  transition: transform 950ms var(--ease-exp) 300ms, opacity 550ms var(--ease-exp) 300ms;
+}
+.Stratum__num {
+  display: inline-block;
+  position: relative;
+  font-variant-numeric: tabular-nums;
+}
+.Stratum__numGhost { visibility: hidden; }
+.Stratum__numLive {
+  position: absolute;
+  top: 0; right: 0;
+  white-space: nowrap;
+}
+
+.Stratum__body {
   font-family: var(--font-body);
   font-size: 14px;
   line-height: 1.65;
   color: rgba(255, 255, 255, 0.58);
   margin: 0;
+  transition: opacity 750ms var(--ease-exp) 480ms;
+}
+
+/* ── Estados pre-revelado + respiración ────────────────────────
+   Solo existen con motion permitido Y con el motor inicializado
+   ([data-strata-ready]). Los estados ocultos llevan transition:none: al
+   armarse no animan (corte seco invisible bajo el fold) y al revelarse
+   gana la transition del estado final → stagger por estrato:
+   anillo 0ms → glifo 150ms → etiqueta 260ms → título+cifra 300ms →
+   párrafo 480ms (spread < 900ms). */
+@media (prefers-reduced-motion: no-preference) {
+  [data-strata-ready] .Provenance__head:not([data-revealed="true"]) .Provenance__headLineInner {
+    transform: translateY(118%);
+    opacity: 0;
+    transition: none;
+  }
+  [data-strata-ready] .Strata__railFill { transform: scaleY(0); } /* punto de partida; el driver escribe inline */
+  /* El chrome de la card también emerge de la oscuridad: antes de su
+     profundidad solo queda un susurro de contorno (el camino lo marca el
+     railTrack y los nodos, no cajas vacías esperando). */
+  [data-strata-ready] .Stratum:not([data-revealed="true"]) {
+    background: transparent;
+    border-color: rgba(255, 255, 255, 0.025);
+    transition: none;
+  }
+  [data-strata-ready] .Stratum:not([data-revealed="true"]) .Stratum__ring circle {
+    stroke-dashoffset: 1;
+    transition: none;
+  }
+  [data-strata-ready] .Stratum:not([data-revealed="true"]) .Stratum__iconGlyph {
+    opacity: 0;
+    transition: none;
+  }
+  [data-strata-ready] .Stratum:not([data-revealed="true"]) .Stratum__ch {
+    transform: translateX(calc(var(--ch-i, 0) * -0.16em));
+    opacity: 0;
+    transition: none;
+  }
+  [data-strata-ready] .Stratum:not([data-revealed="true"]) .Stratum__titleInner {
+    transform: translateY(112%);
+    opacity: 0;
+    transition: none;
+  }
+  [data-strata-ready] .Stratum:not([data-revealed="true"]) .Stratum__body {
+    opacity: 0;
+    transition: none;
+  }
+  /* La respiración corre SIEMPRE que la sección ronda el viewport (no solo
+     en el estrato activo): si se atara a data-active, quitarla a mitad de
+     ciclo haría saltar la opacidad del ::after en un frame durante el
+     traspaso de estrato. Inactiva es invisible igualmente — la opacity 0 del
+     padre multiplica hacia abajo — y el gating por [data-strata-live] evita
+     pagar una animación infinita con la sección lejos. */
+  [data-strata-live] .Stratum__glow::after {
+    animation: stratumBreath 8s ease-in-out infinite alternate;
+  }
+}
+/* Fallback estático digno: todo visible, línea completa (transform base),
+   cifras en su valor final (el live nace con él), sin luz móvil ni borde
+   que respire. El driver además deja de escribir estilos inline. El corte
+   duro de transition/animation cubre el toggle EN VIVO: al activar «reduce»
+   los estados ocultos dejan de aplicar y, sin esto, el salto al estado
+   visible se ANIMARÍA (~1.2s de movimiento justo cuando el usuario pidió
+   ninguno). */
+@media (prefers-reduced-motion: reduce) {
+  .Strata__lamp { display: none; }
+  .Stratum__glow { display: none; }
+  .Stratum__node,
+  .Stratum__node::before { opacity: 1; }
+  .Stratum,
+  .Stratum__node,
+  .Stratum__node::before,
+  .Stratum__ring circle,
+  .Stratum__iconGlyph,
+  .Stratum__ch,
+  .Stratum__titleInner,
+  .Stratum__body,
+  .Provenance__headLineInner {
+    transition: none;
+    animation: none;
+  }
 }
 
 /* ===========================================================
@@ -3016,12 +3297,16 @@ section[data-section="outro"] {
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.15));
 }
 
-/* ---- Provenance · responsive ---- */
+/* ---- Procedencia · responsive ---- */
 @media (max-width: 900px) {
-  .ProvenanceGrid { grid-template-columns: 1fr; gap: 16px; }
-  .ProvenanceCard { padding: 32px 28px 34px; }
-  .ProvenanceCard__icon { margin-bottom: 28px; }
-  .Provenance__head { margin-bottom: 32px; font-size: clamp(22px, 6vw, 34px); }
+  /* La línea de sonda se queda en el margen izquierdo (no en un eje central:
+     atravesaría el texto de las cards apiladas) — mismo lenguaje que el rail
+     vertical del hero. Canal y luz más estrechos, estratos más compactos. */
+  .Provenance { --strata-gutter: 26px; --lamp-d: 380px; }
+  .Provenance__head { margin-bottom: 44px; font-size: clamp(22px, 6vw, 34px); }
+  .Strata__list { gap: 44px; }
+  .Stratum { --pad-top: 30px; padding: var(--pad-top) 26px 34px; }
+  .Stratum__label { margin-top: 18px; }
 }
 /* ---- Certificate · mobile safety (source uses fixed px) ---- */
 @media (max-width: 767px) {
