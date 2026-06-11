@@ -599,6 +599,22 @@ function SectionVitrina({ lang }) {
 //  the SACRED WATER tag, the dual product name, date & jeweler.
 // ===========================================================
 function SectionCertificate({ lang }) {
+  // Revelado one-shot del acta: cuando la tarjeta entra ≥35% en viewport,
+  // sus líneas aparecen en orden (delays escalonados en CSS) UNA sola vez —
+  // como ver completarse el certificado ante notario. No se re-dispara al
+  // volver a entrar; con prefers-reduced-motion el CSS lo muestra entero.
+  const certRef = useR(null);
+  const [revealed, setRevealed] = useS(false);
+  useE(() => {
+    const el = certRef.current;
+    if (!el || revealed) return;
+    const io = new IntersectionObserver(([e]) => {
+      if (e.isIntersecting && e.intersectionRatio >= 0.35) { setRevealed(true); io.disconnect(); }
+    }, { threshold: [0.35] });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [revealed]);
+
   const t = lang === 'es' ? {
     eyebrow: 'CERTIFICADO  ·  PRIMERA EDICIÓN',
     title: 'Numerado. Reservado. Atestiguado.',
@@ -619,7 +635,7 @@ function SectionCertificate({ lang }) {
         <h2 className="Certificate__title">{t.title}</h2>
         <p className="Certificate__body">{t.body}</p>
 
-        <div className="Cert">
+        <div className="Cert" ref={certRef} data-revealed={revealed}>
           <div className="Cert__bg" aria-hidden></div>
           <div className="Cert__head">
             <div className="Cert__brand"><span className="elyxie-logo" role="img" aria-label="Elyxie"></span></div>
@@ -720,7 +736,7 @@ function SectionInstagramGrid({ lang }) {
                       srcSet={`${webp480} 480w, ${webp} 720w, ${ebase}-960.webp 960w`}
                       sizes="(max-width: 767px) 100vw, (max-width: 1024px) 50vw, 33vw"
                     />
-                    <img src={`${ebase}.jpg`} alt="" loading="lazy" decoding="async"/>
+                    <img src={`${ebase}.jpg`} alt={p[lang]} loading="lazy" decoding="async"/>
                   </picture>
                   <span className="InstaCard__badge" aria-hidden>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

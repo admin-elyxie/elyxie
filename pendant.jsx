@@ -267,7 +267,11 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
       // still cleans the wing silhouettes — so on retina the only loss is a hair
       // of edge softness, invisible in motion. Scroll motion + breathing untouched.
       const _dpr = window.devicePixelRatio || 1;
-      renderer.setPixelRatio(Math.min(_dpr, _dpr >= 2.5 ? 2.0 : 1.5));
+      // 1.75 (era 1.5) en laptops retina: las alas son LA silueta de la marca
+      // y a 1.5 perdían filo. Coste de fragmentos ~+36% vs 1.5 (aún -23% vs
+      // DPR 2 nativo); los perf-gates (IO + visibility + pacing adaptativo)
+      // absorben el resto.
+      renderer.setPixelRatio(Math.min(_dpr, _dpr >= 2.5 ? 2.0 : 1.75));
       renderer.setSize(container.clientWidth, container.clientHeight);
       renderer.setClearColor(0x000000, 0);
       renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -770,6 +774,82 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
             centerSpinner.add(stateRef.current.materials.fairyDust);
           }
           stateRef.current.materials.centerSpinner = centerSpinner;
+
+          // ===== Cáusticas — «agua viva» dentro de la esfera =====
+          // Un cascarón esférico (SphereGeometry propia: la malla CAD del orbe
+          // no garantiza UVs sanas) apenas mayor que el orbe, con una textura
+          // procedural de cáusticas en blending aditivo. El animate loop
+          // deriva su offset UV muy despacio (~8 s/ciclo) y modula opacidad y
+          // tinte por las gaussianas de fase; en ALMA-noche la deriva se
+          // congela y el tinte vira a ámbar pálido (el agua emite, no fluye).
+          // prefers-reduced-motion la deja estática desde el arranque.
+          if (sphereMeshes.length) {
+            const orbMesh = sphereMeshes[0];
+            orbMesh.geometry.computeBoundingSphere();
+            const bs = orbMesh.geometry.boundingSphere;
+            // Centro y radio del orbe en el espacio del padre (la malla puede
+            // traer offset en la geometría + escala propia).
+            const shellCenter = bs.center.clone()
+              .multiply(orbMesh.scale)
+              .applyQuaternion(orbMesh.quaternion)
+              .add(orbMesh.position);
+            const shellR = bs.radius * Math.max(orbMesh.scale.x, orbMesh.scale.y, orbMesh.scale.z) * 1.012;
+            // Textura procedural: red de arcos brillantes sobre negro, dibujada
+            // con copias desplazadas ±256 para que el tile repita sin costuras.
+            // PRNG con semilla fija → el agua es la MISMA en cada visita.
+            const cnv = document.createElement('canvas');
+            cnv.width = 256; cnv.height = 256;
+            const ctx = cnv.getContext('2d');
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, 256, 256);
+            let seed = 73;
+            const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+            ctx.strokeStyle = 'rgba(255,255,255,0.75)';
+            ctx.shadowColor = 'rgba(255,255,255,0.9)';
+            ctx.shadowBlur = 4;
+            ctx.lineWidth = 1.3;
+            for (let i = 0; i < 34; i++) {
+              const x0 = rnd() * 256, y0 = rnd() * 256;
+              const segs = 3 + Math.floor(rnd() * 3);
+              for (const [ox, oy] of [[0,0],[256,0],[-256,0],[0,256],[0,-256],[256,256],[-256,-256],[256,-256],[-256,256]]) {
+                ctx.beginPath();
+                ctx.moveTo(x0 + ox, y0 + oy);
+                let px = x0, py = y0;
+                let a = rnd() * Math.PI * 2;
+                for (let s = 0; s < segs; s++) {
+                  a += (rnd() - 0.5) * 1.6;
+                  const len = 18 + rnd() * 30;
+                  const cx = px + Math.cos(a) * len * 0.5 + (rnd() - 0.5) * 14;
+                  const cy = py + Math.sin(a) * len * 0.5 + (rnd() - 0.5) * 14;
+                  px += Math.cos(a) * len; py += Math.sin(a) * len;
+                  ctx.quadraticCurveTo(cx + ox, cy + oy, px + ox, py + oy);
+                }
+                ctx.stroke();
+              }
+            }
+            const causticsTex = new THREE.CanvasTexture(cnv);
+            causticsTex.wrapS = causticsTex.wrapT = THREE.RepeatWrapping;
+            causticsTex.repeat.set(2, 1);
+            const causticsMat = new THREE.MeshBasicMaterial({
+              map: causticsTex,
+              transparent: true,
+              opacity: 0,
+              blending: THREE.AdditiveBlending,
+              depthWrite: false,
+              color: 0xbfeede, // agua fría; el loop lo lerpea a ámbar en ALMA-noche
+            });
+            const causticsShell = new THREE.Mesh(new THREE.SphereGeometry(shellR, 48, 32), causticsMat);
+            causticsShell.position.copy(shellCenter);
+            causticsShell.renderOrder = 2; // tras el orbe emisivo, antes del glow
+            orbMesh.parent.add(causticsShell);
+            stateRef.current.materials.caustics = {
+              mat: causticsMat,
+              tex: causticsTex,
+              cold: new THREE.Color(0xbfeede),
+              amber: new THREE.Color(0xe8c89a),
+              prm: window.matchMedia('(prefers-reduced-motion: reduce)').matches,
+            };
+          }
           // EDICIÓN finale material cycling: the center body meshes + the metal
           // material sets, so the animate loop can re-skin the angel
           // gold→rhodium→silver on each completed revolution. Silver/rhodium are
@@ -1116,7 +1196,9 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
       // DUST_SAMPLE_INTERVAL seconds so trails span more time/distance
       // than a single 60fps frame would allow.
       let dustSampleAccum = 0;
-      const DUST_SAMPLE_INTERVAL = 0.05;
+      // 0.025s (~cada 1.5 frames a 60Hz, era 0.05 = cada 3): los trails del
+      // polvo avanzan continuos en vez de a pasitos discretos.
+      const DUST_SAMPLE_INTERVAL = 0.025;
 
       // ---- Perf gates ----
       // Pause the render loop when the hero is off-screen (IntersectionObserver)
@@ -2148,6 +2230,27 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
         // so this intensity only affects the orb and nearest feathers.
         sphereLight.color.copy(orbWork);
         sphereLight.intensity = (0.45 + breathe * 0.30) * stateRef.current.glowIntensity * Math.min(phaseBoost, 2.0) * phaseOrbLight * phase01OrbLight * phase03OrbLight * phase04OrbMult * phase05OrbBoost;
+        // Cáusticas «agua viva»: deriva UV lenta que se congela en ALMA-noche;
+        // tinte agua-fría → ámbar pálido con el mismo beat día/noche. Cada
+        // acto tiene su nivel propio vía su gaussiana (≈0 en los anchors de
+        // los actos vecinos, así ningún nivel se filtra al de al lado).
+        {
+          const ca = stateRef.current.materials.caustics;
+          if (ca) {
+            if (!ca.prm) {
+              const drift = 1 - almaNightF * phase04Proximity;
+              ca.tex.offset.x += dt * 0.020 * drift;
+              ca.tex.offset.y += dt * 0.012 * drift;
+            }
+            const amt = 0.30 * phaseOriginProximity
+                      + 0.20 * phase01Proximity
+                      + 0.10 * phase03Proximity
+                      + 0.16 * phase04Proximity
+                      + 0.12 * phase05Proximity;
+            ca.mat.opacity = Math.min(0.32, amt) * Math.min(stateRef.current.glowIntensity, 1.2);
+            ca.mat.color.copy(ca.cold).lerp(ca.amber, almaNightF * phase04Proximity);
+          }
+        }
         stateRef.current.materials.sphereMeshes.forEach((m) => {
           if (m.material) {
             m.material.emissive.copy(orbWork);

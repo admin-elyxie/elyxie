@@ -110,6 +110,7 @@ body[data-nav-halo] .nav .elyxie-logo {
   align-items: center;
 }
 .nav__link {
+  position: relative;
   font-family: var(--font-body);
   font-size: 11px;
   font-weight: 500;
@@ -122,6 +123,21 @@ body[data-nav-halo] .nav .elyxie-logo {
   cursor: pointer;
 }
 .nav__link:hover { opacity: 1; }
+/* Señal cromática además de la opacidad (WCAG 1.4.x + estándar Awwwards):
+   hairline dorada que se despliega de izquierda a derecha al hover/focus. */
+.nav__link::after {
+  content: '';
+  position: absolute;
+  left: 0; right: 0;
+  bottom: -6px;
+  height: 1px;
+  background: var(--gold-300);
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform var(--motion-micro) ease;
+}
+.nav__link:hover::after,
+.nav__link:focus-visible::after { transform: scaleX(1); }
 /* Language toggle — segmented pill */
 .nav__lang {
   position: relative;
@@ -620,7 +636,9 @@ body[data-nav-halo] .nav .elyxie-logo {
      superpuestos. Con beat de 900ms y delay de 350ms, cuando el entrante
      alcanza 0.3 de opacidad el saliente ya está por debajo de 0.15. */
   transition: opacity var(--motion-beat) var(--ease-beat), transform var(--motion-beat) var(--ease-beat);
-  will-change: opacity, transform;
+  /* Sin will-change: 5 capas compuestas permanentes costaban ~20-40MB de GPU
+     y el cross-fade ocurre una vez por acto — la promoción transitoria que el
+     navegador hace durante la transición basta. */
 }
 .phase-content[data-active="true"] {
   opacity: 1;
@@ -1136,7 +1154,9 @@ body[data-nav-halo] .nav .elyxie-logo {
     align-items: flex-start;
   }
   .edition-eyebrow { margin: 0 0 16px; }
-  .phase-title--edition { font-size: clamp(32px, 8.6vw, 43px); line-height: 1.05; margin: 0 0 18px; }
+  /* Mín 36px (era 32): el acto climático no puede ser el título más pequeño
+     del recorrido móvil. */
+  .phase-title--edition { font-size: clamp(36px, 8.6vw, 43px); line-height: 1.05; margin: 0 0 18px; }
   .phase-content--edition .phase-sub {
     /* max-width trimmed 42→34ch so the body never runs to the right frame rail
        on narrow phones; keeps a clear right gutter and a 60-65ch measure. */
@@ -1251,6 +1271,8 @@ input:focus-visible,
   display: block;
   font-weight: 500;
   font-size: 10px;
+  /* 0.32em: era el único label del sitio fuera del sistema de tracking. */
+  letter-spacing: 0.32em;
   margin-top: 4px;
 }
 .stepper__col { display: flex; flex-direction: column; }
@@ -2612,6 +2634,8 @@ section[data-section="outro"] {
   transition: box-shadow 320ms var(--ease-out), transform 320ms var(--ease-out);
 }
 .Vitrina__metal:hover .Vitrina__disc { transform: scale(1.04); }
+/* Respuesta al presionar (táctil): el disco cede levemente bajo el dedo. */
+.Vitrina__metal:active .Vitrina__disc { transform: scale(0.97); }
 .Vitrina__metal[data-on="true"] .Vitrina__disc {
   outline-color: transparent;
   box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.55),
@@ -2791,6 +2815,9 @@ section[data-section="outro"] {
   font-size: 11px;
   font-weight: 500;
   letter-spacing: 0.32em;
+  /* Compensa el tracking colgante del último glifo (label centrado), como
+     ya hacen .nav__lang y .edition-seal__serial. */
+  text-indent: 0.32em;
   text-transform: uppercase;
   color: var(--color-gold-bright);
   margin-bottom: 24px;
@@ -2862,13 +2889,39 @@ section[data-section="outro"] {
   text-align: right;
   line-height: 1.6;
 }
+/* Revelado del acta (data-revealed lo escribe sections.jsx vía IO, una sola
+   vez): las líneas del certificado aparecen en orden — cabecera, nombre,
+   número, datos — con un beat editorial. Sin loops ni re-disparos. */
+.Cert > :not(.Cert__bg) {
+  opacity: 0;
+  transform: translateY(10px);
+  transition: opacity 700ms var(--ease-beat), transform 700ms var(--ease-beat);
+}
+.Cert[data-revealed="true"] > :not(.Cert__bg) {
+  opacity: 1;
+  transform: none;
+}
+.Cert[data-revealed="true"] .Cert__head   { transition-delay: 0ms; }
+.Cert[data-revealed="true"] .Cert__name   { transition-delay: 180ms; }
+.Cert[data-revealed="true"] .Cert__nameEn { transition-delay: 340ms; }
+.Cert[data-revealed="true"] .Cert__serial { transition-delay: 540ms; }
+.Cert[data-revealed="true"] .Cert__grid   { transition-delay: 780ms; }
+@media (prefers-reduced-motion: reduce) {
+  .Cert > :not(.Cert__bg) {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}
+
 .Cert__name {
   position: relative;
   z-index: 1;
   font-family: var(--font-display);
   font-style: italic;
   font-weight: 400;
-  font-size: 44px;
+  /* Fluida (30@390 → 44@1440): el serif ceremonial no merece saltos del 32%. */
+  font-size: clamp(30px, 1.34vw + 25px, 44px);
   color: #0A2620;
   text-align: center;
   margin-bottom: 6px;
@@ -2947,7 +3000,7 @@ section[data-section="outro"] {
   .Certificate__body { font-size: 14px; margin-bottom: 44px; }
   .Cert { padding: 36px 26px; }
   .Cert__brand { font-size: 28px; }
-  .Cert__name { font-size: 30px; }
+  /* (el tamaño móvil ya lo da el clamp() fluido de la regla base) */
   .Cert__serial { font-size: 46px; }
   .Cert__grid { grid-template-columns: 1fr; gap: 24px; }
   .Cert__sealCol { text-align: left; }
@@ -2955,14 +3008,25 @@ section[data-section="outro"] {
 }
 
 /* ===========================================================
-   RESPONSIVE
+   RESPONSIVE — sistema de breakpoints
+   ───────────────────────────────────────────────────────────
+   1100px  ajuste de grillas anchas (footer 3 col, insta 2 col)
+   1024px  tablet  (768–1024: Container 40px, pin 360dvh)
+    767px  mobile  (Container 16px, drawer, secciones 1 col,
+                    acordeón del footer, padding .Section 64px)
+   landscape ≤500px de alto: pin compacto 280dvh
+   Regla: NINGÚN cambio estructural entre 768 y 1024 fuera del
+   bloque tablet — el rango 768–810 «crujía» porque un bloque
+   810px (histórico, de sabor móvil) se solapaba con el tablet.
    =========================================================== */
 @media (max-width: 1100px) {
   .Footer__cols { grid-template-columns: repeat(3, 1fr); }
   .InstaGrid    { grid-template-columns: repeat(2, 1fr); }
   .InstaCard:nth-child(3) { grid-column: 1 / -1; }
 }
-@media (max-width: 810px) {
+/* (era max-width: 810px — reglas de familia móvil que invadían el rango
+   tablet 768–810 y partían la cascada; consolidado al breakpoint móvil) */
+@media (max-width: 767px) {
   .Container { padding: 0 24px; }
   .Section { padding: 64px 0; }
   .NewsletterForm__row { grid-template-columns: 1fr; }
@@ -3449,8 +3513,10 @@ section[data-section="outro"] {
     margin-bottom: 16px;
   }
   .phase-sub {
-    font-size: 14px;
-    line-height: 1.5;
+    /* 15px como en desktop: el cuerpo centrado sobre vídeo es donde más
+       cuesta leer — no es el lugar para recortar 1px. */
+    font-size: 15px;
+    line-height: 1.55;
     max-width: 36ch;
     margin: 0 auto 18px;
   }
@@ -3920,7 +3986,9 @@ section[data-section="outro"] {
   font-family: var(--font-display);
   font-style: italic;
   font-weight: 300;
-  font-size: 56px;
+  /* Fluida (34@390 → 56@1440) como el resto de títulos display del sitio —
+     era el único 56px fijo con salto brusco a 34px en el breakpoint móvil. */
+  font-size: clamp(34px, 2.1vw + 26px, 56px);
   line-height: 1.05;
   letter-spacing: -0.015em;
   color: #fff;
@@ -4066,7 +4134,7 @@ section[data-section="outro"] {
   .SiteFooter { padding: 72px 0 28px; }
   .SiteFooter__halo { width: 520px; height: 520px; }
   .FootNews { grid-template-columns: 1fr; gap: 28px; padding-bottom: 48px; }
-  .FootNews__title { font-size: 34px; }
+  /* (el tamaño móvil ya lo da el clamp() fluido de la regla base) */
   .FootLower { grid-template-columns: 1fr 1fr; gap: 36px 24px; padding: 48px 0 36px; }
   .FootBrand { grid-column: 1 / -1; }
   .FootBrand__name { font-size: 34px; }

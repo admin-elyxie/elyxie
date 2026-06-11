@@ -233,7 +233,10 @@ function Hero({ lang, tweaks, pendantRef }) {
     const SNAP_POINTS = [0.00, 0.29, 0.50, 0.70, 0.90, 1.00];
     const IDLE_MS = 160;
     const SNAP_DURATION = 3000;
-    const PRM = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    // MediaQueryList vivo (no un boolean congelado al montar): si el usuario
+    // activa reduced-motion con la página abierta, el siguiente snap ya salta
+    // sin animación.
+    const PRMQ = window.matchMedia('(prefers-reduced-motion: reduce)');
 
     let lastDirection = 1;
     let idleTimer = 0;
@@ -284,7 +287,7 @@ function Hero({ lang, tweaks, pendantRef }) {
       if (pinTotal() <= 1) return;
       const endY = progressY(Math.max(0, Math.min(1, targetProgress)));
       if (!isFinite(endY)) return;
-      if (PRM) {
+      if (PRMQ.matches) {
         window.scrollTo({ top: endY });
         lastY = endY;
         if (isUserClick) snapCooldownUntil = performance.now() + 600;
@@ -349,8 +352,12 @@ function Hero({ lang, tweaks, pendantRef }) {
       // solo gesto. Un push opuesto es cancelación dura: el usuario está
       // revirtiendo y cualquier coast pelearía contra él.
       if (!snapping) return;
+      // Los eventos de fin de momentum de macOS llegan con deltaY=0: no son
+      // intención del usuario y cancelarían el tween a mitad de vuelo dejando
+      // la página en reposo FUERA de un ancla (sin nada que re-arme el snap).
+      if (!e.deltaY) return;
       const v0 = snapVel;
-      const sameDir = Math.sign(e.deltaY || 0) === Math.sign(v0);
+      const sameDir = Math.sign(e.deltaY) === Math.sign(v0);
       cancelSnap();
       if (!sameDir || Math.abs(v0) < 0.05) return;
       const COAST_MS = 150;

@@ -6,6 +6,30 @@
   <title>Elyxie — un santuario que se lleva puesto</title>
   <link rel="icon" href="assets/elyxie-mark.svg"/>
 
+  <!-- Compartibilidad del one-pager standalone. El theme (elyxie.liquid) emite
+       su propia versión bilingüe/dinámica; esta es la estática ES por si el
+       standalone llega a servirse públicamente. og:image apunta al asset del
+       theme vivo (story-og.jpg, misma imagen que usa producción). -->
+  <link rel="canonical" href="https://www.elyxie.com/"/>
+  <meta name="description" content="Agua sagrada de la Laguna Negra de Huancabamba, sellada en una esfera de vidrio soplado. Talismán de edición limitada en plata, rodio u oro. Hecho a mano en Lima, Perú."/>
+  <meta property="og:type" content="website"/>
+  <meta property="og:site_name" content="Elyxie"/>
+  <meta property="og:title" content="Elyxie — un santuario que se lleva puesto"/>
+  <meta property="og:description" content="Agua sagrada de la Laguna Negra, sellada para siempre en una esfera de vidrio. Edición limitada de 100 piezas."/>
+  <meta property="og:url" content="https://www.elyxie.com/"/>
+  <meta property="og:image" content="https://www.elyxie.com/cdn/shop/t/4/assets/story-og.jpg"/>
+  <meta name="twitter:card" content="summary_large_image"/>
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    "name": "Elyxie",
+    "url": "https://www.elyxie.com/",
+    "logo": "https://www.elyxie.com/cdn/shop/t/4/assets/elyxie-mark.svg",
+    "sameAs": ["https://www.instagram.com/elyxie.es/"]
+  }
+  </script>
+
   <!-- Performance hints: open TCP+TLS to every cross-origin we touch on the
        critical path BEFORE the parser hits the requests below. Cuts ~100-300 ms
        off first-byte for each origin (handshake amortised across requests). -->
@@ -32,7 +56,7 @@
         href="https://api.fontshare.com/v2/css?f[]=satoshi@300,400,500&display=swap"/>
 
   <link rel="stylesheet" href="assets/colors_and_type.css?v=177"/>
-  <link rel="stylesheet" href="styles.css?v=186"/>
+  <link rel="stylesheet" href="styles.css?v=187"/>
 
   <!-- Inline splash so the user sees the brand instantly while JS loads.
        Removed by the IIFE at the bottom of <body> once React mounts. Uses
@@ -195,10 +219,10 @@
        300-1500 ms while it transpiled the JSX at load time. The pre-compiled
        .js files run immediately and total ~65 KB. `defer` keeps them in
        document order, executes after parsing, and doesn't block the parser. -->
-  <script src="dist/tweaks-panel.js?v=200" defer></script>
-  <script src="dist/pendant.js?v=200" defer></script>
-  <script src="dist/sections.js?v=200" defer></script>
-  <script src="dist/app.js?v=200" defer></script>
+  <script src="dist/tweaks-panel.js?v=202" defer></script>
+  <script src="dist/pendant.js?v=202" defer></script>
+  <script src="dist/sections.js?v=202" defer></script>
+  <script src="dist/app.js?v=202" defer></script>
 
   <!-- Loader controller. The splash stays up until the angel GLB is genuinely
        loaded AND painted: pendant.js fires `angel-ready` once the model has

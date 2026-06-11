@@ -212,7 +212,14 @@
   <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js" crossorigin="anonymous" defer></script>
 
   {%- comment -%} App code, compiled by build.js and mirrored into theme assets/. asset_url versions automatically. {%- endcomment -%}
+  {%- comment -%} tweaks-panel solo carga en el editor de themes (design_mode):
+       15 KB de herramienta de desarrollo que el público no necesita. Fuera del
+       editor se inyectan los stubs no-op que app.jsx/sections.jsx esperan. {%- endcomment -%}
+  {%- if request.design_mode -%}
   <script src="{{ 'tweaks-panel.js' | asset_url }}" defer></script>
+  {%- else -%}
+  <script>(function(){var n=function(){return null};window.ELYXIE_ASSET=window.ELYXIE_ASSET||function(a){return a};Object.assign(window,{useTweaks:function(a){return [a,function(){}]},TweaksPanel:n,TweakSection:n,TweakRow:n,TweakSlider:n,TweakToggle:n,TweakRadio:n,TweakSelect:n,TweakText:n,TweakNumber:n,TweakColor:n,TweakButton:n})})();</script>
+  {%- endif -%}
   <script src="{{ 'pendant.js' | asset_url }}" defer></script>
   <script src="{{ 'sections.js' | asset_url }}" defer></script>
   <script src="{{ 'app.js' | asset_url }}" defer></script>
