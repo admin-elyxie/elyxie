@@ -32,7 +32,7 @@
         href="https://api.fontshare.com/v2/css?f[]=satoshi@300,400,500&display=swap"/>
 
   <link rel="stylesheet" href="assets/colors_and_type.css?v=177"/>
-  <link rel="stylesheet" href="styles.css?v=185"/>
+  <link rel="stylesheet" href="styles.css?v=186"/>
 
   <!-- Inline splash so the user sees the brand instantly while JS loads.
        Removed by the IIFE at the bottom of <body> once React mounts. Uses
@@ -94,11 +94,26 @@
       margin-top: 14.4px;
     }
     #__splash .__sp-track {
+      position: relative;
       width: 264px;
       max-width: 72vw;
       height: 1.2px;
       background: rgba(233, 215, 177, 0.16);
-      overflow: hidden;
+    }
+    /* Cresta de agua: un destello suave que cabalga el borde de avance de la
+       línea (JS la posiciona leyendo el scaleX real cada frame). El bob
+       vertical de ±1.6px es la "onda en reposo" — se apaga con PRM. */
+    #__splash .__sp-crest {
+      position: absolute; top: 50%; left: 0;
+      width: 7px; height: 7px;
+      margin: -3.5px 0 0 -3.5px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(233, 215, 177, 0.95), rgba(233, 215, 177, 0) 70%);
+      animation: __sp-crest-bob 2800ms ease-in-out infinite;
+    }
+    @keyframes __sp-crest-bob {
+      0%, 100% { transform: translateY(0); }
+      50%      { transform: translateY(-1.6px); }
     }
     #__splash .__sp-fill {
       width: 100%;
@@ -109,9 +124,10 @@
         rgba(201, 166, 107, 0.7) 0%,
         #E9D7B1 100%);
       box-shadow: 0 0 12px rgba(233, 215, 177, 0.5);
-      /* Bulk of the travel happens in the first ~3.5s, then it crawls slowly
-         toward 0.97 so it never visually stalls while the model finishes —
-         JS completes it to scaleX(1) on `angel-ready`. */
+      /* FALLBACK estimado: solo gobierna mientras el servidor no reporta
+         Content-Length (angel-progress = -1). En cuanto llega la primera
+         fracción real, el JS mata esta animación y la línea sigue la
+         descarga exacta. JS completes it to scaleX(1) on `angel-ready`. */
       animation: __sp-fill-grow 9000ms linear forwards;
     }
     @keyframes __sp-fill-grow {
@@ -126,6 +142,7 @@
     @media (prefers-reduced-motion: reduce) {
       #__splash .__sp-mark { animation: none; }
       #__splash .__sp-fill { animation-duration: 600ms; }
+      #__splash .__sp-crest { animation: none; }
     }
   </style>
 </head>
@@ -134,7 +151,7 @@
     <span class="__sp-mark" role="img" aria-label="Elyxie"></span>
     <span class="__sp-tag">Sacred Waters</span>
     <div class="__sp-loader" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-label="Cargando">
-      <div class="__sp-track"><div class="__sp-fill" id="__sp-fill"></div></div>
+      <div class="__sp-track"><div class="__sp-fill" id="__sp-fill"></div><div class="__sp-crest" id="__sp-crest" aria-hidden="true"></div></div>
     </div>
   </div>
   <div id="root"></div>
@@ -178,10 +195,10 @@
        300-1500 ms while it transpiled the JSX at load time. The pre-compiled
        .js files run immediately and total ~65 KB. `defer` keeps them in
        document order, executes after parsing, and doesn't block the parser. -->
-  <script src="dist/tweaks-panel.js?v=198" defer></script>
-  <script src="dist/pendant.js?v=198" defer></script>
-  <script src="dist/sections.js?v=198" defer></script>
-  <script src="dist/app.js?v=198" defer></script>
+  <script src="dist/tweaks-panel.js?v=200" defer></script>
+  <script src="dist/pendant.js?v=200" defer></script>
+  <script src="dist/sections.js?v=200" defer></script>
+  <script src="dist/app.js?v=200" defer></script>
 
   <!-- Loader controller. The splash stays up until the angel GLB is genuinely
        loaded AND painted: pendant.js fires `angel-ready` once the model has
@@ -219,6 +236,45 @@
           setTimeout(function () { splash.remove(); }, 700);
         }, 520);
       }
+
+      // Progreso REAL del GLB: pendant.js reemite el ProgressEvent del fetch
+      // como `angel-progress` (detail = 0..1, o -1 si el servidor no manda
+      // Content-Length). Al primer dato real se mata el keyframe estimado y
+      // la línea pasa a moverse exactamente con la descarga — nunca se clava
+      // en 97% mintiendo. Monótona: jamás retrocede respecto al keyframe.
+      var real = false;
+      var shown = 0;
+      function readScaleX() {
+        var cs = getComputedStyle(fill).transform;
+        if (!cs || cs === 'none') return 0;
+        var v = parseFloat(cs.split('(')[1]);
+        return isNaN(v) ? 0 : v;
+      }
+      window.addEventListener('angel-progress', function (e) {
+        if (done || !fill) return;
+        var frac = e && e.detail;
+        if (typeof frac !== 'number' || frac < 0) return; // -1 → sigue el keyframe
+        if (!real) {
+          real = true;
+          shown = readScaleX();
+          fill.style.animation = 'none';
+          fill.style.transform = 'scaleX(' + shown + ')';
+          fill.style.transition = 'transform 360ms cubic-bezier(0.4, 0, 0.2, 1)';
+        }
+        shown = Math.max(shown, Math.min(1, frac));
+        fill.style.transform = 'scaleX(' + shown + ')';
+        var bar = splash.querySelector('.__sp-loader');
+        if (bar) bar.setAttribute('aria-valuenow', Math.round(shown * 100));
+      });
+
+      // La cresta cabalga el borde de avance (keyframe o progreso real, da
+      // igual: se lee el scaleX computado). Solo vive mientras el splash.
+      var crest = document.getElementById('__sp-crest');
+      (function ride() {
+        if (done || !crest || !fill) return;
+        crest.style.left = (readScaleX() * 100) + '%';
+        requestAnimationFrame(ride);
+      })();
 
       if (window.__angelReady) complete();
       else window.addEventListener('angel-ready', complete);

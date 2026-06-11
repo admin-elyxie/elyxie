@@ -586,13 +586,18 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
       // target the animate loop writes into and then copies onto the orb
       // emissive + sphereLight each frame.
       const dayOrbCol = new THREE.Color(0xfff6e4);
+      // Phase 03 (MATERIA) aureole colour: champagne-gold (#E9D7B1, gold-300
+      // de la paleta). El orbe inclina su luz hacia él mientras los tres
+      // acabados están en escena, para que el metal se lea iluminado por su
+      // propia agua y no por un foco externo.
+      const materiaOrbCol = new THREE.Color(0xe9d7b1);
       const orbColorWork = new THREE.Color();
 
       stateRef.current.materials = {
         rim, sphereLight, sphereMeshes, smokeShadowPlane,
         fairyDust, dustAxis, dustInitDir, dustAngSpd, dustOutSpd,
         dustLife, dustMaxLife, dustHistory, dustHistIdx, dustColors,
-        glowCol, dayOrbCol, orbColorWork,
+        glowCol, dayOrbCol, materiaOrbCol, orbColorWork,
         DUST_COUNT, TRAIL_PTS, TRAIL_SEGS, _resetParticle,
       };
 
@@ -1204,11 +1209,13 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
         // rest composition.
         const phase05Proximity = smootherstep((tRaw - 0.82) / 0.08);
         // Smooth-lerp the actual night factor toward the target set by
-        // app.jsx (boolean flipped every 5 s). τ ≈ 0.55 s feels in sync
-        // with the 1.1 s CSS cross-fade on the temple backdrop.
+        // app.jsx (boolean flipped every 5 s). τ = 0.32 s → el lerp llega a
+        // ~95% en 0.96 s, cerrando junto al beat único de 900 ms que ahora
+        // comparten el backdrop del templo y el cross-fade de títulos
+        // (--motion-beat en styles.css).
         {
           const target = stateRef.current.almaNightTarget || 0;
-          const tau = 0.55;
+          const tau = 0.32;
           const k = 1 - Math.exp(-dt / tau);
           stateRef.current.almaNightActual += (target - stateRef.current.almaNightActual) * k;
         }
@@ -2118,6 +2125,13 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
         const orbWork     = stateRef.current.materials.orbColorWork;
         const dayMix      = phase04Proximity * (1 - almaNightF);
         orbWork.copy(brandOrbCol).lerp(dayOrbCol2, dayMix);
+        // MATERIA aureole: mientras los tres acabados están en escena la luz
+        // que el orbe proyecta se inclina champagne (35% máx) y gana un 15%
+        // de intensidad — el metal se lee encendido por su propia agua.
+        // phase03Proximity (gaussiana σ=0.075 centrada en 0.50) es ≈1e-7 en
+        // los anchors 0.29/0.70, así que nada se filtra a los actos vecinos.
+        orbWork.lerp(stateRef.current.materials.materiaOrbCol, phase03Proximity * 0.35);
+        const phase03OrbLight = lerp(1.0, 1.15, phase03Proximity);
         // EDICIÓN finale: orb brightness multiplier. History: it once LIFTED
         // the orb (×1.40), then the client asked for half that (×0.70), and now
         // +50% again → ×1.05 at phase-05 peak (0.70 × 1.5). One factor drives
@@ -2133,7 +2147,7 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
         // Local-only orb glow: the PointLight is tight (1.5 range, 2.5 decay)
         // so this intensity only affects the orb and nearest feathers.
         sphereLight.color.copy(orbWork);
-        sphereLight.intensity = (0.45 + breathe * 0.30) * stateRef.current.glowIntensity * Math.min(phaseBoost, 2.0) * phaseOrbLight * phase01OrbLight * phase04OrbMult * phase05OrbBoost;
+        sphereLight.intensity = (0.45 + breathe * 0.30) * stateRef.current.glowIntensity * Math.min(phaseBoost, 2.0) * phaseOrbLight * phase01OrbLight * phase03OrbLight * phase04OrbMult * phase05OrbBoost;
         stateRef.current.materials.sphereMeshes.forEach((m) => {
           if (m.material) {
             m.material.emissive.copy(orbWork);

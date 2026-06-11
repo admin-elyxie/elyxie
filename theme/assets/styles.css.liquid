@@ -18,6 +18,25 @@ html {
   overflow-x: clip;
 }
 
+/* ===========================================================
+   Motion — tabla de tokens
+   ───────────────────────────────────────────────────────────
+   --motion-major  3000ms easeOutCubic (vive en JS): snap de actos y clicks
+                   del rail (SNAP_DURATION en app.jsx) — una sola respiración
+   --motion-beat    900ms --ease-beat: beats narrativos del hero — cross-fade
+                   de actos, títulos día/noche de ALMA, backdrop del templo
+                   (el τ=0.32s del orbe en pendant.jsx cierra con este beat)
+   --motion-micro   360ms ease: micro-interacciones (hover, línea de agua);
+                   las transiciones de chrome existentes (80–400ms) pertenecen
+                   a esta familia y no se tokenizan una a una
+   =========================================================== */
+:root {
+  --motion-major: 3000ms;
+  --motion-beat: 900ms;
+  --motion-micro: 360ms;
+  --ease-beat: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
 body[data-theme="light"] {
   --theme-bg: #F6F2E8;
   --theme-fg: #0A2620;
@@ -118,7 +137,8 @@ body[data-nav-halo] .nav .elyxie-logo {
   letter-spacing: 0.26em;
   text-transform: uppercase;
   color: var(--theme-fg);
-  overflow: hidden;
+  /* Sin overflow:hidden — recortaría las zonas táctiles extendidas de los
+     botones (::after). El ::before deslizante es redondeado por sí mismo. */
   isolation: isolate;
 }
 .nav__lang button {
@@ -146,6 +166,13 @@ body[data-nav-halo] .nav .elyxie-logo {
 }
 .nav__lang button[data-active="true"] {
   opacity: 1;
+}
+/* Zona táctil ≥44px sin alterar el visual del pill (25px de alto): el área
+   efectiva de cada botón se extiende ±12px en vertical. */
+.nav__lang button::after {
+  content: '';
+  position: absolute;
+  inset: -12px 0;
 }
 /* Sliding indicator pill behind the active button. We position it via a
    CSS custom property `--lang-pos` set by the React component (0 or 1). */
@@ -184,6 +211,23 @@ body[data-nav-halo] .nav .elyxie-logo {
   height: 100vh;
   width: 100%;
   overflow: hidden;
+}
+/* Rampa tonal hero→crema (--seam la escribe app.jsx sobre .pin-wrap en el
+   último ~4% del pin): un velo crema sube desde el borde inferior y entrega
+   el void al tema claro de CINEMATOGRAFÍA sin portazo. Conducido por scroll
+   → reversible al subir; z-index 2 = sobre canvas (1), bajo el copy (3). */
+.pin-stage::after {
+  content: '';
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  height: 30vh;
+  background: linear-gradient(to bottom,
+    rgba(246, 242, 232, 0) 0%,
+    rgba(246, 242, 232, 0.55) 70%,
+    #F6F2E8 100%);
+  opacity: var(--seam, 0);
+  pointer-events: none;
+  z-index: 2;
 }
 
 /* WebGL canvas fills the stage */
@@ -476,7 +520,9 @@ body[data-nav-halo] .nav .elyxie-logo {
   background-position: center center;
   background-repeat: no-repeat;
   pointer-events: none;
-  transition: opacity 800ms cubic-bezier(0.4, 0, 0.2, 1);
+  /* --motion-beat: el backdrop del templo, los títulos día/noche y el lerp
+     del orbe (τ=0.32s en pendant.jsx) cierran como UN solo gesto. */
+  transition: opacity var(--motion-beat) var(--ease-beat);
   will-change: opacity;
 }
 /* Poster stills stay as the background-image so the very first frame paints
@@ -569,13 +615,18 @@ body[data-nav-halo] .nav .elyxie-logo {
   color: var(--theme-fg);
   opacity: 0;
   transform: translateY(20px);
-  transition: opacity 700ms cubic-bezier(0.4,0,0.2,1), transform 700ms cubic-bezier(0.4,0,0.2,1);
+  /* Cross-fade SECUENCIAL: el acto saliente (sin delay) se va antes de que
+     el entrante (delay 350ms) gane presencia — nunca dos títulos legibles
+     superpuestos. Con beat de 900ms y delay de 350ms, cuando el entrante
+     alcanza 0.3 de opacidad el saliente ya está por debajo de 0.15. */
+  transition: opacity var(--motion-beat) var(--ease-beat), transform var(--motion-beat) var(--ease-beat);
   will-change: opacity, transform;
 }
 .phase-content[data-active="true"] {
   opacity: 1;
   transform: translateY(0);
   pointer-events: auto;
+  transition-delay: 350ms;
 }
 .phase-eyebrow {
   display: inline-flex; align-items: center; gap: 14px;
@@ -586,11 +637,17 @@ body[data-nav-halo] .nav .elyxie-logo {
   text-transform: uppercase;
   color: var(--color-gold-bright);
   margin-bottom: 28px;
+  /* Scrim tipográfico: los fondos son VIDEO y el contraste depende del
+     fotograma — un halo oscuro suave garantiza la lectura sobre los picos
+     de luz (bruma, reflejo del agua) y es invisible sobre el void. */
+  text-shadow: 0 1px 2px rgba(2, 12, 10, 0.35), 0 1px 14px rgba(2, 12, 10, 0.35);
 }
 .phase-eyebrow__num {
   font-variant-numeric: tabular-nums;
   color: var(--theme-fg);
-  opacity: 0.6;
+  /* 0.72 (= .phase-sub): a 0.6 el número del acto caía a ~3:1 sobre los
+     frames claros del vídeo — y la numeración ES la columna narrativa. */
+  opacity: 0.72;
 }
 .phase-eyebrow__dot {
   width: 4px; height: 4px; border-radius: 50%;
@@ -607,6 +664,9 @@ body[data-nav-halo] .nav .elyxie-logo {
   margin: 0 0 24px 0;
   color: var(--theme-fg);
   text-wrap: pretty;
+  /* Scrim más abierto que el del cuerpo: al tamaño display basta un halo
+     amplio y tenue para asegurar el título sobre los picos del vídeo. */
+  text-shadow: 0 2px 24px rgba(2, 12, 10, 0.35);
 }
 .phase-title .accent {
   color: var(--color-gold-bright);
@@ -620,6 +680,8 @@ body[data-nav-halo] .nav .elyxie-logo {
   opacity: 0.72;
   max-width: 42ch;
   margin: 0 0 28px 0;
+  /* Mismo scrim tipográfico que .phase-eyebrow (fondos de vídeo). */
+  text-shadow: 0 1px 2px rgba(2, 12, 10, 0.35), 0 1px 14px rgba(2, 12, 10, 0.35);
 }
 .phase-bilingual {
   display: block;
@@ -719,14 +781,14 @@ body[data-nav-halo] .nav .elyxie-logo {
 .phase-title-stack .phase-title--alma-slot {
   grid-row: 1;
   grid-column: 1;
-  transition: opacity 900ms cubic-bezier(0.4, 0, 0.2, 1), visibility 0s linear 0s;
+  transition: opacity var(--motion-beat) var(--ease-beat), visibility 0s linear 0s;
   will-change: opacity;
 }
 /* La variante oculta sale de pintura/selección/find-in-page cuando termina su
-   fade; el retraso de 900ms preserva el cross-fade día/noche intacto. */
+   fade; el retraso (= --motion-beat) preserva el cross-fade día/noche intacto. */
 .phase-title-stack .phase-title--alma-slot[aria-hidden="true"] {
   visibility: hidden;
-  transition: opacity 900ms cubic-bezier(0.4, 0, 0.2, 1), visibility 0s linear 900ms;
+  transition: opacity var(--motion-beat) var(--ease-beat), visibility 0s linear var(--motion-beat);
 }
 .phase-content--alma .phase-sub    { text-align: center; max-width: 52ch; margin: 0 auto 14px; }
 .phase-content--alma .phase-bilingual { text-align: center; }
@@ -1888,7 +1950,10 @@ input:focus-visible,
    =========================================================== */
 .FullMediaHeadline {
   position: relative;
+  /* svh con fallback vh: misma familia del bug dvh/iOS ya corregido en el
+     hero — 100vh desborda con la barra dinámica de Safari. */
   min-height: 100vh;
+  min-height: 100svh;
   padding: 0;
   border-top: none;
   overflow: hidden;
@@ -1993,10 +2058,37 @@ input:focus-visible,
   color: #F6F2E8;
 }
 .Button--primary {
+  position: relative;
+  overflow: hidden;
   background: linear-gradient(180deg, var(--gold-300), var(--gold-500));
   border-color: transparent;
   color: var(--emerald-800);
   box-shadow: 0 0 30px rgba(233,215,177,0.25);
+}
+/* Línea de agua en reposo: al hover, una onda senoidal tenue aparece cerca
+   de la base del CTA y deriva muy despacio — el agua que la pieza custodia,
+   viva bajo el oro. Un solo gesto contenido; PRM la deja quieta. */
+.Button--primary::after {
+  content: '';
+  position: absolute;
+  left: 0; right: 0; bottom: 5px;
+  height: 8px;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='8' viewBox='0 0 56 8'%3E%3Cpath d='M0 4 Q7 1.6 14 4 T28 4 T42 4 T56 4' fill='none' stroke='%23052a23' stroke-opacity='0.5' stroke-width='1.1'/%3E%3C/svg%3E") repeat-x left center / 56px 8px;
+  opacity: 0;
+  transition: opacity var(--motion-micro) ease;
+  pointer-events: none;
+}
+.Button--primary:hover:not(:disabled)::after,
+.Button--primary:focus-visible::after {
+  opacity: 0.55;
+  animation: button-water 7s linear infinite;
+}
+@keyframes button-water {
+  from { background-position-x: 0; }
+  to   { background-position-x: 56px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .Button--primary::after { animation: none !important; }
 }
 .Button--primary:hover:not(:disabled) {
   box-shadow: 0 0 60px rgba(233,215,177,0.35), 0 0 120px rgba(233,215,177,0.18);
@@ -2168,6 +2260,7 @@ section[data-section="outro"] {
 }
 .OutroWordmark {
   height: 70vh;
+  height: 70svh;
   min-height: 480px;
   display: flex;
   align-items: center;
@@ -2989,6 +3082,15 @@ section[data-section="outro"] {
   .Footer__cols { grid-template-columns: repeat(3, 1fr); gap: 28px; }
 }
 
+/* Landscape de poca altura (teléfono girado): con ~360-500px de viewport el
+   pin de 360-500vh se vuelve un túnel eterno — compactar el viaje preserva
+   los 5 actos sin convertir el hero en castigo. !important gana al height
+   inline que app.jsx escribe en .pin-wrap. */
+@media (orientation: landscape) and (max-height: 500px) {
+  .pin-wrap { height: 280dvh !important; }
+  .pin-stage { height: 100dvh; }
+}
+
 /* ===========================================================
    MOBILE  (≤ 767px)
    =========================================================== */
@@ -3160,6 +3262,7 @@ section[data-section="outro"] {
     letter-spacing: 0.32em;
   }
   .mobile-drawer__lang button {
+    position: relative;
     background: transparent;
     border: 0;
     color: #fff;
@@ -3167,7 +3270,13 @@ section[data-section="outro"] {
     cursor: pointer;
     font: inherit;
     letter-spacing: inherit;
-    padding: 2px 4px;
+    padding: 8px 6px;
+  }
+  /* Zona táctil ≥44px (el visual medía 26×21px): padding real + extensión. */
+  .mobile-drawer__lang button::after {
+    content: '';
+    position: absolute;
+    inset: -8px -8px;
   }
   .mobile-drawer__lang button[data-active="true"] { opacity: 1; color: var(--gold-300); }
   .mobile-drawer__lang span { opacity: 0.4; }
@@ -3849,14 +3958,19 @@ section[data-section="outro"] {
 }
 .FootForm__input::placeholder { color: rgba(255, 255, 255, 0.5); }
 .FootForm__submit {
-  padding: 12px 24px;
+  padding: 12px 20px 12px 24px;
   border-radius: 999px;
   border: 0;
   background: linear-gradient(180deg, #E9D7B1, #C9A66B);
   color: #0A2620;
   font-family: var(--font-body);
   font-weight: 500;
-  font-size: 13px;
+  /* Misma voz tipográfica que .Button (11px / 0.32em / uppercase): antes era
+     el único CTA del sitio en sentence-case sin tracking. */
+  font-size: 11px;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  text-indent: 0.32em;
   cursor: pointer;
 }
 .FootForm__discreet {

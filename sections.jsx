@@ -100,13 +100,17 @@ function SectionVideoHero({ lang }) {
     return () => window.removeEventListener('resize', onR);
   }, [active, isNarrow]);
 
-  // Autoplay only while in view (muted, so the browser allows it). Pause off-screen.
+  // Autoplay only while in view (muted, so the browser allows it). Pause
+  // off-screen. prefers-reduced-motion suprime el autoplay por completo:
+  // el poster queda quieto y el usuario decide si reproduce.
   useE(() => {
     const v = videoRef.current;
     if (!v) return;
     v.muted = !soundOn;
+    const prm = window.matchMedia('(prefers-reduced-motion: reduce)');
     const io = new IntersectionObserver(
       ([entry]) => {
+        if (prm.matches) { v.pause(); return; }
         if (entry.isIntersecting && entry.intersectionRatio >= 0.35) v.play().catch(() => {});
         else v.pause();
       },
@@ -409,7 +413,7 @@ function SectionVitrina({ lang }) {
     chainLabel: 'CADENA · PARA QUIÉN ES',
     chainNote: 'La cadena no altera el precio.',
     meta: 'EDICIÓN LIMITADA · N.º 01 / 100 · HECHA A MANO POR ENCARGO',
-    cta: 'Reserva tu pieza',
+    cta: 'Recibir en custodia',
     chip: 'EDICIÓN LIMITADA · N.º 01 / 100',
     viewsLabel: 'Vistas de la pieza',
     pieceAlt: (name, ch) => `Ángel de la Laguna Negra en ${name.toLowerCase()}, cadena ${ch === 'ella' ? 'para ella' : 'para él'}`,
@@ -422,7 +426,7 @@ function SectionVitrina({ lang }) {
     chainLabel: "CHAIN · WHO IT'S FOR",
     chainNote: 'The chain does not change the price.',
     meta: 'LIMITED FIRST EDITION · N.º 01 / 100 · HAND-FINISHED TO ORDER',
-    cta: 'Reserve your piece',
+    cta: 'Receive in custody',
     chip: 'LIMITED FIRST EDITION · N.º 01 / 100',
     viewsLabel: 'Piece views',
     pieceAlt: (name, ch) => `Angel of the Black Lagoon in ${name.toLowerCase()}, ${ch === 'ella' ? 'chain for her' : 'chain for him'}`,
@@ -713,7 +717,7 @@ function SectionInstagramGrid({ lang }) {
                   <picture>
                     <source
                       type="image/webp"
-                      srcSet={`${webp480} 480w, ${webp} 720w`}
+                      srcSet={`${webp480} 480w, ${webp} 720w, ${ebase}-960.webp 960w`}
                       sizes="(max-width: 767px) 100vw, (max-width: 1024px) 50vw, 33vw"
                     />
                     <img src={`${ebase}.jpg`} alt="" loading="lazy" decoding="async"/>
@@ -753,7 +757,7 @@ const FOOT_COPY = {
     title: 'The lagoon, in your inbox.',
     body: 'A quiet letter, monthly. New rituals, new pieces, the next opening of the edition.',
     placeholder: 'Your email',
-    button: 'Reserve',
+    button: 'Join the circle',
     discreet: 'We do not share addresses. Ever.',
     success: 'Thank you. The lagoon will find you.',
     brandBody: 'A single piece, hand-crafted in Lima, with water gathered from the Black Lagoon of Huancabamba.',
@@ -769,7 +773,7 @@ const FOOT_COPY = {
     title: 'La laguna, en tu bandeja.',
     body: 'Una carta silenciosa, cada mes. Nuevos rituales, nuevas piezas, la próxima apertura de la edición.',
     placeholder: 'Tu correo',
-    button: 'Reservar',
+    button: 'Unirme al círculo',
     discreet: 'No compartimos direcciones. Nunca.',
     success: 'Gracias. La laguna te encontrará.',
     brandBody: 'Una sola pieza, hecha a mano en Lima, con agua recolectada de la Laguna Negra de Huancabamba.',
@@ -813,18 +817,20 @@ function Footer({ lang }) {
             <input type="hidden" name="utf8" value="✓"/>
             <input type="hidden" name="contact[tags]" value="newsletter"/>
             <div className="FootForm__row">
+              <label className="sr-only" htmlFor="FootEmail">{t.placeholder}</label>
               <input
                 className="FootForm__input"
+                id="FootEmail"
                 type="email"
                 name="contact[email]"
                 autoComplete="email"
                 required
-                aria-label={t.placeholder}
+                aria-describedby="FootFormStatus"
                 placeholder={t.placeholder}
               />
               <button className="FootForm__submit" type="submit">{t.button}</button>
             </div>
-            <div className="FootForm__discreet" role="status" aria-live="polite">
+            <div className="FootForm__discreet" id="FootFormStatus" role="status" aria-live="polite">
               {posted ? t.success : t.discreet}
             </div>
           </form>

@@ -177,6 +177,7 @@ function Hero({ lang, tweaks, pendantRef }) {
   const pinVH = tweaks.pinViewports;
 
   useEffect(() => {
+    let lastSeam = '';
     function onScroll() {
       const wrap = wrapRef.current;
       if (!wrap) return;
@@ -187,6 +188,11 @@ function Hero({ lang, tweaks, pendantRef }) {
       if (!isFinite(p)) p = 0;
       p = Math.max(0, Math.min(1, p));
       progressRef.current = p;
+      // Rampa tonal hero→crema: los últimos ~4% del pin alimentan --seam
+      // (0→1); .pin-stage::after funde el void hacia el crema de la sección
+      // siguiente. Conducida por scroll → reversible al subir.
+      const seam = Math.max(0, Math.min(1, (p - 0.96) / 0.04)).toFixed(3);
+      if (seam !== lastSeam) { lastSeam = seam; wrap.style.setProperty('--seam', seam); }
       // throttle React re-render via rAF
       if (!rafRef.current) {
         rafRef.current = requestAnimationFrame(() => {
@@ -251,10 +257,17 @@ function Hero({ lang, tweaks, pendantRef }) {
       return rect.top <= 0.5 && rect.bottom >= window.innerHeight - 0.5;
     };
 
+    let snapVel = 0;   // px/ms del tween en curso — alimenta el coast del wheel
+    let coastRaf = 0;
+    function cancelCoast() {
+      if (coastRaf) cancelAnimationFrame(coastRaf);
+      coastRaf = 0;
+    }
     function cancelSnap() {
       if (snapRaf) cancelAnimationFrame(snapRaf);
       snapRaf = 0;
       snapping = false;
+      cancelCoast();
     }
     // `duration` is optional. Both idle-snap AND rail-button clicks use
     // SNAP_DURATION (3000 ms) — the page has a single, consistent
@@ -266,7 +279,9 @@ function Hero({ lang, tweaks, pendantRef }) {
       cancelSnap();
       // Clamp + finite guard: a target outside [0,1] (or NaN geometry from a
       // mid-resize probe) must never become a scrollTo() outside the pin —
-      // the failure mode is an instant jump to the top of the page.
+      // the failure mode is an instant jump to the top of the page. Same
+      // guard for a degenerate pin (offsetHeight 0 mid-layout → pinTotal 1).
+      if (pinTotal() <= 1) return;
       const endY = progressY(Math.max(0, Math.min(1, targetProgress)));
       if (!isFinite(endY)) return;
       if (PRM) {
@@ -279,9 +294,12 @@ function Hero({ lang, tweaks, pendantRef }) {
       const startY = window.scrollY;
       const dur = (typeof duration === 'number' && duration > 0) ? duration : SNAP_DURATION;
       const t0 = performance.now();
+      let prevT = t0, prevY = startY;
       function step(t) {
         const k = Math.min(1, (t - t0) / dur);
         const next = startY + (endY - startY) * easeOutCubic(k);
+        snapVel = (next - prevY) / Math.max(1, t - prevT);
+        prevT = t; prevY = next;
         lastY = next;
         window.scrollTo({ top: next });
         if (k < 1) snapRaf = requestAnimationFrame(step);
@@ -300,6 +318,10 @@ function Hero({ lang, tweaks, pendantRef }) {
     function snapToNext() {
       if (snapping || !isInside()) return;
       if (performance.now() < snapCooldownUntil) return;
+      // Geometría degenerada (offsetHeight aún 0 en mitad de un layout o
+      // resize): pinTotal() colapsa a 1 y cualquier target se convertiría en
+      // un scrollTo a ≈0 — el «salto al inicio» que rompía producción.
+      if (pinTotal() <= 1) return;
       const p = currentProgress();
       let target;
       if (lastDirection > 0) target = SNAP_POINTS.find((s) => s > p + 0.005);
@@ -321,12 +343,33 @@ function Hero({ lang, tweaks, pendantRef }) {
       idleTimer = setTimeout(snapToNext, IDLE_MS);
     }
     function onWheel(e) {
-      // Any user-initiated wheel during a snap cancels it; native scroll then
-      // takes over without competing with our tween.
-      if (snapping) cancelSnap();
+      // A wheel during a snap hands control back to native scroll. If the
+      // push va en la MISMA dirección que viajaba el tween, su velocidad
+      // decae en ~150 ms en vez de congelarse — el traspaso se lee como un
+      // solo gesto. Un push opuesto es cancelación dura: el usuario está
+      // revirtiendo y cualquier coast pelearía contra él.
+      if (!snapping) return;
+      const v0 = snapVel;
+      const sameDir = Math.sign(e.deltaY || 0) === Math.sign(v0);
+      cancelSnap();
+      if (!sameDir || Math.abs(v0) < 0.05) return;
+      const COAST_MS = 150;
+      const t0c = performance.now();
+      let prevC = t0c;
+      function coastStep(t) {
+        coastRaf = 0;
+        const elapsed = t - t0c;
+        if (elapsed >= COAST_MS || snapping) return;
+        const dtms = t - prevC; prevC = t;
+        window.scrollBy(0, v0 * (1 - elapsed / COAST_MS) * dtms);
+        coastRaf = requestAnimationFrame(coastStep);
+      }
+      coastRaf = requestAnimationFrame(coastStep);
     }
     function onTouchStart() {
+      // El dedo es manipulación directa: corte limpio, sin coast.
       if (snapping) cancelSnap();
+      cancelCoast();
     }
 
     window.addEventListener('scroll', onScroll, { passive: true });
@@ -802,10 +845,11 @@ function Hero({ lang, tweaks, pendantRef }) {
                             : <>A sanctuary<br/><span className="accent">you carry</span></>}
                         </h2>
                         <p className="phase-sub">{p.sub[lang]}</p>
-                        {/* «Solicitar la custodia» = intención de compra → ancla a la
+                        {/* «Recibir en custodia» = el CTA único del contrato de marca
+                            (mismo verbo en hero, vitrina y theme) → ancla a la
                             Vitrina (#ediciones), la sección de reserva bajo el hero. */}
                         <a className="Button Button--ghost edition-cta" href="#ediciones">
-                          {lang === 'es' ? 'Solicitar la custodia' : 'Request custody'}
+                          {lang === 'es' ? 'Recibir en custodia' : 'Receive in custody'}
                           <span className="Button__arrow">→</span>
                         </a>
                       </div>
@@ -1059,10 +1103,10 @@ function MobileNavDrawer({ lang, setLang, open, onClose }) {
           })}
         </ul>
 
-        <div className="mobile-drawer__lang" role="group" aria-label="Language">
-          <button data-active={lang === 'es'} onClick={() => setLang('es')}>ES</button>
+        <div className="mobile-drawer__lang" role="group" aria-label={lang === 'es' ? 'Idioma' : 'Language'}>
+          <button data-active={lang === 'es'} aria-pressed={lang === 'es'} onClick={() => setLang('es')}>ES</button>
           <span aria-hidden>·</span>
-          <button data-active={lang === 'en'} onClick={() => setLang('en')}>EN</button>
+          <button data-active={lang === 'en'} aria-pressed={lang === 'en'} onClick={() => setLang('en')}>EN</button>
         </div>
 
         <div className="mobile-drawer__phones">
@@ -1111,7 +1155,7 @@ function Nav({ lang, setLang }) {
             <a key={l.label + i} className="nav__link" href={l.url || '#'}>{l.label}</a>
           ))}
         </div>
-        <div className="nav__lang" style={{ '--lang-pos': lang === 'en' ? 1 : 0 }} role="group" aria-label="Language">
+        <div className="nav__lang" style={{ '--lang-pos': lang === 'en' ? 1 : 0 }} role="group" aria-label={lang === 'es' ? 'Idioma' : 'Language'}>
           <button data-active={lang === 'es'} onClick={() => setLang('es')} aria-pressed={lang === 'es'}>ES</button>
           <button data-active={lang === 'en'} onClick={() => setLang('en')} aria-pressed={lang === 'en'}>EN</button>
         </div>
@@ -1120,7 +1164,9 @@ function Nav({ lang, setLang }) {
         <div className="nav__mobile-actions" aria-hidden={false}>
           <button
             className="nav__icon-btn nav__icon-btn--menu"
-            aria-label={drawerOpen ? 'Close menu' : 'Open menu'}
+            aria-label={drawerOpen
+              ? (lang === 'es' ? 'Cerrar menú' : 'Close menu')
+              : (lang === 'es' ? 'Abrir menú' : 'Open menu')}
             aria-expanded={drawerOpen}
             type="button"
             onClick={() => setDrawerOpen((v) => !v)}
