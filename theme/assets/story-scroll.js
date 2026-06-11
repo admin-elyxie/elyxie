@@ -2,8 +2,10 @@
    Motor de scrollytelling de la página Story de Elyxie. Vanilla ES2020, cero
    dependencias. Replica el espíritu del hero one-pager (app.jsx): progress
    normalizado por escena = -rect.top / (alto - vh), interpolación de tema en
-   RGB (como C_DARK_BG/C_LIGHT_BG) escrita en custom properties, y easing
-   quintic para que nada se sienta "punchy". El DOM lo define la sección
+   RGB (como C_DARK_BG/C_LIGHT_BG) escrita en custom properties, easing
+   quintic para que nada se sienta "punchy", y snap-on-idle a los beats
+   (scroll nativo + tween easeOutCubic de 3000 ms, el mismo modelo y duración
+   del snap del hero). El DOM lo define la sección
    Liquid: #elyxie-story > .story-scene[data-*] con .story-beat, .story-counter,
    .story-scene__media(/-b), .story-video, .story-rail y [data-reveal].
 ================================================================================ */
@@ -167,7 +169,7 @@
       rafId = requestAnimationFrame(frame);
     }
     function wake() { if (!rafId) rafId = requestAnimationFrame(frame); }
-    function onScroll() { lastScrollTs = performance.now(); wake(); }
+    function onScroll() { lastScrollTs = performance.now(); wake(); onSnapScroll(); }
 
     // ---------- Frame ----------
     function update() {
@@ -317,6 +319,156 @@
       }
     }
 
+    // ---------- Snap on idle ----------
+    // Mismo modelo que el hero del home (app.jsx): el scroll de entrada es
+    // 100% nativo (cero intercepción → el gesto se siente crudo) y, cuando el
+    // usuario lleva SNAP_IDLE_MS sin mover la página, un tween easeOutCubic
+    // lleva el scroll hasta el beat más próximo EN LA DIRECCIÓN del último
+    // gesto. Así nunca se descansa en un estado intermedio: beat a media
+    // opacidad, counter a medio contar, o la costura del handoff (1vh sin
+    // pin) entre dos escenas.
+    //
+    // Anclas: una por beat, en Y absoluta de documento. La p objetivo es el
+    // CENTRO de la ventana [tIn,tOut] clampeado a [0,1]: las rampas de
+    // opacidad son de 0.07 por flanco y la ventana más corta mide 0.24, así
+    // que el centro siempre cae en el plateau (opacidad 1); y como los
+    // counters completan al 45% de la vida del beat, en el centro (50%) el
+    // número ya está asentado. Los beats de borde (tIn -0.5 / tOut 1.5)
+    // clampean a 0/1 → reposo exacto al inicio/fin del pin. Pasada la última
+    // ancla no hay snap: glosario y créditos se leen con scroll libre.
+    const SNAP_IDLE_MS = 160;
+    // 3000 ms = SNAP_DURATION del home: una sola sensación de transición en
+    // todo el sitio. easeOutCubic (no smootherstep): arranca rápido —cerca de
+    // la velocidad a la que murió el momentum nativo— y decae a cero, así el
+    // traspaso gesto→tween se lee como un solo movimiento.
+    const SNAP_MS = 3000;
+    const SNAP_EPS = 8; // px: tolerancia «ya estoy en un ancla» del find
+    const easeOutCubic = (k) => 1 - Math.pow(1 - k, 3);
+
+    let snapIdleTimer = 0;
+    let snapRaf = 0;
+    let snapping = false;
+    let snapLastY = window.scrollY;
+    let snapDir = 1;
+    let snapVel = 0; // px/ms del tween en curso — alimenta el coast del wheel
+    let coastRaf = 0;
+
+    function cancelCoast() {
+      if (coastRaf) cancelAnimationFrame(coastRaf);
+      coastRaf = 0;
+    }
+    function cancelSnap() {
+      if (snapRaf) cancelAnimationFrame(snapRaf);
+      snapRaf = 0;
+      snapping = false;
+      cancelCoast();
+    }
+
+    function tweenTo(endY) {
+      cancelSnap();
+      snapping = true;
+      const startY = window.scrollY;
+      const t0 = performance.now();
+      let prevT = t0, prevY = startY;
+      function step(t) {
+        const k = Math.min(1, (t - t0) / SNAP_MS);
+        const next = startY + (endY - startY) * easeOutCubic(k);
+        snapVel = (next - prevY) / Math.max(1, t - prevT);
+        prevT = t; prevY = next;
+        snapLastY = next;
+        window.scrollTo(0, next);
+        if (k < 1) snapRaf = requestAnimationFrame(step);
+        else { snapRaf = 0; snapping = false; }
+      }
+      snapRaf = requestAnimationFrame(step);
+    }
+
+    function snapToNext() {
+      if (snapping) return;
+      // Anclas recalculadas AQUÍ, nunca cacheadas: la barra de iOS cambia
+      // innerHeight (y con él los spans) entre gesto y gesto. A frecuencia de
+      // idle —no de frame— 5 getBoundingClientRect no cuestan nada, y la Y
+      // resultante invierte exactamente la p que el motor calculará al llegar.
+      const y = window.scrollY;
+      const vhNow = window.innerHeight;
+      const anchors = [];
+      for (let i = 0; i < scenes.length; i++) {
+        const s = scenes[i];
+        const r = s.el.getBoundingClientRect();
+        const topAbs = r.top + y;
+        const span = Math.max(1, r.height - vhNow);
+        for (let j = 0; j < s.beats.length; j++) {
+          const b = s.beats[j];
+          anchors.push(topAbs + clamp((b.tIn + b.tOut) / 2, 0, 1) * span);
+        }
+      }
+      if (!anchors.length) return;
+      anchors.sort(function (a, b) { return a - b; });
+      // Cola libre: pasada la última ancla (glosario/créditos) nada retiene
+      // al usuario dentro del scrollytelling.
+      if (y > anchors[anchors.length - 1] + SNAP_EPS) return;
+      let target;
+      if (snapDir > 0) {
+        for (let k = 0; k < anchors.length; k++) {
+          if (anchors[k] > y + SNAP_EPS) { target = anchors[k]; break; }
+        }
+      } else {
+        for (let k = anchors.length - 1; k >= 0; k--) {
+          if (anchors[k] < y - SNAP_EPS) { target = anchors[k]; break; }
+        }
+      }
+      if (target === undefined) return; // en un borde: dejar salir al usuario
+      tweenTo(target);
+    }
+
+    function onSnapScroll() {
+      const y = window.scrollY;
+      if (snapping) { snapLastY = y; return; } // el tween no se re-arma a sí mismo
+      const dy = y - snapLastY;
+      snapLastY = y;
+      // Umbral 0.5px: iOS reporta scrollY fraccional y la cola del propio
+      // tween (easeOutCubic muere asintóticamente) emite eventos subpíxel que
+      // no son intención del usuario — armarían un segundo snap en cadena.
+      if (dy <= 0.5 && dy >= -0.5) return;
+      snapDir = dy > 0 ? 1 : -1;
+      clearTimeout(snapIdleTimer);
+      snapIdleTimer = setTimeout(snapToNext, SNAP_IDLE_MS);
+    }
+
+    function onWheel(e) {
+      // Una rueda durante el snap devuelve el control al scroll nativo. Si el
+      // push va en la MISMA dirección que viajaba el tween, su velocidad decae
+      // en ~150 ms en vez de congelarse — el traspaso se lee como un solo
+      // gesto. Un push opuesto es cancelación dura: el usuario está
+      // revirtiendo y cualquier coast pelearía contra él.
+      if (!snapping) return;
+      // Los eventos de fin de momentum de macOS llegan con deltaY=0: no son
+      // intención del usuario y cancelarían el tween a mitad de vuelo dejando
+      // la página en reposo FUERA de un ancla.
+      if (!e.deltaY) return;
+      const v0 = snapVel;
+      const sameDir = Math.sign(e.deltaY) === Math.sign(v0);
+      cancelSnap();
+      if (!sameDir || Math.abs(v0) < 0.05) return;
+      const COAST_MS = 150;
+      const t0 = performance.now();
+      let prev = t0;
+      function coastStep(t) {
+        coastRaf = 0;
+        const elapsed = t - t0;
+        if (elapsed >= COAST_MS || snapping) return;
+        window.scrollBy(0, v0 * (1 - elapsed / COAST_MS) * (t - prev));
+        prev = t;
+        coastRaf = requestAnimationFrame(coastStep);
+      }
+      coastRaf = requestAnimationFrame(coastStep);
+    }
+    function onTouchStart() {
+      // El dedo es manipulación directa: corte limpio, sin coast.
+      if (snapping) cancelSnap();
+      cancelCoast();
+    }
+
     // ---------- Observers ----------
     // rootMargin 50%: una escena cuenta como "visible" desde media pantalla
     // antes de entrar, para que beats/parallax ya estén posicionados al asomar.
@@ -397,6 +549,8 @@
     }
 
     window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('wheel', onWheel, { passive: true });
+    window.addEventListener('touchstart', onTouchStart, { passive: true });
     window.addEventListener('resize', onResize);
     window.addEventListener('orientationchange', onResize);
     // iOS dispara visualViewport resize al colapsar/expandir la barra del
@@ -416,7 +570,11 @@
       if (rafId) cancelAnimationFrame(rafId);
       rafId = 0;
       clearTimeout(resizeTimer);
+      clearTimeout(snapIdleTimer);
+      cancelSnap();
       window.removeEventListener('scroll', onScroll);
+      window.removeEventListener('wheel', onWheel);
+      window.removeEventListener('touchstart', onTouchStart);
       window.removeEventListener('resize', onResize);
       window.removeEventListener('orientationchange', onResize);
       if (window.visualViewport) window.visualViewport.removeEventListener('resize', onResize);
