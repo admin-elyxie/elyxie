@@ -450,12 +450,21 @@
      10 · RESPONSIVE
      ═══════════════════════════════════════════════════════════════════════ */
   @media (max-width: 900px) {
-    /* Escena 4: ángel arriba (~55svh), texto en el tramo inferior. */
+    /* Escena 4: ángel arriba, texto inmediatamente debajo. El framing de la
+       cámara (targetSize 2.0 sobre ~2.58 visibles) deja aire DENTRO del
+       mount: el ángel visible ocupa ~3..43svh de un mount 0..55svh. Con
+       top 0 las alas rozaban el nav fixed (~80px) y con el beat en
+       flex-end + 9svh quedaba una banda muerta de ~35svh entre los pies
+       del ángel y la prosa. top 6svh despeja el nav; el beat arranca con
+       padding-top donde termina el ángel visible (~47svh + aire), no en
+       el pie del viewport. */
     .story--armed .story-scene[data-scene="seguro"] .story-angel-mount {
-      left: 0; right: 0; bottom: auto; height: 55vh; height: 55svh; }
+      left: 0; right: 0; bottom: auto; top: 6vh; top: 6svh;
+      height: 52vh; height: 52svh; }
     .story--armed .story-scene[data-scene="seguro"] .story-beat {
-      padding-right: var(--story-pad-x); justify-content: flex-end;
-      padding-bottom: 9vh; padding-bottom: 9svh; }
+      padding-right: var(--story-pad-x); justify-content: flex-start;
+      padding-top: 51vh; padding-top: 51svh;
+      padding-bottom: 4vh; padding-bottom: 4svh; }
   }
   /* 767px: el mismo corte que usa story-scroll.js (mobileMQ) — si difirieran,
      en la franja intermedia el motor aplicaría parallax móvil sobre layout
@@ -501,6 +510,10 @@
     .story--armed .story-legend { position: static; margin: 28px 0 0; }
     .story--armed .story-scene[data-scene="seguro"] .story-angel-mount {
       position: relative; inset: auto; left: auto; height: 62vh; height: 62svh; }
+    /* La regla móvil del beat del seguro (padding-top 51svh) es más específica
+       que el reset genérico de .story-beat de arriba — re-apilar explícito. */
+    .story--armed .story-scene[data-scene="seguro"] .story-beat {
+      padding: clamp(44px, 7vw, 80px) var(--story-pad-x); }
     .story--armed [data-reveal] { transition: none; opacity: 1; transform: none; }
     .story-grain { animation: none; }
     /* bajo reduced el motor jamás asigna src; esto cubre el caso borde de
