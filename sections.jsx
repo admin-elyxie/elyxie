@@ -237,30 +237,380 @@ const PROVENANCE = [
   },
 ];
 
+// ── Procedencia · «Descenso por estratos» — motor de animación ─────────────
+// La sección se rediseñó motion-first: las tres cards son estratos de
+// profundidad de la Laguna Negra (geológico → ancestral → metafísico) y el
+// scroll es la inmersión. El elemento firma es la LÍNEA DE SONDA: 1px dorado
+// que se dibuja con el progreso de scroll por el margen izquierdo, como una
+// plomada midiendo profundidad. Cada estrato emerge de la oscuridad cuando la
+// punta de la línea alcanza su nodo; una única luz cálida (One Light Rule)
+// desciende con esa punta y se asienta en el tercer estrato.
+//
+// Todo el motor vive en funciones puras (sin React): initStrataMotion(section)
+// opera sobre data-attributes y devuelve un cleanup. React solo monta el
+// markup y llama al init en un useEffect — pensado para portar el sistema al
+// theme de Shopify sin tocar la lógica.
+//
+// Reparto de responsabilidades:
+//   · Acoplado a scroll (reversible, smootherstep): línea (scaleY), luz
+//     (translate3d), nodos encendidos y estrato activo. Cero estado React por
+//     frame: el driver escribe transform/opacity directamente sobre el DOM.
+//   · One-shot (no se repite al subir): revelado del titular, secuencia de
+//     cada estrato (anillo → etiqueta → título+cifra → párrafo) y los
+//     conteos. Los dispara la PROPIA punta de la línea (un solo origen de
+//     verdad, sin IntersectionObserver): scroll rápido al footer → p≈1 →
+//     todo queda completado; volver a subir nunca des-revela.
+//   · prefers-reduced-motion: los estados pre-revelado solo se arman bajo
+//     @media (prefers-reduced-motion: no-preference) en CSS, así que con
+//     reduce la sección pinta completa y estática (línea llena, cifras
+//     finales, sin luz). Chequeado en vivo en cada tick, no congelado.
+
+// Quintic — cero 1ª y 2ª derivada en los extremos (convención del repo para
+// todo lo acoplado a scroll). El arranque lento hace que la línea apenas se
+// mueva mientras el titular se asienta (p 0.08–0.18) y el final lento la
+// posa suavemente en el reposo (p≈0.90).
+function strataSmootherstep(x) {
+  const u = Math.max(0, Math.min(1, x));
+  return u * u * u * (u * (u * 6 - 15) + 10);
+}
+
+// «3957» → «3.957» (ES) / «3,957» (EN). El separador viene del propio copy.
+function strataFormatInt(n, sep) {
+  let s = String(n), out = '';
+  while (s.length > 3) { out = sep + s.slice(-3) + out; s = s.slice(0, -3); }
+  return s + out;
+}
+
+function initStrataMotion(section) {
+  const rail   = section.querySelector('[data-rail]');
+  const fill   = section.querySelector('[data-rail-fill]');
+  const lamp   = section.querySelector('[data-lamp]');
+  const head   = section.querySelector('[data-head]');
+  const strata = Array.prototype.slice.call(section.querySelectorAll('[data-stratum]'));
+  if (!rail || !fill || !lamp || !head || !strata.length) return undefined;
+
+  const prm = window.matchMedia('(prefers-reduced-motion: reduce)');
+  const timers = [];   // setTimeout ids (delay de arranque de los conteos)
+  const rafs = [];     // rAF ids de conteos en vuelo (ids viejos: cancel inocuo)
+  let raf = 0;         // rAF del driver de scroll
+  let geom = null;     // medidas cacheadas (offsets de estratos, alto del rail)
+  let lastBucket = -1; // cuantización del progreso de línea (evita writes redundantes)
+  let lastActive = -2; // índice del estrato bajo la luz
+  let isLive = false;  // sección cerca del viewport → will-change armado
+  let staticDone = false;
+
+  // El conteo escribe el live imperativamente, así que tras un re-init por
+  // cambio de idioma (React conserva los <li> y sus data-attrs pero re-monta
+  // el texto) hay que re-sincronizar el live con el ghost del idioma nuevo.
+  function syncCount(li) {
+    const live = li.querySelector('.Stratum__numLive');
+    const ghost = li.querySelector('.Stratum__numGhost');
+    if (live && ghost) live.textContent = ghost.textContent;
+  }
+  strata.forEach((li) => { if (li.dataset.revealed === 'true') syncCount(li); });
+
+  // Cifra viva: cuenta de 0 al valor con easeOutExpo (decel fuerte: pasa de
+  // 4 cifras en el primer ~10% y aterriza muy despacio, como una sonda
+  // tocando fondo). El ancho ya está reservado por el ghost → CLS 0. El live
+  // nace con el valor final en el markup, así que solo se pone a 0 en el
+  // instante en que el conteo arranca de verdad.
+  function animateCount(li) {
+    const numEl = li.querySelector('[data-count]');
+    if (!numEl) return;
+    if (prm.matches) { syncCount(li); return; }
+    const live = numEl.querySelector('.Stratum__numLive');
+    const target = parseInt(numEl.dataset.count, 10);
+    const sep = numEl.dataset.sep || '.';
+    if (!live || !isFinite(target)) return;
+    // 320ms ≈ el delay del título en el stagger CSS: la cifra empieza a
+    // contar justo cuando el serif emerge de su máscara. prm se re-chequea
+    // dentro del timer Y del loop: si el usuario activa «reduce» a mitad de
+    // conteo, la cifra salta a su valor final en el siguiente frame.
+    timers.push(setTimeout(() => {
+      if (prm.matches) { syncCount(li); return; }
+      const t0 = performance.now();
+      live.textContent = '0';
+      const frame = (now) => {
+        if (prm.matches) { syncCount(li); return; }
+        const k = Math.min(1, (now - t0) / 1500);
+        const e = k >= 1 ? 1 : 1 - Math.pow(2, -10 * k);
+        live.textContent = strataFormatInt(Math.round(target * e), sep);
+        if (k < 1) rafs.push(requestAnimationFrame(frame));
+      };
+      rafs.push(requestAnimationFrame(frame));
+    }, 320));
+  }
+
+  function revealStratum(li) {
+    if (li.dataset.revealed === 'true') return;
+    li.dataset.revealed = 'true'; // el stagger del estrato vive en CSS
+    animateCount(li);
+  }
+  function revealHead() {
+    if (head.dataset.revealed !== 'true') head.dataset.revealed = 'true';
+  }
+
+  // Geometría en el espacio del rail (.Strata es el offsetParent de los <li>
+  // y el rail lo cubre con inset 0 → mismas coordenadas). Medida solo en
+  // init/resize, nunca por frame.
+  function measure() {
+    const bands = strata.map((li) => {
+      const node = li.querySelector('[data-node]');
+      const top = li.offsetTop;
+      return {
+        el: li, node, top,
+        bottom: top + li.offsetHeight,
+        nodeY: top + (node ? node.offsetTop + node.offsetHeight / 2 : 0),
+      };
+    });
+    const last = bands[bands.length - 1];
+    geom = {
+      railH: Math.max(1, rail.offsetHeight),
+      bands,
+      // «La luz se asienta aquí»: la plomada llega al fondo, pero la luz se
+      // queda en el corazón del tercer estrato.
+      lampMax: last.top + (last.bottom - last.top) * 0.5,
+    };
+    // Geometría nueva → tipY/lampY cambian aunque lineP no: invalida la
+    // cuantización para forzar la siguiente escritura completa.
+    lastBucket = -1;
+  }
+
+  // Progreso de sección p ∈ [0,1]: 0 cuando el top de la sección cruza el
+  // 88% del viewport (entrando), 1 cuando el fondo de la sección alcanza el
+  // 50% (terminada de leer). Independiente de pin/sticky: scroll nativo puro.
+  function sectionProgress() {
+    const r = section.getBoundingClientRect();
+    const vh = window.innerHeight || 1;
+    const p = Math.max(0, Math.min(1, (vh * 0.88 - r.top) / Math.max(1, r.height + vh * 0.38)));
+    return { r, vh, p };
+  }
+
+  // Estado estático digno para reduced-motion: revela todo al instante (las
+  // transiciones están desactivadas por el media query), cancela los conteos
+  // en vuelo (un rAF cancelado deja el live a medias → re-sync), limpia los
+  // inline styles para que ganen los valores CSS de reduce (línea llena, sin
+  // luz) y desarma el will-change — los ticks siguientes salen por la rama
+  // prm sin pasar por el bookkeeping de cercanía.
+  function applyStatic() {
+    revealHead();
+    strata.forEach(revealStratum);
+    timers.forEach(clearTimeout); timers.length = 0;
+    rafs.forEach(cancelAnimationFrame); rafs.length = 0;
+    strata.forEach(syncCount);
+    fill.style.transform = '';
+    lamp.style.transform = '';
+    lamp.style.opacity = '';
+    lastBucket = -1;
+    isLive = false;
+    section.removeAttribute('data-strata-live');
+  }
+
+  function tick() {
+    raf = 0;
+    if (prm.matches) {
+      if (!staticDone) { staticDone = true; applyStatic(); }
+      return;
+    }
+    staticDone = false;
+    if (!geom) measure();
+    const { r, vh, p } = sectionProgress();
+
+    // Completado one-shot ANTES de cualquier descarte por distancia: un salto
+    // directo al footer deja la sección lejos del viewport, pero los disparos
+    // tienen que quedar consumados igual (criterio «scroll rápido → nada
+    // roto»). Idempotente y barato.
+    if (p > 0.92) {
+      revealHead();
+      for (let i = 0; i < strata.length; i++) revealStratum(strata[i]);
+    }
+
+    // will-change quirúrgico: armado solo mientras la sección ronda el
+    // viewport; fuera de él no se paga compositing ni trabajo por tick.
+    const near = r.bottom > -200 && r.top < vh + 200;
+    if (near !== isLive) {
+      isLive = near;
+      section.toggleAttribute('data-strata-live', near);
+    }
+    if (!near) return;
+
+    // Coreografía: p 0.00–0.10 header; la línea nace bajo el titular en 0.08
+    // y se completa en 0.90 (reposo 0.90–1.00).
+    if (p >= 0.05) revealHead();
+    const lineP = strataSmootherstep((p - 0.08) / 0.82);
+    const tipY = lineP * geom.railH;
+
+    // Revelados one-shot disparados por la punta de la línea («alcanzar su
+    // profundidad»): el estrato emerge cuando la plomada toca su nodo.
+    for (let i = 0; i < geom.bands.length; i++) {
+      if (tipY >= geom.bands[i].nodeY) revealStratum(geom.bands[i].el);
+    }
+
+    // Valores continuos, cuantizados a 1/2000 del recorrido para no escribir
+    // estilos redundantes en cada evento de scroll.
+    const bucket = Math.round(lineP * 2000);
+    if (bucket === lastBucket) return;
+    lastBucket = bucket;
+    fill.style.transform = 'scaleY(' + lineP.toFixed(4) + ')';
+    const lampY = Math.min(tipY, geom.lampMax);
+    lamp.style.transform = 'translate3d(0,' + lampY.toFixed(1) + 'px,0)';
+    // La luz se enciende con los primeros centímetros de línea (reversible).
+    lamp.style.opacity = Math.min(1, lineP * 10).toFixed(3);
+
+    let act = -1;
+    for (let i = 0; i < geom.bands.length; i++) {
+      const b = geom.bands[i];
+      const lit = tipY >= b.nodeY;
+      if (b.node && (b.node.dataset.lit === 'true') !== lit) {
+        b.node.dataset.lit = lit ? 'true' : 'false';
+      }
+      // Activo desde su nodo de profundidad (no desde el borde superior de la
+      // card): la luz «alcanza» el estrato en el mismo beat que su revelado —
+      // nunca ilumina el borde de una card aún vacía.
+      if (lampY >= b.nodeY && lampY < b.bottom) act = i;
+    }
+    if (act !== lastActive) {
+      lastActive = act;
+      for (let i = 0; i < geom.bands.length; i++) {
+        geom.bands[i].el.dataset.active = i === act ? 'true' : 'false';
+      }
+    }
+  }
+
+  const onScroll = () => { if (!raf) raf = requestAnimationFrame(tick); };
+  const onResize = () => { geom = null; onScroll(); };
+  window.addEventListener('scroll', onScroll, { passive: true });
+  window.addEventListener('resize', onResize);
+  // Toggle de reduced-motion EN VIVO: sin esto, activar «reduce» con la
+  // página quieta no aplicaría el estado estático hasta el siguiente scroll.
+  const onPrm = () => onScroll();
+  if (prm.addEventListener) prm.addEventListener('change', onPrm);
+  // Cubre lo que resize no ve: swap de webfonts, cambios de contenido por
+  // idioma — cualquier cosa que mueva los offsets de los estratos.
+  const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(onResize) : null;
+  if (ro) ro.observe(rail.parentElement);
+
+  // Arma los estados pre-revelado SOLO una vez que el motor existe: sin JS
+  // la sección pinta completa y estática (nunca contenido oculto huérfano).
+  section.setAttribute('data-strata-ready', '');
+  onScroll();
+
+  return function cleanup() {
+    window.removeEventListener('scroll', onScroll);
+    window.removeEventListener('resize', onResize);
+    if (prm.removeEventListener) prm.removeEventListener('change', onPrm);
+    if (ro) ro.disconnect();
+    if (raf) cancelAnimationFrame(raf);
+    timers.forEach(clearTimeout);
+    rafs.forEach(cancelAnimationFrame);
+    section.removeAttribute('data-strata-live');
+  };
+}
+
+// Divide el título en [antes, cifra, después] cuando contiene una cifra de
+// miles («3.957» / «3,957»). El ghost (visibility:hidden) reserva el ancho
+// EXACTO del valor final — el serif nunca se reacomoda durante el conteo
+// (CLS 0) — y el live (absoluto encima, alineado a la derecha para que la
+// cifra crezca pegada a su unidad) es el que cuenta. El live nace con el
+// valor final: sin JS, pre-init o con reduced-motion ya se lee correcto.
+function StratumTitle({ title }) {
+  const m = title.match(/\d{1,3}[.,]\d{3}/);
+  if (!m) return title;
+  const num = m[0];
+  return <>
+    {title.slice(0, m.index)}
+    <span className="Stratum__num"
+          data-count={num.replace(/[.,]/g, '')}
+          data-sep={num.indexOf('.') !== -1 ? '.' : ','}>
+      <span className="Stratum__numGhost">{num}</span>
+      <span className="Stratum__numLive">{num}</span>
+    </span>
+    {title.slice(m.index + num.length)}
+  </>;
+}
+
 function SectionProvenance({ lang }) {
   const t = lang === 'es'
-    ? { eyebrow: 'PROCEDENCIA · LO QUE GUARDA LA ESFERA', head: <>No es un detalle estético.<br/><em>Es un núcleo energético.</em></> }
-    : { eyebrow: 'PROVENANCE · WHAT THE SPHERE HOLDS', head: <>Not an aesthetic detail.<br/><em>An energetic core.</em></> };
+    ? { eyebrow: 'PROCEDENCIA · LO QUE GUARDA LA ESFERA', lines: [<>No es un detalle estético.</>, <em>Es un núcleo energético.</em>] }
+    : { eyebrow: 'PROVENANCE · WHAT THE SPHERE HOLDS', lines: [<>Not an aesthetic detail.</>, <em>An energetic core.</em>] };
+
+  // El efecto re-corre al cambiar de idioma (el markup se re-monta con el
+  // texto nuevo); initStrataMotion respeta los data-revealed que ya estaban
+  // puestos, así que las secuencias one-shot no se repiten.
+  const rootRef = useR(null);
+  useE(() => {
+    const el = rootRef.current;
+    if (!el) return;
+    return initStrataMotion(el);
+  }, [lang]);
 
   return (
-    <section className="Section theme-dark" data-theme="dark" data-section="provenance" data-screen-label="03 Provenance">
+    <section ref={rootRef} className="Section theme-dark Provenance" data-theme="dark" data-section="provenance" data-screen-label="03 Provenance">
       <Container>
-        <p className="eyebrow-label Provenance__eyebrow">{t.eyebrow}</p>
-        <h2 className="Provenance__head">{t.head}</h2>
+        <div className="Provenance__col">
+          <p className="eyebrow-label Provenance__eyebrow">{t.eyebrow}</p>
+          {/* Titular con revelado por máscara línea a línea: cada línea es un
+              clip estático y su inner sube desde abajo (solo transform). */}
+          <h2 className="Provenance__head" data-head>
+            {t.lines.map((line, i) => (
+              <span key={i} className="Provenance__headLine" style={{ '--line-i': i }}>
+                <span className="Provenance__headLineInner">{line}</span>
+              </span>
+            ))}
+          </h2>
 
-        <ul className="ProvenanceGrid">
-          {PROVENANCE.map((c, i) => {
-            const Icon = c.Icon;
-            return (
-              <li key={i} className="ProvenanceCard">
-                <span className="ProvenanceCard__icon" aria-hidden><Icon/></span>
-                <span className="ProvenanceCard__label">{c[lang].label}</span>
-                <h3 className="ProvenanceCard__title">{c[lang].title}</h3>
-                <p className="ProvenanceCard__body">{c[lang].body}</p>
-              </li>
-            );
-          })}
-        </ul>
+          <div className="Strata">
+            {/* La línea de sonda: track tenue (el camino), fill dorado que se
+                dibuja con el scroll (scaleY) y la única luz de la sección
+                cabalgando su punta (translate3d). */}
+            <div className="Strata__rail" data-rail aria-hidden>
+              <span className="Strata__railTrack"></span>
+              <span className="Strata__railFill" data-rail-fill></span>
+              <span className="Strata__lamp" data-lamp></span>
+            </div>
+            {/* role="list" explícito: list-style:none dispara la heurística
+                de WebKit que borra el rol implícito (VoiceOver dejaría de
+                anunciar «lista, 3 elementos»). */}
+            <ol className="Strata__list" role="list">
+              {PROVENANCE.map((c, i) => {
+                const Icon = c.Icon;
+                return (
+                  <li key={i} className="Stratum" data-stratum>
+                    {/* Nodo de profundidad: rombo sobre la línea, a la altura
+                        del icono; se enciende cuando la plomada lo cruza. */}
+                    <span className="Stratum__node" data-node aria-hidden></span>
+                    {/* Borde iluminado del estrato activo: anillo-gradiente
+                        orientado hacia la línea (es reflejo de ESA luz, no
+                        una fuente nueva) que respira muy lento vía ::after. */}
+                    <span className="Stratum__glow" aria-hidden></span>
+                    <span className="Stratum__icon" aria-hidden>
+                      <svg className="Stratum__ring" viewBox="0 0 48 48" fill="none" aria-hidden>
+                        <circle cx="24" cy="24" r="23.5" pathLength="1"/>
+                      </svg>
+                      <span className="Stratum__iconGlyph"><Icon/></span>
+                    </span>
+                    {/* Etiqueta «tracking-in»: cada carácter parte desplazado
+                        hacia el inicio (tracking comprimido) y desliza a su
+                        sitio natural — solo transform/opacity, el layout
+                        final está reservado desde el primer frame (CLS 0). */}
+                    <span className="Stratum__label">
+                      <span className="sr-only">{c[lang].label}</span>
+                      <span className="Stratum__chars" aria-hidden="true">
+                        {c[lang].label.split('').map((ch, k) => (
+                          <span key={k} className="Stratum__ch" style={{ '--ch-i': k }}>{ch === ' ' ? ' ' : ch}</span>
+                        ))}
+                      </span>
+                    </span>
+                    <h3 className="Stratum__title" aria-label={c[lang].title}>
+                      <span className="Stratum__titleInner" aria-hidden="true"><StratumTitle title={c[lang].title}/></span>
+                    </h3>
+                    <p className="Stratum__body">{c[lang].body}</p>
+                  </li>
+                );
+              })}
+            </ol>
+          </div>
+        </div>
       </Container>
     </section>
   );
