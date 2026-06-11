@@ -2566,7 +2566,13 @@ section[data-section="outro"] {
    apagado/encendido es reversible porque sigue al scroll. */
 .Stratum__node {
   position: absolute;
-  left: calc(-1 * var(--strata-gutter) - 3px);
+  /* Centro del rombo sobre la línea. El rail vive en left:0 de .Strata (1px →
+     su centro a 0.5px del borde) y el nodo, dentro del li, se ancla a
+     -gutter-4px. Nota de subpíxel: -gutter-3px (el medio-ancho «limpio»)
+     rasteriza el centro del CUADRO ROTADO ~1px a la DERECHA de la línea — y
+     como el rombo mide ~10px punta a punta, ese 1px se nota; -4px lo cuadra
+     exacto sobre la línea (verificado midiendo nodeCenter == railCenter). */
+  left: calc(-1 * var(--strata-gutter) - 4px);
   top: calc(var(--pad-top) + 24px - 3.5px);
   width: 7px; height: 7px;
   border: 1px solid rgba(233, 215, 177, 0.5);
@@ -2900,6 +2906,27 @@ section[data-section="outro"] {
   opacity: 1;
   border-color: var(--gold-300);
   box-shadow: 0 0 0 1px var(--gold-300), 0 8px 20px rgba(0, 0, 0, 0.4);
+}
+
+/* ---- Modo galería (theme): refleja la galería de medios de Shopify ----
+   Las fotos del producto vienen en proporciones mixtas (dije 4:5, caja
+   apaisada, cadena vertical). object-fit:contain las muestra ENTERAS, sin
+   recortar lo que el equipo curó, flotando sobre el panel oscuro como una
+   pieza en vitrina. La tira admite N miniaturas (envuelve en varias filas). */
+.Vitrina__panel[data-gallery="true"] .Vitrina__shot img {
+  object-fit: contain;
+  object-position: center;
+}
+.Vitrina__thumbs[data-gallery="true"] {
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.Vitrina__thumbs[data-gallery="true"] .Vitrina__thumb {
+  width: 72px;
+}
+.Vitrina__thumbs[data-gallery="true"] .Vitrina__thumb img {
+  object-fit: contain;
+  padding: 5px;
 }
 
 /* ---- Inscription column ---- */

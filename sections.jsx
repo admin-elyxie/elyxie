@@ -705,6 +705,21 @@ function SectionVitrina({ lang }) {
   const active = VITRINA_FINISHES.find((f) => f.id === finish);
   const [buying, setBuying] = useS(false);
 
+  // ── Galería de medios desde Shopify ─────────────────────────────────
+  // En el theme, el liquid (elyxie-vitrina.liquid) inyecta
+  // window.__ELYXIE.vitrinaMedia = { plata:[…], rodio:[…], oro:[…] } con TODAS
+  // las fotos de cada producto EN EL ORDEN del admin (cada item:
+  // {src, srcset, thumb, alt}). Cuando existe, el viewer refleja esa galería:
+  // el acabado cambia de producto → de galería, y la tira de miniaturas muestra
+  // cada foto. Fuera del theme (standalone) cae al sistema legacy
+  // view×acabado×cadena sobre assets/ecommerce/* para no romper el dev local.
+  const vitrinaMedia = (typeof window !== 'undefined') && window.__ELYXIE && window.__ELYXIE.vitrinaMedia;
+  const gallery = (vitrinaMedia && Array.isArray(vitrinaMedia[finish])) ? vitrinaMedia[finish] : null;
+  const galleryMode = !!(gallery && gallery.length);
+  const [shotIdx, setShotIdx] = useS(0);
+  // Al cambiar de acabado la galería es otra: vuelve a la primera foto.
+  useE(() => { setShotIdx(0); }, [finish]);
+
   // Buy-now: inside the Shopify theme, add the selected acabado×cadena variant
   // to the cart (Ajax API — same-origin, no token, locale-aware root) and go to
   // checkout. On the standalone page window.Shopify/__ELYXIE are absent,
@@ -771,36 +786,55 @@ function SectionVitrina({ lang }) {
 
         {/* ── Viewer: spotlit display panel ───────────────────────────── */}
         <div className="Vitrina__viewer">
-          <div className="Vitrina__panel">
-            {/* Every view×finish×chain shot stacked; only the active one is
-                opaque, so changing the metal, the chain, or the thumbnail
-                cross-fades the piece (GPU opacity, no load flash since the
-                layers are already in the DOM). */}
-            {VITRINA_VIEWS.map((v) => VITRINA_FINISHES.map((f) => VITRINA_CHAINS.map((c) => {
-              const on = v.id === view && f.id === finish && c.id === chain;
-              const base = ELYXIE_ASSET(`assets/ecommerce/${v.prefix}-${f.id}-${c.id}`);
-              const isDefault = v.id === 'dije' && f.id === 'plata' && c.id === 'ella';
-              const alt = on
-                ? (v.id === 'cadena' ? t.chainAlt(active[lang].name, chain) : t.pieceAlt(active[lang].name, chain))
-                : '';
-              return (
-                <picture key={v.id + f.id + c.id} className="Vitrina__shot" data-on={on} aria-hidden={!on}>
-                  <source
-                    type="image/webp"
-                    srcSet={v.sizes.map((s) => `${base}-${s}.webp ${s}w`).join(', ')}
-                    sizes="(max-width: 767px) 90vw, (max-width: 1024px) 78vw, 600px"
-                  />
+          <div className="Vitrina__panel" data-gallery={galleryMode ? 'true' : undefined}>
+            {galleryMode ? (
+              /* Galería Shopify: TODAS las fotos del producto del acabado activo,
+                 en el orden del admin. Solo la activa es opaca → el cambio de
+                 foto o de acabado cruza por opacity (GPU), sin flash de carga
+                 porque las capas ya están en el DOM. object-fit:contain (CSS)
+                 respeta cada foto sin recortarla, sea cual sea su proporción. */
+              gallery.map((img, i) => (
+                <picture key={i} className="Vitrina__shot" data-on={i === shotIdx} aria-hidden={i !== shotIdx}>
                   <img
-                    src={`${base}.jpg`}
-                    alt={alt}
-                    loading={isDefault ? 'eager' : 'lazy'}
+                    src={img.src}
+                    srcSet={img.srcset || undefined}
+                    sizes="(max-width: 767px) 90vw, (max-width: 1024px) 78vw, 600px"
+                    alt={i === shotIdx ? (img.alt || t.pieceAlt(active[lang].name, chain)) : ''}
+                    loading={i === 0 ? 'eager' : 'lazy'}
                     decoding="async"
                     draggable="false"
-                    style={{ objectPosition: v.objPos }}
                   />
                 </picture>
-              );
-            })))}
+              ))
+            ) : (
+              /* Legacy (standalone, sin __ELYXIE): view×acabado×cadena stack
+                 sobre assets/ecommerce/* — preserva el dev local sin Shopify. */
+              VITRINA_VIEWS.map((v) => VITRINA_FINISHES.map((f) => VITRINA_CHAINS.map((c) => {
+                const on = v.id === view && f.id === finish && c.id === chain;
+                const base = ELYXIE_ASSET(`assets/ecommerce/${v.prefix}-${f.id}-${c.id}`);
+                const isDefault = v.id === 'dije' && f.id === 'plata' && c.id === 'ella';
+                const alt = on
+                  ? (v.id === 'cadena' ? t.chainAlt(active[lang].name, chain) : t.pieceAlt(active[lang].name, chain))
+                  : '';
+                return (
+                  <picture key={v.id + f.id + c.id} className="Vitrina__shot" data-on={on} aria-hidden={!on}>
+                    <source
+                      type="image/webp"
+                      srcSet={v.sizes.map((s) => `${base}-${s}.webp ${s}w`).join(', ')}
+                      sizes="(max-width: 767px) 90vw, (max-width: 1024px) 78vw, 600px"
+                    />
+                    <img
+                      src={`${base}.jpg`}
+                      alt={alt}
+                      loading={isDefault ? 'eager' : 'lazy'}
+                      decoding="async"
+                      draggable="false"
+                      style={{ objectPosition: v.objPos }}
+                    />
+                  </picture>
+                );
+              })))
+            )}
             {/* Edition chip (top-left) + emerald corner crosses struck on the
                 bright panel. */}
             <span className="Vitrina__chip">{t.chip}</span>
@@ -809,35 +843,53 @@ function SectionVitrina({ lang }) {
             <span className="Vitrina__cc Vitrina__cc--br" aria-hidden></span>
           </div>
 
-          {/* Thumbnail strip — the piece's other shots, below the panel. Picking
-              one cross-fades the main view (radio semantics, like the metal &
-              chain selectors). Each thumb tracks the current finish + chain. */}
-          <div className="Vitrina__thumbs" role="radiogroup" aria-label={t.viewsLabel}>
-            {VITRINA_VIEWS.map((v) => {
-              const on = v.id === view;
-              const tbase = ELYXIE_ASSET(`assets/ecommerce/${v.prefix}-${finish}-${chain}`);
-              return (
+          {/* Thumbnail strip — picks the shot in the panel (radio semantics).
+              In gallery mode it lists EVERY product photo in Shopify order; in
+              legacy mode the two canonical shots (piece / chain). */}
+          <div className="Vitrina__thumbs" role="radiogroup" aria-label={t.viewsLabel}
+               data-gallery={galleryMode ? 'true' : undefined}>
+            {galleryMode ? (
+              gallery.map((img, i) => (
                 <button
-                  key={v.id}
+                  key={i}
                   type="button"
                   role="radio"
-                  aria-checked={on}
+                  aria-checked={i === shotIdx}
                   className="Vitrina__thumb"
-                  data-on={on}
-                  onClick={() => setView(v.id)}
-                  aria-label={v.label[lang]}
+                  data-on={i === shotIdx}
+                  onClick={() => setShotIdx(i)}
+                  aria-label={`${t.viewsLabel} · ${i + 1}`}
                 >
-                  <img
-                    src={`${tbase}-${v.sizes[0]}.webp`}
-                    alt=""
-                    loading="lazy"
-                    decoding="async"
-                    draggable="false"
-                    style={{ objectPosition: v.objPos }}
-                  />
+                  <img src={img.thumb || img.src} alt="" loading="lazy" decoding="async" draggable="false"/>
                 </button>
-              );
-            })}
+              ))
+            ) : (
+              VITRINA_VIEWS.map((v) => {
+                const on = v.id === view;
+                const tbase = ELYXIE_ASSET(`assets/ecommerce/${v.prefix}-${finish}-${chain}`);
+                return (
+                  <button
+                    key={v.id}
+                    type="button"
+                    role="radio"
+                    aria-checked={on}
+                    className="Vitrina__thumb"
+                    data-on={on}
+                    onClick={() => setView(v.id)}
+                    aria-label={v.label[lang]}
+                  >
+                    <img
+                      src={`${tbase}-${v.sizes[0]}.webp`}
+                      alt=""
+                      loading="lazy"
+                      decoding="async"
+                      draggable="false"
+                      style={{ objectPosition: v.objPos }}
+                    />
+                  </button>
+                );
+              })
+            )}
           </div>
         </div>
 

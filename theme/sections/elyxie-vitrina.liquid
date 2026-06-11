@@ -1,31 +1,56 @@
 {%- comment -%}
-  Vitrina · Producto — emits the `acabado|cadena → variant` map the buy-now CTA
-  uses. Each acabado can be pointed at a different product via settings (defaults
-  to el-angel-plata / -rodio / -oro).
+  Vitrina · Producto — emite dos cosas que la app lee:
+   1. `variants`  — mapa acabado|cadena → variante (id, precio, stock) para el
+      CTA de compra y el precio en vivo.
+   2. `vitrinaMedia` — la GALERÍA de medios de cada producto, EN EL ORDEN del
+      admin (product.images respeta la posición fijada en Multimedia). La app
+      (SectionVitrina) refleja esa galería en el visor + miniaturas, así el
+      homepage muestra exactamente las fotos de Shopify. Cada acabado puede
+      apuntar a otro producto vía settings (por defecto el-angel-plata/-rodio/-oro).
 {%- endcomment -%}
+{%- assign p_plata = section.settings.product_plata | default: all_products['el-angel-plata'] -%}
+{%- assign p_rodio = section.settings.product_rodio | default: all_products['el-angel-rodio'] -%}
+{%- assign p_oro   = section.settings.product_oro   | default: all_products['el-angel-oro'] -%}
 <div data-elyxie-target='[data-section="vitrina"]' hidden></div>
 <script type="application/json" data-elyxie="vitrina">
 {
   "variants": {
     {%- assign vfirst = true -%}
-    {%- assign p_plata = section.settings.product_plata | default: all_products['el-angel-plata'] -%}
     {%- for v in p_plata.variants -%}
       {%- if v.sku contains 'ELLA' -%}{%- assign c = 'ella' -%}{%- else -%}{%- assign c = 'el' -%}{%- endif -%}
       {%- unless vfirst -%},{%- endunless -%}{%- assign vfirst = false -%}
       "plata|{{ c }}": { "id": {{ v.id }}, "price": {{ v.price | money_without_currency | remove: '.00' | remove: ',00' | prepend: 'USD ' | json }}, "available": {{ v.available }} }
     {%- endfor -%}
-    {%- assign p_rodio = section.settings.product_rodio | default: all_products['el-angel-rodio'] -%}
     {%- for v in p_rodio.variants -%}
       {%- if v.sku contains 'ELLA' -%}{%- assign c = 'ella' -%}{%- else -%}{%- assign c = 'el' -%}{%- endif -%}
       {%- unless vfirst -%},{%- endunless -%}{%- assign vfirst = false -%}
       "rodio|{{ c }}": { "id": {{ v.id }}, "price": {{ v.price | money_without_currency | remove: '.00' | remove: ',00' | prepend: 'USD ' | json }}, "available": {{ v.available }} }
     {%- endfor -%}
-    {%- assign p_oro = section.settings.product_oro | default: all_products['el-angel-oro'] -%}
     {%- for v in p_oro.variants -%}
       {%- if v.sku contains 'ELLA' -%}{%- assign c = 'ella' -%}{%- else -%}{%- assign c = 'el' -%}{%- endif -%}
       {%- unless vfirst -%},{%- endunless -%}{%- assign vfirst = false -%}
       "oro|{{ c }}": { "id": {{ v.id }}, "price": {{ v.price | money_without_currency | remove: '.00' | remove: ',00' | prepend: 'USD ' | json }}, "available": {{ v.available }} }
     {%- endfor -%}
+  },
+  "vitrinaMedia": {
+    "plata": [
+      {%- for image in p_plata.images -%}
+        {%- unless forloop.first -%},{%- endunless -%}
+        { "src": {{ image | image_url: width: 1200 | json }}, "srcset": "{{ image | image_url: width: 480 }} 480w, {{ image | image_url: width: 800 }} 800w, {{ image | image_url: width: 1200 }} 1200w, {{ image | image_url: width: 1600 }} 1600w", "thumb": {{ image | image_url: width: 220 | json }}, "alt": {{ image.alt | json }} }
+      {%- endfor -%}
+    ],
+    "rodio": [
+      {%- for image in p_rodio.images -%}
+        {%- unless forloop.first -%},{%- endunless -%}
+        { "src": {{ image | image_url: width: 1200 | json }}, "srcset": "{{ image | image_url: width: 480 }} 480w, {{ image | image_url: width: 800 }} 800w, {{ image | image_url: width: 1200 }} 1200w, {{ image | image_url: width: 1600 }} 1600w", "thumb": {{ image | image_url: width: 220 | json }}, "alt": {{ image.alt | json }} }
+      {%- endfor -%}
+    ],
+    "oro": [
+      {%- for image in p_oro.images -%}
+        {%- unless forloop.first -%},{%- endunless -%}
+        { "src": {{ image | image_url: width: 1200 | json }}, "srcset": "{{ image | image_url: width: 480 }} 480w, {{ image | image_url: width: 800 }} 800w, {{ image | image_url: width: 1200 }} 1200w, {{ image | image_url: width: 1600 }} 1600w", "thumb": {{ image | image_url: width: 220 | json }}, "alt": {{ image.alt | json }} }
+      {%- endfor -%}
+    ]
   }
 }
 </script>
