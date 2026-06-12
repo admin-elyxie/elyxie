@@ -88,6 +88,23 @@
     border-bottom: 1px solid transparent; transition: border-color 240ms ease, color 240ms ease; }
   .econt__way-value a:hover { color: var(--ep-champ); border-bottom-color: var(--en-hair-champ); }
 
+  /* croquis — Google Maps embebido bajo la dirección. El filtro invert+hue-rotate
+     vuelve el mapa claro de Google un plano oscuro que no rompe el vacío esmeralda;
+     el pin sigue siendo visible (vira a cian). El enlace externo es la vía fiable
+     a Google Maps (el iframe queda como vista). */
+  .econt__map { margin: 14px 0 0; aspect-ratio: 16 / 10; border-radius: 12px; overflow: hidden;
+    border: 1px solid var(--en-hair); background: rgba(255,255,255,0.04); }
+  .econt__map iframe { display: block; width: 100%; height: 100%; border: 0;
+    filter: invert(0.89) hue-rotate(180deg) saturate(0.5) contrast(0.9); }
+  .econt__map-link { display: inline-flex; align-items: center; gap: 9px; margin-top: 12px;
+    font-family: var(--ep-sans); font-size: 10px; font-weight: 500; letter-spacing: 0.26em;
+    text-transform: uppercase; color: var(--ep-champ); text-decoration: none;
+    border-bottom: 1px solid var(--en-hair-champ); padding-bottom: 3px;
+    transition: border-color 240ms ease; }
+  .econt__map-link:hover { border-color: var(--ep-champ); }
+  .econt__map-link svg { transition: transform 240ms cubic-bezier(0.2,0,0,1); }
+  .econt__map-link:hover svg { transform: translateX(4px); }
+
   /* ── Columna derecha: la superficie del formulario ───────────────────────── */
   /* Superficie con redondeo (18px) y glow contenido — el único bloque que "sube"
      un escalón desde el vacío; los campos dentro son nítidos (esquina viva). */
@@ -192,7 +209,8 @@
 
   @media (prefers-reduced-motion: reduce) {
     .econt__field .field__input, .econt__field .field__label,
-    .econt__submit .button, .econt__submit .button svg, .econt__rte a, .econt__way-value a {
+    .econt__submit .button, .econt__submit .button svg, .econt__rte a, .econt__way-value a,
+    .econt__map-link, .econt__map-link svg {
       transition: none; }
   }
 </style>
@@ -221,12 +239,19 @@
       {%- endif -%}
 
       {%- comment -%} Otras vías de contacto — opcionales, vacío = oculto. {%- endcomment -%}
-      {%- if section.settings.contact_email != blank or section.settings.contact_phone != blank or section.settings.contact_location != blank -%}
+      {%- if section.settings.contact_email != blank or section.settings.contact_phone != blank or section.settings.contact_whatsapp != blank or section.settings.contact_location != blank -%}
         <div class="econt__ways">
           {%- if section.settings.contact_email != blank -%}
             <div class="econt__way">
               <p class="econt__way-label">{% if is_en %}By correspondence{% else %}Por correo{% endif %}</p>
               <p class="econt__way-value"><a href="mailto:{{ section.settings.contact_email }}">{{ section.settings.contact_email }}</a></p>
+            </div>
+          {%- endif -%}
+          {%- if section.settings.contact_whatsapp != blank -%}
+            <div class="econt__way">
+              <p class="econt__way-label">{% if is_en %}Support · WhatsApp{% else %}Soporte · WhatsApp{% endif %}</p>
+              {%- assign wa_href = section.settings.contact_whatsapp | remove: ' ' | remove: '+' | remove: '(' | remove: ')' | remove: '-' -%}
+              <p class="econt__way-value"><a href="https://wa.me/{{ wa_href }}" target="_blank" rel="noopener">{{ section.settings.contact_whatsapp }}</a></p>
             </div>
           {%- endif -%}
           {%- if section.settings.contact_phone != blank -%}
@@ -238,8 +263,25 @@
           {%- endif -%}
           {%- if section.settings.contact_location != blank -%}
             <div class="econt__way">
-              <p class="econt__way-label">{% if is_en %}The lagoon{% else %}La laguna{% endif %}</p>
+              <p class="econt__way-label">{% if is_en %}The address{% else %}La dirección{% endif %}</p>
               <p class="econt__way-value">{{ section.settings.contact_location }}</p>
+              {%- if section.settings.show_map -%}
+                {%- assign map_q = section.settings.contact_location | url_encode -%}
+                <div class="econt__map">
+                  <iframe
+                    src="https://www.google.com/maps?q={{ map_q }}&hl={% if is_en %}en{% else %}es{% endif %}&z=16&output=embed"
+                    loading="lazy"
+                    referrerpolicy="no-referrer-when-downgrade"
+                    title="{% if is_en %}Map — {{ section.settings.contact_location | escape }}{% else %}Croquis — {{ section.settings.contact_location | escape }}{% endif %}"
+                  ></iframe>
+                </div>
+                <a class="econt__map-link" href="https://www.google.com/maps/search/?api=1&query={{ map_q }}" target="_blank" rel="noopener">
+                  {% if is_en %}Open in Google Maps{% else %}Abrir en Google Maps{% endif %}
+                  <svg width="13" height="9" viewBox="0 0 13 9" fill="none" aria-hidden="true">
+                    <path d="M1 4.5h10M7.5 1L11 4.5 7.5 8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                </a>
+              {%- endif -%}
             </div>
           {%- endif -%}
         </div>
@@ -385,8 +427,10 @@
     { "type": "checkbox", "id": "show_page_content", "label": "Mostrar contenido de la página (page.content)", "default": true },
     { "type": "header", "content": "Otras vías de contacto", "info": "Opcionales. Vacío = oculto." },
     { "type": "text", "id": "contact_email", "label": "Correo de contacto", "info": "Ej. hola@elyxie.com" },
+    { "type": "text", "id": "contact_whatsapp", "label": "WhatsApp (soporte)", "info": "Ej. +51 976 616 514 — enlaza a wa.me" },
     { "type": "text", "id": "contact_phone", "label": "Teléfono", "info": "Ej. +51 999 999 999" },
-    { "type": "text", "id": "contact_location", "label": "Ubicación", "info": "Ej. Laguna Negra, Huancabamba" }
+    { "type": "text", "id": "contact_location", "label": "Dirección", "info": "Ej. Avenida Don Diego de Día 228, Santiago de Surco" },
+    { "type": "checkbox", "id": "show_map", "label": "Mostrar croquis (Google Maps) bajo la dirección", "default": true }
   ],
   "presets": [{ "name": "Contacto ELYXIE" }]
 }
