@@ -33,22 +33,29 @@ function SectionVideoHero({ lang }) {
   const [soundOn, setSoundOn] = useS(false);
   const [active, setActive] = useS('viaje');
 
-  const [isNarrow, setIsNarrow] = useS(
-    typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches
+  // Three-tier viewport flag (same breakpoints as the app shell's background
+  // loops): phones ≤767px, tablets 768–1279px, desktop ≥1280px. Films still
+  // only have two renditions (src/src720), so they collapse m → 720.
+  const videoTier = () =>
+    window.matchMedia('(max-width: 767px)').matches ? 'm'
+    : window.matchMedia('(max-width: 1279px)').matches ? 't'
+    : 'd';
+  const [vidTier, setVidTier] = useS(
+    () => (typeof window !== 'undefined' ? videoTier() : 'd')
   );
   useE(() => {
-    const mq = window.matchMedia('(max-width: 767px)');
-    const onChange = (e) => setIsNarrow(e.matches);
-    mq.addEventListener('change', onChange);
-    return () => mq.removeEventListener('change', onChange);
+    const mqs = [window.matchMedia('(max-width: 767px)'), window.matchMedia('(max-width: 1279px)')];
+    const onChange = () => setVidTier(videoTier());
+    mqs.forEach((mq) => mq.addEventListener('change', onChange));
+    return () => mqs.forEach((mq) => mq.removeEventListener('change', onChange));
   }, []);
 
   const films = (typeof window !== 'undefined' && window.__ELYXIE && window.__ELYXIE.films) || {};
   const srcFor = (id) => {
-    if (id === 'viaje') return ELYXIE_ASSET(isNarrow ? 'assets/video/main-film-720.mp4' : 'assets/video/main-film.mp4');
+    if (id === 'viaje') return ELYXIE_ASSET(vidTier === 'm' ? 'assets/video/main-film-720.mp4' : 'assets/video/main-film.mp4');
     const f = films[id];
     if (!f) return null;
-    return (isNarrow && f.src720) ? f.src720 : f.src;
+    return (vidTier === 'm' && f.src720) ? f.src720 : f.src;
   };
   const posterFor = (id) => {
     if (id === 'viaje') return ELYXIE_ASSET('assets/photography/main-film-poster-1440.jpg');
@@ -73,18 +80,18 @@ function SectionVideoHero({ lang }) {
     const ar = (v && v.videoWidth && v.videoHeight) ? v.videoWidth / v.videoHeight : arFor(active);
     const avail = (fig.parentElement && fig.parentElement.clientWidth) || fig.clientWidth || 0;
     if (!avail) return;
-    const maxH = Math.min((window.innerHeight || 800) * (isNarrow ? 0.74 : 0.82), 820);
+    const maxH = Math.min((window.innerHeight || 800) * (vidTier === 'm' ? 0.74 : 0.82), 820);
     let w = avail, h = w / ar;
     if (h > maxH) { h = maxH; w = h * ar; }
     fig.style.width = Math.round(w) + 'px';
     fig.style.height = Math.round(h) + 'px';
   };
-  useE(() => { fit(); /* eslint-disable-next-line */ }, [active, isNarrow]);
+  useE(() => { fit(); /* eslint-disable-next-line */ }, [active, vidTier]);
   useE(() => {
     const onR = () => fit();
     window.addEventListener('resize', onR);
     return () => window.removeEventListener('resize', onR);
-  }, [active, isNarrow]);
+  }, [active, vidTier]);
 
   // Autoplay only while in view (muted, so the browser allows it). Pause
   // off-screen. prefers-reduced-motion suprime el autoplay por completo:

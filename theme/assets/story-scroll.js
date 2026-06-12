@@ -72,7 +72,9 @@
     // ---------- Estado cacheado (nada de esto se recalcula en el loop) ----------
     let vh = window.innerHeight;
     const mobileMQ = window.matchMedia('(max-width: 767px)');
+    const tabletMQ = window.matchMedia('(max-width: 1279px)');
     let isMobile = mobileMQ.matches;
+    let isTablet = tabletMQ.matches;
     let storySpan = 1; // alto scrolleable del story completo (para el rail fill)
 
     const scenes = [];
@@ -502,8 +504,13 @@
         const vid = entries[i].target;
         // data-src-m: variante MÓVIL (recorte vertical 1080×2336 del upscale
         // 4K) — ya no es "la de 720p", es la de mayor densidad por px visible.
+        // data-src-t: variante TABLET (1440, del mismo upscale); data-src es
+        // la de desktop (2160).
         const srcM = vid.getAttribute('data-src-m');
-        vid.src = (isMobile && srcM) ? srcM : vid.getAttribute('data-src');
+        const srcT = vid.getAttribute('data-src-t');
+        vid.src = (isMobile && srcM) ? srcM
+                : (isTablet && srcT) ? srcT
+                : vid.getAttribute('data-src');
         vid.load();
         loadIO.unobserve(vid);
       }
@@ -542,6 +549,7 @@
       resizeTimer = setTimeout(function () {
         vh = window.innerHeight;
         isMobile = mobileMQ.matches;
+        isTablet = tabletMQ.matches;
         measureAll();
         force = true;
         wake();
