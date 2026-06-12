@@ -1048,6 +1048,341 @@ function SectionVitrina({ lang }) {
 }
 
 // ===========================================================
+//  QR vectorial (vanilla, cero dependencias) — para el sello de
+//  seguridad del certificado. Codificador mínimo ISO 18004:
+//  modo byte · EC nivel M · versiones 1–6 (hasta 106 bytes) ·
+//  selección de máscara por penalty scoring. Devuelve la matriz
+//  de módulos (arrays de 0/1); el componente la dibuja como un
+//  único <path> SVG nítido. Verificado e2e decodificando con
+//  jsQR en node (test desechable, no se versiona).
+// ===========================================================
+function elyxieQrMatrix(text) {
+  // GF(256) sobre el polinomio 0x11D, el campo de Reed-Solomon de QR.
+  const EXP = new Uint8Array(512), LOG = new Uint8Array(256);
+  for (let i = 0, x = 1; i < 255; i++) { EXP[i] = x; LOG[x] = i; x <<= 1; if (x & 0x100) x ^= 0x11D; }
+  for (let i = 255; i < 512; i++) EXP[i] = EXP[i - 255];
+  const gmul = (a, b) => (a && b) ? EXP[LOG[a] + LOG[b]] : 0;
+
+  // Por versión, nivel M: codewords de datos, ECC por bloque, nº de
+  // bloques. En v1–6/M todos los bloques son del mismo tamaño, lo que
+  // simplifica el entrelazado (no existe el "grupo 2" del estándar).
+  const SPEC = { 1: [16, 10, 1], 2: [28, 16, 1], 3: [44, 26, 1], 4: [64, 18, 2], 5: [86, 24, 2], 6: [108, 16, 4] };
+
+  const bytes = new TextEncoder().encode(text);
+  let version = 0;
+  for (let v = 1; v <= 6; v++) if (bytes.length <= SPEC[v][0] - 2) { version = v; break; }
+  if (!version) throw new Error('elyxieQrMatrix: texto demasiado largo, max 106 bytes');
+  const [dataCw, eccLen, nBlocks] = SPEC[version];
+  const size = 17 + 4 * version;
+
+  // Bitstream: modo byte (0100) + longitud (8 bits en v1–9) + datos +
+  // terminador + relleno alterno 0xEC/0x11 hasta llenar los codewords.
+  const stream = [];
+  const push = (val, len) => { for (let i = len - 1; i >= 0; i--) stream.push((val >>> i) & 1); };
+  push(4, 4);
+  push(bytes.length, 8);
+  bytes.forEach((b) => push(b, 8));
+  push(0, Math.min(4, dataCw * 8 - stream.length));
+  while (stream.length % 8) stream.push(0);
+  const data = [];
+  for (let i = 0; i < stream.length; i += 8) {
+    let b = 0;
+    for (let j = 0; j < 8; j++) b = (b << 1) | stream[i + j];
+    data.push(b);
+  }
+  for (let p = 0xEC; data.length < dataCw; p ^= 0xFD) data.push(p);
+
+  // Generador RS de grado eccLen: producto de (x + α^i), mayor grado primero.
+  let gen = [1];
+  for (let i = 0; i < eccLen; i++) {
+    const next = new Array(gen.length + 1).fill(0);
+    for (let j = 0; j < gen.length; j++) {
+      next[j] ^= gen[j];
+      next[j + 1] ^= gmul(gen[j], EXP[i]);
+    }
+    gen = next;
+  }
+  const rs = (block) => {
+    const res = block.concat(new Array(eccLen).fill(0));
+    for (let i = 0; i < block.length; i++) {
+      const f = res[i];
+      if (!f) continue;
+      for (let j = 0; j < gen.length; j++) res[i + j] ^= gmul(gen[j], f);
+    }
+    return res.slice(block.length);
+  };
+  const blockLen = dataCw / nBlocks;
+  const dBlocks = [], eBlocks = [];
+  for (let b = 0; b < nBlocks; b++) {
+    const blk = data.slice(b * blockLen, (b + 1) * blockLen);
+    dBlocks.push(blk);
+    eBlocks.push(rs(blk));
+  }
+  const codewords = [];
+  for (let i = 0; i < blockLen; i++) for (let b = 0; b < nBlocks; b++) codewords.push(dBlocks[b][i]);
+  for (let i = 0; i < eccLen; i++) for (let b = 0; b < nBlocks; b++) codewords.push(eBlocks[b][i]);
+
+  // Patrones funcionales sobre matriz null=libre (la colocación de datos
+  // solo escribe en celdas null, así no hay que llevar mapa de reservas).
+  const M = Array.from({ length: size }, () => new Array(size).fill(null));
+  const finder = (r, c) => {
+    for (let i = -1; i <= 7; i++) for (let j = -1; j <= 7; j++) {
+      const y = r + i, x = c + j;
+      if (y < 0 || y >= size || x < 0 || x >= size) continue;
+      const on = (i >= 0 && i <= 6 && (j === 0 || j === 6)) ||
+                 (j >= 0 && j <= 6 && (i === 0 || i === 6)) ||
+                 (i >= 2 && i <= 4 && j >= 2 && j <= 4);
+      M[y][x] = on ? 1 : 0;
+    }
+  };
+  finder(0, 0); finder(0, size - 7); finder(size - 7, 0);
+  for (let i = 8; i < size - 8; i++) {
+    if (M[6][i] === null) M[6][i] = i % 2 ? 0 : 1;
+    if (M[i][6] === null) M[i][6] = i % 2 ? 0 : 1;
+  }
+  if (version >= 2) {
+    // v2–6 llevan un único patrón de alineamiento en (size−7, size−7)
+    const c = size - 7;
+    for (let i = -2; i <= 2; i++) for (let j = -2; j <= 2; j++)
+      M[c + i][c + j] = Math.max(Math.abs(i), Math.abs(j)) !== 1 ? 1 : 0;
+  }
+
+  // Info de formato: 5 bits (EC M = 00 + máscara) + BCH(15,5) con
+  // generador 0x537, enmascarado con 0x5412. Dos copias + módulo oscuro.
+  const setFormat = (m, maskId) => {
+    const d = maskId; // EC nivel M = '00' deja los 2 bits altos a 0
+    let rem = d << 10;
+    for (let i = 14; i >= 10; i--) if ((rem >>> i) & 1) rem ^= 0x537 << (i - 10);
+    const f = ((d << 10) | rem) ^ 0x5412;
+    for (let i = 0; i < 15; i++) {
+      const bit = (f >> i) & 1;
+      if (i < 6) m[i][8] = bit;
+      else if (i < 8) m[i + 1][8] = bit;
+      else m[size - 15 + i][8] = bit;
+      if (i < 8) m[8][size - 1 - i] = bit;
+      else if (i < 9) m[8][7] = bit;
+      else m[8][14 - i] = bit;
+    }
+    m[size - 8][8] = 1;
+  };
+
+  const MASKS = [
+    (i, j) => (i + j) % 2 === 0,
+    (i) => i % 2 === 0,
+    (i, j) => j % 3 === 0,
+    (i, j) => (i + j) % 3 === 0,
+    (i, j) => ((i >> 1) + Math.floor(j / 3)) % 2 === 0,
+    (i, j) => (i * j) % 2 + (i * j) % 3 === 0,
+    (i, j) => ((i * j) % 2 + (i * j) % 3) % 2 === 0,
+    (i, j) => ((i + j) % 2 + (i * j) % 3) % 2 === 0,
+  ];
+
+  // Zigzag estándar: pares de columnas desde la derecha, saltando la
+  // columna 6 (timing), alternando subida/bajada.
+  const place = (m, mask) => {
+    let inc = -1, row = size - 1, bitIdx = 7, byteIdx = 0;
+    for (let col = size - 1; col > 0; col -= 2) {
+      if (col === 6) col--;
+      for (;;) {
+        for (let c = 0; c < 2; c++) {
+          const x = col - c;
+          if (m[row][x] !== null) continue;
+          let dark = byteIdx < codewords.length ? (codewords[byteIdx] >>> bitIdx) & 1 : 0;
+          if (mask(row, x)) dark ^= 1;
+          m[row][x] = dark;
+          if (--bitIdx === -1) { byteIdx++; bitIdx = 7; }
+        }
+        row += inc;
+        if (row < 0 || row === size) { row -= inc; inc = -inc; break; }
+      }
+    }
+  };
+
+  // Penalizaciones N1–N4 (ISO 18004 §8.8.2) para elegir máscara.
+  const penalty = (m) => {
+    let p = 0;
+    for (let pass = 0; pass < 2; pass++) {
+      const at = (i, j) => pass ? m[j][i] : m[i][j];
+      for (let i = 0; i < size; i++) {
+        let run = 1;
+        for (let j = 1; j <= size; j++) {
+          if (j < size && at(i, j) === at(i, j - 1)) run++;
+          else { if (run >= 5) p += run - 2; run = 1; }
+        }
+      }
+      for (let i = 0; i < size; i++) for (let j = 0; j + 6 < size; j++) {
+        if (at(i, j) && !at(i, j + 1) && at(i, j + 2) && at(i, j + 3) && at(i, j + 4) && !at(i, j + 5) && at(i, j + 6)) {
+          const before = j >= 4 && !at(i, j - 1) && !at(i, j - 2) && !at(i, j - 3) && !at(i, j - 4);
+          const after = j + 10 < size && !at(i, j + 7) && !at(i, j + 8) && !at(i, j + 9) && !at(i, j + 10);
+          if (before || after) p += 40;
+        }
+      }
+    }
+    for (let i = 0; i < size - 1; i++) for (let j = 0; j < size - 1; j++) {
+      const v = m[i][j];
+      if (v === m[i][j + 1] && v === m[i + 1][j] && v === m[i + 1][j + 1]) p += 3;
+    }
+    let dark = 0;
+    for (let i = 0; i < size; i++) for (let j = 0; j < size; j++) dark += m[i][j];
+    p += Math.floor(Math.abs((dark * 100) / (size * size) - 50) / 5) * 10;
+    return p;
+  };
+
+  setFormat(M, 0); // reserva las celdas de formato antes de colocar datos
+  let best = null, bestP = Infinity;
+  for (let k = 0; k < 8; k++) {
+    const m = M.map((r) => r.slice());
+    setFormat(m, k);
+    place(m, MASKS[k]);
+    const p = penalty(m);
+    if (p < bestP) { bestP = p; best = m; }
+  }
+  return best;
+}
+
+// Matriz QR → un solo <path> SVG: runs horizontales fusionados, 1 unidad
+// por módulo (el viewBox del SVG aporta la quiet zone).
+function elyxieQrPath(m) {
+  const parts = [];
+  for (let y = 0; y < m.length; y++) {
+    for (let x = 0; x < m.length; x++) {
+      if (!m[y][x]) continue;
+      let len = 1;
+      while (x + len < m.length && m[y][x + len]) len++;
+      parts.push('M' + x + ' ' + y + 'h' + len + 'v1h-' + len + 'z');
+      x += len - 1;
+    }
+  }
+  return parts.join('');
+}
+
+// ===========================================================
+//  Sello de seguridad del certificado — recreación procedural
+//  del sticker físico (banda esmeralda con wordmark, QR
+//  vectorial, panel holográfico con rombo de Metatrón,
+//  micro-serial). Cero raster: el QR es un <path>, el wordmark
+//  es la máscara .elyxie-logo, el holograma son gradientes.
+//  El tilt escribe --rx/--ry/--gx/--gy en la tarjeta; las capas
+//  responden solo con transform (GPU, sin repaints).
+// ===========================================================
+// URL de verificación: placeholder de integración — al emitir
+// certificados reales se sustituye por la URL de verificación
+// por número de serie (el QR se regenera solo).
+const CERT_VERIFY_URL = '{{VERIFY_URL}}';
+
+function CertSeal({ lang, verifyUrl = CERT_VERIFY_URL }) {
+  const ref = useR(null);
+  const qr = useR(null);
+  if (!qr.current) {
+    const m = elyxieQrMatrix(verifyUrl);
+    qr.current = { d: elyxieQrPath(m), n: m.length };
+  }
+
+  // Tilt 3D: puntero en desktop (hover+fine), giroscopio en Android.
+  // En iOS DeviceOrientationEvent.requestPermission exige un gesto del
+  // usuario, así que sin prompt queda la deriva autónoma CSS
+  // (.CertSeal--auto). Con prefers-reduced-motion no se engancha nada:
+  // sello estático con iridiscencia fija.
+  useE(() => {
+    const el = ref.current;
+    if (!el || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const card = el.querySelector('.CertSeal__card');
+
+    // smootherstep (6x⁵−15x⁴+10x³) sobre el offset normalizado del
+    // puntero/giro: suave cerca del centro Y al llegar a los bordes —
+    // la misma convención de easing del hero (ver pendant.jsx).
+    const sstep = (x) => x * x * x * (x * (x * 6 - 15) + 10);
+    const shape = (n) => Math.sign(n) * sstep(Math.min(1, Math.abs(n)));
+    const MAX = 8; // grados de tilt máximo por eje
+
+    let raf = 0, rx = 0, ry = 0, tRx = 0, tRy = 0, hover = false;
+    const tick = () => {
+      rx += (tRx - rx) * 0.14;
+      ry += (tRy - ry) * 0.14;
+      card.style.setProperty('--rx', rx.toFixed(3) + 'deg');
+      card.style.setProperty('--ry', ry.toFixed(3) + 'deg');
+      // gloss e iridiscencia se desplazan con el mismo vector (−1…1)
+      card.style.setProperty('--gx', (ry / MAX).toFixed(4));
+      card.style.setProperty('--gy', (-rx / MAX).toFixed(4));
+      raf = (hover || Math.abs(tRx - rx) + Math.abs(tRy - ry) > 0.04) ? requestAnimationFrame(tick) : 0;
+    };
+    const kick = () => { if (!raf) raf = requestAnimationFrame(tick); };
+
+    const offs = [];
+    if (window.matchMedia('(hover: hover) and (pointer: fine)').matches) {
+      const move = (e) => {
+        const r = card.getBoundingClientRect();
+        tRy = shape(((e.clientX - r.left) / r.width) * 2 - 1) * MAX;
+        tRx = shape(-(((e.clientY - r.top) / r.height) * 2 - 1)) * MAX;
+        kick();
+      };
+      const enter = () => { hover = true; kick(); };
+      const leave = () => { hover = false; tRx = 0; tRy = 0; kick(); };
+      el.addEventListener('pointerenter', enter);
+      el.addEventListener('pointermove', move);
+      el.addEventListener('pointerleave', leave);
+      offs.push(() => {
+        el.removeEventListener('pointerenter', enter);
+        el.removeEventListener('pointermove', move);
+        el.removeEventListener('pointerleave', leave);
+      });
+    } else {
+      el.classList.add('CertSeal--auto');
+      if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission !== 'function') {
+        // La primera lectura fija la pose de reposo; los deltas inclinan.
+        let base = null;
+        const onGyro = (e) => {
+          if (e.beta == null || e.gamma == null) return;
+          if (base === null) { base = { b: e.beta, g: e.gamma }; el.classList.remove('CertSeal--auto'); }
+          tRx = shape((base.b - e.beta) / 24) * MAX;
+          tRy = shape((e.gamma - base.g) / 24) * MAX;
+          kick();
+        };
+        // Solo escucha el giroscopio mientras el sello está en pantalla.
+        const io = new IntersectionObserver(([en]) => {
+          if (en.isIntersecting) window.addEventListener('deviceorientation', onGyro);
+          else window.removeEventListener('deviceorientation', onGyro);
+        });
+        io.observe(el);
+        offs.push(() => { io.disconnect(); window.removeEventListener('deviceorientation', onGyro); });
+      }
+    }
+    return () => { offs.forEach((f) => f()); if (raf) cancelAnimationFrame(raf); };
+  }, []);
+
+  const n = qr.current.n, quiet = 2;
+  return (
+    <div
+      className="CertSeal"
+      ref={ref}
+      role="img"
+      aria-label={lang === 'es'
+        ? 'Sello de seguridad Elyxie con código QR de verificación'
+        : 'Elyxie security seal with verification QR code'}
+    >
+      <div className="CertSeal__card">
+        <div className="CertSeal__band"><span className="elyxie-logo"></span></div>
+        <div className="CertSeal__rule"></div>
+        <div className="CertSeal__body">
+          <div className="CertSeal__qr">
+            <svg viewBox={`${-quiet} ${-quiet} ${n + 2 * quiet} ${n + 2 * quiet}`} shapeRendering="crispEdges" aria-hidden="true">
+              <path d={qr.current.d} fill="#0A2620" />
+            </svg>
+          </div>
+          <div className="CertSeal__holo">
+            <span className="CertSeal__holoSwirl"></span>
+            <span className="CertSeal__spectrum"></span>
+            <span className="CertSeal__holoGem"></span>
+          </div>
+        </div>
+        <div className="CertSeal__strip">00010312357989</div>
+        <span className="CertSeal__sheen"></span>
+      </div>
+    </div>
+  );
+}
+
+// ===========================================================
 //  Section 4 — Certificate ("first edition")
 //  Byte-perfect port of the example's EditionCertificate.jsx
 //  (same structure, copy, values, assets & design tokens).
@@ -1108,11 +1443,23 @@ function SectionCertificate({ lang }) {
             </div>
             <div>
               <div className="Cert__label">{t.by}</div>
-              <div className="Cert__signature">J. Zamora</div>
+              {/* Firma manuscrita procedural (Béziers a mano, sin fuentes
+                  nuevas): J con bucle descendente, Z script, "amora" ligado
+                  y rúbrica que subraya el nombre. Es la única mención del
+                  nombre en esta columna → role=img con el nombre legible.
+                  pathLength=1 normaliza el dash para el trazado animado
+                  (CSS, gated por data-revealed). */}
+              <svg className="Cert__sigInk" viewBox="0 0 235 80" role="img" aria-label="J. Zamora">
+                <g transform="translate(14 0) skewX(-12)">
+                  <path className="Cert__sigJ" pathLength="1" d="M 20 19 C 24 12 31 9 36 13 C 40 16 41 22 39 28 C 37 36 36 43 36 50 C 36 58 34 65 28 67 C 22 69 16 64 18 58 C 20 52 28 50 34 51"/>
+                  <circle className="Cert__sigDot" cx="47" cy="49" r="1.5"/>
+                  <path className="Cert__sigName" pathLength="1" d="M 58 20 C 64 12 78 8 86 15 C 89 17 89 20 87 22 C 79 30 70 37 62 44 C 58 48 60 52 66 51 C 71 50 75 47 80 45 C 83 41 87 37 90 37 C 85 36 80 40 80 45 C 80 49 85 51 89 48 C 91 46.5 92 42 92 38 C 92 44 93 49 97 50 C 99 50.5 101 49 102 47 C 103 42 107 37 110 39 C 113 41 113 46 112 50 C 114 43 117 37 120 39 C 123 41 123 46 122 50 C 124 43 127 37 130 39 C 133 41 133 46 133 49 C 133.5 50.5 135 51 137 49 C 138 43 141 37 146 36 C 151 35 153 40 151 44 C 149 48 143 49 141 45 C 139 41 142 37 146 36 C 149 36 151 38 152 41 C 154 40 156 38 157 38 C 159 37 161 38 161 40 C 161 43 160 47 159 50 C 160 51 162 50 163 48 C 166 43 169 37 173 37 C 168 36 163 40 163 45 C 163 49 168 51 172 48 C 174 46.5 175 42 175 38 C 175 44 176 49 180 50 C 191 53 201 50 207 44 C 212 51 207 59 193 61.5 C 166 65.5 122 66 98 61 C 93 60 90 58 89.5 55.5"/>
+                </g>
+              </svg>
             </div>
             <div className="Cert__sealCol">
               <div className="Cert__label">{t.seal}</div>
-              <img className="Cert__sealImg" src={ELYXIE_ASSET('assets/elyxie-mark.svg')} alt="" aria-hidden/>
+              <CertSeal lang={lang} />
             </div>
           </div>
         </div>

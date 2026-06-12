@@ -231,6 +231,14 @@ body[data-nav-halo] .nav .elyxie-logo {
 .nav__action .cart-count-bubble {
   position: absolute;
   top: 0; right: -3px;
+  /* Flexbox centra el dígito óptica Y geométricamente, con 1 y con 2 cifras.
+     El line-height:14px previo apoyaba el glifo en la baseline → quedaba alto;
+     line-height:1 + align/justify center deja la cifra clavada en el centro.
+     El <span.visually-hidden> hermano es position:absolute, así que no cuenta
+     como ítem flex y no descentra. */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   min-width: 14px; height: 14px;
   padding: 0 3px;
   border-radius: 999px;
@@ -239,7 +247,7 @@ body[data-nav-halo] .nav .elyxie-logo {
   font-family: var(--font-body);
   font-size: 9px;
   font-weight: 500;
-  line-height: 14px;
+  line-height: 1;
   text-align: center;
 }
 /* Burger ⇄ ✕: el snippet emite ambos SVG; CSS muestra el que corresponde. */
@@ -3328,12 +3336,270 @@ section[data-section="outro"] {
   color: #0A2620;
   margin-top: 4px;
 }
-.Cert__sealCol { text-align: right; }
-.Cert__sealImg {
-  width: 60px;
-  margin-left: auto;
-  margin-top: 4px;
-  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.15));
+/* ── Firma manuscrita del maestro joyero ─────────────────────
+   Trazo Bézier propio (sin fuentes nuevas), tinta esmeralda de
+   pluma fina. Con el acta revelada se TRAZA en orden de escritura
+   (J → punto → Zamora con rúbrica) vía stroke-dashoffset; el
+   pathLength=1 del SVG normaliza el dash a [0,1]. */
+.Cert__sigInk {
+  display: block;
+  width: 158px;
+  margin-top: 2px;
+  margin-left: -4px; /* alinea ópticamente la J con el nombre tipográfico */
+}
+.Cert__sigInk path {
+  fill: none;
+  stroke: #0A2620;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+}
+.Cert__sigInk circle { fill: #0A2620; opacity: 0; }
+.Cert[data-revealed="true"] .Cert__sigJ {
+  transition: stroke-dashoffset 420ms cubic-bezier(0.45, 0, 0.6, 1) 1150ms;
+  stroke-dashoffset: 0;
+}
+.Cert[data-revealed="true"] .Cert__sigDot {
+  transition: opacity 140ms linear 1620ms;
+  opacity: 1;
+}
+.Cert[data-revealed="true"] .Cert__sigName {
+  transition: stroke-dashoffset 1000ms cubic-bezier(0.45, 0, 0.6, 1) 1680ms;
+  stroke-dashoffset: 0;
+}
+@media (prefers-reduced-motion: reduce) {
+  .Cert__sigInk path { stroke-dashoffset: 0; transition: none; }
+  .Cert__sigInk circle { opacity: 1; transition: none; }
+}
+/* La etiqueta SELLADO arranca a la altura del inicio del sticker:
+   la celda se encoge a fit-content (el ancho del sello) pegada al
+   borde derecho del grid, y dentro todo alinea a la izquierda. */
+.Cert__sealCol { justify-self: end; text-align: left; }
+
+/* ── CertSeal — sticker de seguridad procedural ──────────────
+   Recreación en capas del sticker físico: banda esmeralda con
+   wordmark, regla dorada, QR vectorial sobre marfil, panel
+   holográfico (remolino espectral + rombo con Metatrón) y
+   micro-serial. El tilt (JS) escribe --rx/--ry/--gx/--gy en
+   .CertSeal__card; todas las capas móviles responden solo con
+   transform — composited, sin repaints del certificado.
+   Una sola fuente de luz: arriba, la misma que proyecta la
+   sombra 0 60px 120px del propio certificado. */
+.CertSeal {
+  display: inline-block;
+  margin-top: 6px;
+  perspective: 520px;
+}
+.CertSeal__card {
+  --rx: 0deg; --ry: 0deg; --gx: 0; --gy: 0;
+  position: relative;
+  width: 113px;
+  border-radius: 9px;
+  overflow: hidden;
+  /* pegado a mano: rotación fija sutil dentro del rango −2°…−4° */
+  transform: rotateX(var(--rx)) rotateY(var(--ry)) rotate(-2.8deg);
+  background: #0B241D;
+  /* grosor del vinilo (highlight superior + canto inferior) y sombra
+     de contacto corta + caída suave, ambas hacia abajo */
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.38),
+    inset 0 -1px 0 rgba(5, 22, 19, 0.35),
+    0 1px 2px rgba(10, 38, 32, 0.30),
+    0 10px 22px -8px rgba(10, 38, 32, 0.38);
+}
+.CertSeal__band {
+  position: relative;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: linear-gradient(180deg, #11362C, #0A2620 78%);
+}
+/* geometría grabada al fondo de la banda — textura, casi invisible */
+.CertSeal__band::after {
+  content: '';
+  position: absolute;
+  inset: -30px 0;
+  background: url('assets/metatron.svg') center / 90px no-repeat;
+  opacity: 0.22;
+}
+.CertSeal__band .elyxie-logo {
+  position: relative;
+  z-index: 1;
+  height: 11px;
+  color: #E9D7B1;
+}
+.CertSeal__rule {
+  height: 2px;
+  background: linear-gradient(90deg, #8C7340, #E9D7B1 50%, #8C7340);
+}
+.CertSeal__body {
+  display: grid;
+  grid-template-columns: 42% 1fr;
+}
+.CertSeal__qr {
+  background: #F6F2E8;
+  padding: 5px;
+}
+.CertSeal__qr svg { display: block; width: 100%; height: auto; }
+.CertSeal__holo {
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(120% 90% at 50% 50%, rgba(5, 22, 19, 0) 40%, rgba(5, 22, 19, 0.40) 100%),
+    #0D2B23;
+}
+/* remolino espectral: conic pastel desaturado girando muy lento, con
+   contraste de luminancia entre paradas (claro/medio alternado) para
+   que se lea como holograma y no como lámina plana. Lujo contenido,
+   nunca arcoíris saturado. El blur queda acotado a este panel
+   (~100×80px), coste de paint despreciable. */
+.CertSeal__holoSwirl {
+  position: absolute;
+  inset: -45%;
+  background: conic-gradient(from 220deg,
+    rgba(214, 228, 221, 0.62),
+    rgba(146, 178, 196, 0.38),
+    rgba(222, 209, 234, 0.65),
+    rgba(176, 152, 198, 0.36),
+    rgba(238, 220, 200, 0.60),
+    rgba(150, 184, 168, 0.40),
+    rgba(214, 228, 221, 0.62));
+  filter: blur(4px) saturate(1.15);
+  animation: certSealTurn 26s linear infinite;
+}
+@keyframes certSealTurn { to { transform: rotate(1turn); } }
+/* difracción: anillos concéntricos finos + banda espectral, ambos
+   desplazándose al contrario del gloss, como el relieve de un
+   holograma real. Blend screen (color-dodge no levanta sobre fondo
+   casi negro). Vive DENTRO del panel para no lavar el QR. */
+.CertSeal__spectrum {
+  position: absolute;
+  inset: -45%;
+  background:
+    repeating-radial-gradient(circle at 52% 48%,
+      rgba(255, 255, 255, 0.11) 0 1.5px,
+      rgba(255, 255, 255, 0) 1.5px 6px),
+    linear-gradient(112deg,
+      rgba(255, 255, 255, 0) 30%,
+      rgba(159, 184, 173, 0.40) 42%,
+      rgba(201, 184, 216, 0.42) 50%,
+      rgba(227, 201, 184, 0.38) 58%,
+      rgba(255, 255, 255, 0) 70%);
+  mix-blend-mode: screen;
+  opacity: 0.55;
+  transform: translate3d(calc(var(--gx) * -34px), calc(var(--gy) * -24px), 0);
+}
+/* rombo oscuro del holograma con el Cubo de Metatrón en oro (el SVG
+   pinta currentColor con su propio color="#C9A66B"), contra-rotado
+   para que la geometría quede vertical dentro del rombo. */
+.CertSeal__holoGem {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 56%;
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%) rotate(45deg);
+  border-radius: 18%;
+  background: #08201A;
+  box-shadow:
+    0 0 0 1.5px rgba(246, 242, 232, 0.55),
+    0 0 10px rgba(169, 201, 216, 0.35);
+}
+.CertSeal__holoGem::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  transform: rotate(-45deg) scale(1.2);
+  background: url('assets/metatron.svg') center / 95% no-repeat;
+}
+.CertSeal__strip {
+  /* el sticker físico también lleva filete dorado sobre la franja */
+  border-top: 1px solid rgba(201, 166, 107, 0.85);
+  height: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(180deg, #EFE9DA, #E4D9C2);
+  font-family: var(--font-mono);
+  font-size: 6.5px;
+  letter-spacing: 0.22em;
+  text-indent: 0.22em;
+  color: #6E6A5E;
+}
+/* gloss del vinilo: brillo blanco suave que sigue al puntero/tilt.
+   En reposo queda arriba (la luz viene de arriba). */
+.CertSeal__sheen {
+  position: absolute;
+  inset: -30%;
+  background: radial-gradient(42% 34% at 50% 36%, rgba(255, 255, 255, 0.30), rgba(255, 255, 255, 0.05) 55%, rgba(255, 255, 255, 0) 72%);
+  mix-blend-mode: screen;
+  transform: translate3d(calc(var(--gx) * 26px), calc(var(--gy) * 20px), 0);
+  pointer-events: none;
+}
+/* El sello se "estampa" al final del revelado del acta, DESPUÉS de
+   que la firma termine de trazarse (~2680ms): primero firma el
+   joyero, luego cae el sello — orden notarial. */
+.Cert[data-revealed="true"] .CertSeal__card {
+  animation: certSealPress 700ms var(--ease-exp) 2750ms backwards;
+}
+@keyframes certSealPress {
+  from {
+    opacity: 0;
+    transform: rotateX(0deg) rotateY(0deg) rotate(-2.8deg) scale(1.14);
+  }
+  to {
+    opacity: 1;
+    transform: rotateX(0deg) rotateY(0deg) rotate(-2.8deg) scale(1);
+  }
+}
+/* Deriva autónoma (táctil sin giroscopio o iOS sin permiso): el sello
+   respira en 3D muy lento, con el gloss recorriéndolo en sincronía.
+   Solo arranca cuando el acta ya se reveló. */
+.Cert[data-revealed="true"] .CertSeal--auto .CertSeal__card {
+  animation:
+    certSealPress 700ms var(--ease-exp) 2750ms backwards,
+    certSealDrift 16s ease-in-out 3500ms infinite;
+}
+@keyframes certSealDrift {
+  0%   { transform: rotateX(0deg) rotateY(0deg) rotate(-2.8deg); }
+  25%  { transform: rotateX(2.6deg) rotateY(-3.4deg) rotate(-2.8deg); }
+  50%  { transform: rotateX(-1.8deg) rotateY(2.8deg) rotate(-2.8deg); }
+  75%  { transform: rotateX(2.2deg) rotateY(3.2deg) rotate(-2.8deg); }
+  100% { transform: rotateX(0deg) rotateY(0deg) rotate(-2.8deg); }
+}
+.Cert[data-revealed="true"] .CertSeal--auto .CertSeal__sheen {
+  animation: certSealSheenDrift 16s ease-in-out 3500ms infinite;
+}
+@keyframes certSealSheenDrift {
+  0%   { transform: translate3d(0, 0, 0); }
+  25%  { transform: translate3d(-11px, -8px, 0); }
+  50%  { transform: translate3d(9px, 6px, 0); }
+  75%  { transform: translate3d(10px, -7px, 0); }
+  100% { transform: translate3d(0, 0, 0); }
+}
+.Cert[data-revealed="true"] .CertSeal--auto .CertSeal__spectrum {
+  animation: certSealSpectrumDrift 16s ease-in-out 3500ms infinite;
+}
+@keyframes certSealSpectrumDrift {
+  0%   { transform: translate3d(0, 0, 0); }
+  25%  { transform: translate3d(14px, 10px, 0); }
+  50%  { transform: translate3d(-12px, -8px, 0); }
+  75%  { transform: translate3d(-13px, 9px, 0); }
+  100% { transform: translate3d(0, 0, 0); }
+}
+/* Reduced motion: sticker estático con iridiscencia fija (el JS ya no
+   engancha listeners; esto apaga remolino, press y derivas CSS). */
+@media (prefers-reduced-motion: reduce) {
+  .CertSeal__holoSwirl,
+  .Cert[data-revealed="true"] .CertSeal__card,
+  .Cert[data-revealed="true"] .CertSeal--auto .CertSeal__sheen,
+  .Cert[data-revealed="true"] .CertSeal--auto .CertSeal__spectrum {
+    animation: none;
+  }
 }
 
 /* ---- Procedencia · responsive ---- */
@@ -3408,8 +3674,12 @@ section[data-section="outro"] {
   /* (el tamaño móvil ya lo da el clamp() fluido de la regla base) */
   .Cert__serial { font-size: 46px; }
   .Cert__grid { grid-template-columns: 1fr; gap: 24px; }
-  .Cert__sealCol { text-align: left; }
-  .Cert__sealImg { margin-left: 0; }
+  /* En el apilado 1-col la celda vuelve a ocupar todo el ancho
+     (sin el fit-content pegado a la derecha del desktop). */
+  .Cert__sealCol { justify-self: stretch; text-align: left; }
+  /* La columna apilada da más ancho que en desktop, para preservar la
+     legibilidad del QR pese a lo compacto del sello. */
+  .CertSeal__card { width: 151px; }
 }
 
 /* ===========================================================
