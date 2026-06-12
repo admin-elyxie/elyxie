@@ -63,9 +63,9 @@
   ── MEDIA / PIPELINE ─────────────────────────────────────────────────────────
   Fotos en assets/ como story-*-bg-{480,960,1440}.webp (cwebp/sharp, mismas
   anchuras que assets/photography del one-pager). Inventario usado:
-    paramo → story-paramo-bg-* + video origen-bg(.mp4/-720) — el agua naciendo
+    paramo → story-paramo-bg-* + video origen-bg(-2160/-1440/-m) — el agua naciendo
     encanto → story-encanto-bg-* (+ -m-* recorte vertical móvil)
-    mesa (noche) → laguna-negra-bg(.webp/-640) + video tribu-bg(.mp4/-720), el
+    mesa (noche) → laguna-negra-bg(.webp/-640) + video tribu-bg(-2160/-1440/-m), el
       rito nocturno del home; no existe story-mesa-bg y el scrim va fuerte
     mesa (amanecer, media-b) → story-amanecer-bg-*
     seguro (fallback del 3D) → story-angel-still-*   viva → story-custodios-bg-*
@@ -851,7 +851,8 @@
           al decodificar. -m: 1080×2336 recortado del upscale 4K (el master
           origen es 1440×1786 nativo; la antigua -720 se estiraba ~2.8×). {%- endcomment -%}
         <video class="story-video" muted playsinline loop preload="none" aria-hidden="true"
-          data-src="{{ 'origen-bg.mp4' | asset_url }}"
+          data-src="{{ 'origen-bg-2160.mp4' | asset_url }}"
+          data-src-t="{{ 'origen-bg-1440.mp4' | asset_url }}"
           data-src-m="{{ 'origen-bg-m.mp4' | asset_url }}"></video>
       </div>
       <div class="story-scene__scrim" aria-hidden="true"></div>
@@ -904,7 +905,8 @@
         {%- comment -%} Sin poster (ver escena 1). -m: 1080×2336 del upscale 4K
           (master tribu 1440×1440 cuadrado). {%- endcomment -%}
         <video class="story-video" muted playsinline loop preload="none" aria-hidden="true"
-          data-src="{{ 'tribu-bg.mp4' | asset_url }}"
+          data-src="{{ 'tribu-bg-2160.mp4' | asset_url }}"
+          data-src-t="{{ 'tribu-bg-1440.mp4' | asset_url }}"
           data-src-m="{{ 'tribu-bg-m.mp4' | asset_url }}"></video>
       </div>
       <div class="story-scene__scrim" aria-hidden="true"></div>
