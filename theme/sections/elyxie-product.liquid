@@ -182,7 +182,7 @@
     <div class="eprod__info">
       <div class="eprod__eyebrow">{% if is_en %}THE PIECE{% else %}LA PIEZA{% endif %}{% if tfinish != blank %} · {{ tfinish | upcase }}{% endif %}</div>
       <h1 class="eprod__title">{{ tname }}</h1>
-      <div class="eprod__desc">{% if is_en %}A sanctuary you wear. Living water from the Black Lagoon, suspended in blown glass.{% else %}Un santuario que se lleva puesto. Agua viva de la Laguna Negra, suspendida en cristal soplado.{% endif %}</div>
+      <div class="eprod__desc">{% if is_en %}A sanctuary you wear. Living water from the Black Lagoon, suspended in blown glass. The house, 950 fine silver; the edition, one hundred pieces, numbered by hand.{% else %}Un santuario que se lleva puesto. Agua viva de la Laguna Negra, suspendida en cristal soplado. La casa, plata de ley 950; la edición, cien piezas numeradas a mano.{% endif %}</div>
 
       {%- if product.variants.size > 1 -%}
       <div class="eprod__chainLabel">{% if is_en %}CHAIN · WHO IT IS FOR{% else %}CADENA · PARA QUIÉN ES{% endif %}</div>
@@ -219,11 +219,12 @@
         </button>
         {%- endif -%}
       </div>
-      <div class="eprod__note">{% if is_en %}The chain does not change the price.{% else %}La cadena no altera el precio.{% endif %}</div>
+      <div class="eprod__note">{% if is_en %}Both chains in 925 sterling silver. The choice is yours; the price does not change.{% else %}Ambas cadenas en plata de ley 925. La elección es tuya; el precio no cambia.{% endif %}</div>
       {%- endif -%}
 
       <div class="eprod__price"><span class="eprod-price">{{ v_default.price | money }}</span></div>
       <div class="eprod__meta">{% if is_en %}LIMITED EDITION · No. 01 / 100 · HANDMADE TO ORDER{% else %}EDICIÓN LIMITADA · N.º 01 / 100 · HECHA A MANO POR ENCARGO{% endif %}</div>
+      <div class="eprod__note">{% if is_en %}One hundred pieces, numbered by hand. Once they are assigned, the edition closes.{% else %}Cien piezas, numeradas a mano. Cuando se asignan, la edición se cierra.{% endif %}</div>
 
       {%- comment -%} Add-to-cart NATIVO: product-form custom element envuelve el form de producto.
         product-form.js intercepta el submit, añade vía Cart AJAX y abre el cart drawer re-skineado.
