@@ -246,6 +246,12 @@ const PROVENANCE = [
 // punta de la línea alcanza su nodo; una única luz cálida (One Light Rule)
 // desciende con esa punta y se asienta en el tercer estrato.
 //
+// EJE SEGÚN VIEWPORT: en tablet/móvil la sonda es VERTICAL por el margen
+// izquierdo de la columna de cards apiladas; en desktop (≥1025px) las tres
+// cards pasan a una FILA a la misma altura y la sonda se vuelve HORIZONTAL por
+// encima de ellas (misma coreografía, eje X). measure()/tick() son agnósticos
+// al eje: leen el breakpoint (igual que el CSS) y operan sobre un escalar.
+//
 // Todo el motor vive en funciones puras (sin React): initStrataMotion(section)
 // opera sobre data-attributes y devuelve un cleanup. React solo monta el
 // markup y llama al init en un useEffect — pensado para portar el sistema al
@@ -290,6 +296,10 @@ function initStrataMotion(section) {
   if (!rail || !fill || !lamp || !head || !strata.length) return undefined;
 
   const prm = window.matchMedia('(prefers-reduced-motion: reduce)');
+  // Eje de la sonda: horizontal en desktop (fila de cards), vertical si no.
+  // Mismo breakpoint que el CSS. Se lee en vivo dentro de measure(), que se
+  // recalcula en cada resize (onResize anula geom) → cruzar 1025px reorienta.
+  const horizMq = window.matchMedia('(min-width: 1025px)');
   const timers = [];   // setTimeout ids (delay de arranque de los conteos)
   const rafs = [];     // rAF ids de conteos en vuelo (ids viejos: cancel inocuo)
   let raf = 0;         // rAF del driver de scroll
@@ -354,24 +364,30 @@ function initStrataMotion(section) {
   // y el rail lo cubre con inset 0 → mismas coordenadas). Medida solo en
   // init/resize, nunca por frame.
   function measure() {
+    // Geometría 1-D a lo largo de la sonda: start/end y posición del nodo van
+    // sobre el eje activo (offsetLeft/Width en horizontal, offsetTop/Height en
+    // vertical), todo en el espacio del rail (.Strata es el offsetParent).
+    const horiz = horizMq.matches;
     const bands = strata.map((li) => {
       const node = li.querySelector('[data-node]');
-      const top = li.offsetTop;
-      return {
-        el: li, node, top,
-        bottom: top + li.offsetHeight,
-        nodeY: top + (node ? node.offsetTop + node.offsetHeight / 2 : 0),
-      };
+      const start = horiz ? li.offsetLeft : li.offsetTop;
+      const size  = horiz ? li.offsetWidth : li.offsetHeight;
+      const nodeMid = node
+        ? (horiz ? node.offsetLeft + node.offsetWidth / 2
+                 : node.offsetTop + node.offsetHeight / 2)
+        : 0;
+      return { el: li, node, start, end: start + size, nodePos: start + nodeMid };
     });
     const last = bands[bands.length - 1];
     geom = {
-      railH: Math.max(1, rail.offsetHeight),
+      horiz,
+      railLen: Math.max(1, horiz ? rail.offsetWidth : rail.offsetHeight),
       bands,
       // «La luz se asienta aquí»: la plomada llega al fondo, pero la luz se
       // queda en el corazón del tercer estrato.
-      lampMax: last.top + (last.bottom - last.top) * 0.5,
+      lampMax: last.start + (last.end - last.start) * 0.5,
     };
-    // Geometría nueva → tipY/lampY cambian aunque lineP no: invalida la
+    // Geometría nueva → tip/lampPos cambian aunque lineP no: invalida la
     // cuantización para forzar la siguiente escritura completa.
     lastBucket = -1;
   }
@@ -438,12 +454,12 @@ function initStrataMotion(section) {
     // y se completa en 0.90 (reposo 0.90–1.00).
     if (p >= 0.05) revealHead();
     const lineP = strataSmootherstep((p - 0.08) / 0.82);
-    const tipY = lineP * geom.railH;
+    const tip = lineP * geom.railLen;
 
     // Revelados one-shot disparados por la punta de la línea («alcanzar su
     // profundidad»): el estrato emerge cuando la plomada toca su nodo.
     for (let i = 0; i < geom.bands.length; i++) {
-      if (tipY >= geom.bands[i].nodeY) revealStratum(geom.bands[i].el);
+      if (tip >= geom.bands[i].nodePos) revealStratum(geom.bands[i].el);
     }
 
     // Valores continuos, cuantizados a 1/2000 del recorrido para no escribir
@@ -451,23 +467,27 @@ function initStrataMotion(section) {
     const bucket = Math.round(lineP * 2000);
     if (bucket === lastBucket) return;
     lastBucket = bucket;
-    fill.style.transform = 'scaleY(' + lineP.toFixed(4) + ')';
-    const lampY = Math.min(tipY, geom.lampMax);
-    lamp.style.transform = 'translate3d(0,' + lampY.toFixed(1) + 'px,0)';
+    // scaleX (sonda horizontal, desktop) o scaleY (vertical). El driver escribe
+    // el eje; transform-origin lo fija el CSS (left/top center según media).
+    fill.style.transform = (geom.horiz ? 'scaleX(' : 'scaleY(') + lineP.toFixed(4) + ')';
+    const lampPos = Math.min(tip, geom.lampMax);
+    lamp.style.transform = geom.horiz
+      ? 'translate3d(' + lampPos.toFixed(1) + 'px,0,0)'
+      : 'translate3d(0,' + lampPos.toFixed(1) + 'px,0)';
     // La luz se enciende con los primeros centímetros de línea (reversible).
     lamp.style.opacity = Math.min(1, lineP * 10).toFixed(3);
 
     let act = -1;
     for (let i = 0; i < geom.bands.length; i++) {
       const b = geom.bands[i];
-      const lit = tipY >= b.nodeY;
+      const lit = tip >= b.nodePos;
       if (b.node && (b.node.dataset.lit === 'true') !== lit) {
         b.node.dataset.lit = lit ? 'true' : 'false';
       }
       // Activo desde su nodo de profundidad (no desde el borde superior de la
       // card): la luz «alcanza» el estrato en el mismo beat que su revelado —
       // nunca ilumina el borde de una card aún vacía.
-      if (lampY >= b.nodeY && lampY < b.bottom) act = i;
+      if (lampPos >= b.nodePos && lampPos < b.end) act = i;
     }
     if (act !== lastActive) {
       lastActive = act;
