@@ -2818,6 +2818,7 @@ section[data-section="outro"] {
   background: #0B1F1A;   /* seats the frame before the photo decodes */
   border-radius: 8px;
   overflow: hidden;
+  cursor: zoom-in;   /* el panel abre el lightbox fullscreen (lightbox.js) */
   box-shadow: 0 50px 110px rgba(0, 0, 0, 0.55), 0 0 72px rgba(233, 215, 177, 0.07);
 }
 .Vitrina__shot {
@@ -3345,6 +3346,57 @@ section[data-section="outro"] {
   .Strata__list { gap: 44px; }
   .Stratum { --pad-top: 30px; padding: var(--pad-top) 26px 34px; }
   .Stratum__label { margin-top: 18px; }
+}
+/* ---- Procedencia · desktop (fila horizontal) ----
+   En desktop las tres cards dejan de apilarse y forman una FILA a la misma
+   altura (grid de 3 · stretch), y la sonda se reorienta a HORIZONTAL por
+   encima de ellas: el rail cruza de lado a lado, el fill se dibuja en scaleX
+   (origen izquierdo, gradiente 90deg → punta brillante a la derecha) y la luz
+   viaja en X. El motor JS ya es agnóstico al eje (mismo breakpoint, 1025px);
+   aquí solo se recoloca el chrome. */
+@media (min-width: 1025px) {
+  /* La columna se ensancha para alojar la fila (la métrica «documento» de
+     720px era para el apilado vertical). */
+  .Provenance__col { max-width: 1100px; }
+
+  /* Hueco para la sonda ARRIBA (no a la izquierda) y fila de 3 a igual altura. */
+  .Strata { padding-left: 0; padding-top: var(--strata-gutter); }
+  .Strata__list {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 28px;
+  }
+
+  /* Rail horizontal de lado a lado, pegado al borde superior de .Strata. */
+  .Strata__rail { left: 0; right: 0; top: 0; bottom: auto; width: auto; height: 1px; }
+  .Strata__railFill {
+    background: linear-gradient(90deg, rgba(233, 215, 177, 0.28), rgba(233, 215, 177, 0.62));
+    transform-origin: left center;
+    transform: scaleX(1); /* sin JS: línea completa (estado digno) */
+  }
+  /* La luz cabalga la punta en X: centrada en vertical sobre el rail (0.5px). */
+  .Strata__lamp { top: 0.5px; left: 0; }
+
+  /* Nodo: rombo sobre el rail, centrado en horizontal sobre su card. */
+  .Stratum__node {
+    left: 50%;
+    top: calc(-1 * var(--strata-gutter) - 3px);
+    margin-left: -3.5px;
+  }
+
+  /* El borde-glow es reflejo de la sonda: ahora llega desde ARRIBA (180deg),
+     no desde el flanco izquierdo. */
+  .Stratum__glow {
+    background: linear-gradient(180deg, rgba(233, 215, 177, 0.5), rgba(233, 215, 177, 0.08) 38%, transparent 62%);
+  }
+  .Stratum__glow::after {
+    background: linear-gradient(180deg, rgba(233, 215, 177, 0.6), transparent 55%);
+  }
+}
+/* Punto de partida del fill en horizontal (el driver escribe inline encima).
+   Aparte por el gate de motion: con reduce gana scaleX(1) (línea llena). */
+@media (min-width: 1025px) and (prefers-reduced-motion: no-preference) {
+  [data-strata-ready] .Strata__railFill { transform: scaleX(0); }
 }
 /* ---- Certificate · mobile safety (source uses fixed px) ---- */
 @media (max-width: 767px) {
@@ -4699,4 +4751,87 @@ html[lang="en"] #shopify-pc__banner p::before {
 #shopify-pc__banner__btn-manage-prefs {
   font-size: 10px !important;
   padding: 6px 0 !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Lightbox fullscreen compartido — lightbox.js (window.ElyxieLightbox).
+   UNA implementación para el homepage (React · SectionVitrina) y el PDP
+   (Liquid · elyxie-product.liquid); viven en stacks distintos, así que el
+   lightbox es un módulo vanilla que ambos invocan. Estética mínima maison:
+   fondo near-black de marca, UI hairline, expo-out, One Light Rule (sin glows
+   que compitan). Solo transform/opacity; cero reflow.
+   ═══════════════════════════════════════════════════════════════════════════ */
+.elx-lb {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  height: 100vh;            /* fallback */
+  height: 100dvh;           /* no 100vh — respeta las barras de iOS Safari */
+  z-index: 100000;          /* sobre el nav fixed, drawer y todo lo demás */
+}
+.elx-lb[hidden] { display: none; }
+.elx-lb__backdrop {
+  position: absolute; inset: 0;
+  background: rgba(5, 22, 19, 0.96);     /* = --emerald-950 / --ep-void al 96% */
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+}
+.elx-lb__stage {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  overflow: hidden;
+  touch-action: none;       /* el pinch no dispara el zoom nativo del navegador */
+  -webkit-user-select: none; user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  cursor: zoom-in;
+  /* safe-areas: la pieza nunca queda bajo notch/barra de iOS */
+  padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right))
+           max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+}
+.elx-lb__img {
+  display: block;
+  max-width: 100%; max-height: 100%;
+  width: auto; height: auto;
+  transform-origin: center center;
+  -webkit-user-drag: none;
+  /* contain a escala 1; el transform (translate+scale) la mueve y acerca */
+}
+/* UI hairline por encima; transparente al pointer salvo en sus controles */
+.elx-lb__ui { position: absolute; inset: 0; pointer-events: none; }
+.elx-lb__ui > * { pointer-events: auto; }
+.elx-lb__close {
+  position: absolute;
+  top: max(18px, env(safe-area-inset-top)); right: max(18px, env(safe-area-inset-right));
+  width: 44px; height: 44px; display: grid; place-items: center; padding: 0;
+  background: rgba(7, 20, 16, 0.5); border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 999px; color: rgba(255, 255, 255, 0.88); cursor: pointer;
+  -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+  transition: color 200ms cubic-bezier(0.16, 1, 0.3, 1),
+              border-color 200ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.elx-lb__close:hover { color: #fff; border-color: rgba(233, 215, 177, 0.5); }
+.elx-lb__nav {
+  position: absolute; top: 50%; transform: translateY(-50%);
+  width: 56px; height: 56px; display: grid; place-items: center; padding: 0;
+  background: transparent; border: 0; color: rgba(255, 255, 255, 0.55); cursor: pointer;
+  transition: color 200ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.elx-lb__nav:hover { color: #fff; }
+.elx-lb__nav--prev { left: max(8px, env(safe-area-inset-left)); }
+.elx-lb__nav--next { right: max(8px, env(safe-area-inset-right)); }
+.elx-lb__counter {
+  position: absolute; left: 0; right: 0;
+  bottom: max(20px, env(safe-area-inset-bottom)); text-align: center;
+  font-family: var(--font-body, "Satoshi", system-ui, sans-serif);
+  font-size: 11px; letter-spacing: 0.24em; font-variant-numeric: tabular-nums;
+  color: rgba(255, 255, 255, 0.55);
+}
+.elx-lb__close:focus-visible, .elx-lb__nav:focus-visible {
+  outline: none; box-shadow: 0 0 0 2px rgba(233, 215, 177, 0.6);
+}
+/* Flechas solo en desktop de puntero fino; en touch o ventana ≤1024 → swipe. */
+@media (max-width: 1024px), (pointer: coarse) {
+  .elx-lb__nav { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .elx-lb__img, .elx-lb__backdrop, .elx-lb__ui { transition: none !important; }
 }

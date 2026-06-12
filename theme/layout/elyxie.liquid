@@ -247,6 +247,9 @@
   <script src="{{ 'pendant.js' | asset_url }}" defer></script>
   <script src="{{ 'sections.js' | asset_url }}" defer></script>
   <script src="{{ 'app.js' | asset_url }}" defer></script>
+  {%- comment -%} Lightbox fullscreen compartido (visor con zoom) — mismo módulo
+    vanilla que el PDP; SectionVitrina lo invoca al pulsar la imagen principal. {%- endcomment -%}
+  <script src="{{ 'lightbox.js' | asset_url }}" defer></script>
 
   {%- comment -%} Bootstrap AJAX del carrito + drawer nativo (espejo de
     elyxie-page.liquid; sin product-form.js — la home no tiene formulario

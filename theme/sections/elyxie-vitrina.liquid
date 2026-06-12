@@ -36,19 +36,19 @@
     "plata": [
       {%- for image in p_plata.images -%}
         {%- unless forloop.first -%},{%- endunless -%}
-        { "src": {{ image | image_url: width: 1200 | json }}, "srcset": "{{ image | image_url: width: 480 }} 480w, {{ image | image_url: width: 800 }} 800w, {{ image | image_url: width: 1200 }} 1200w, {{ image | image_url: width: 1600 }} 1600w", "thumb": {{ image | image_url: width: 220 | json }}, "alt": {{ image.alt | json }}, "focal": {{ image.presentation.focal_point | default: '50% 50%' | json }} }
+        { "src": {{ image | image_url: width: 1200 | json }}, "srcset": "{{ image | image_url: width: 480 }} 480w, {{ image | image_url: width: 800 }} 800w, {{ image | image_url: width: 1200 }} 1200w, {{ image | image_url: width: 1600 }} 1600w", "thumb": {{ image | image_url: width: 220 | json }}, "alt": {{ image.alt | json }}, "focal": {{ image.presentation.focal_point | default: '50% 50%' | json }}, "full": {{ image | image_url: width: 2048 | json }} }
       {%- endfor -%}
     ],
     "rodio": [
       {%- for image in p_rodio.images -%}
         {%- unless forloop.first -%},{%- endunless -%}
-        { "src": {{ image | image_url: width: 1200 | json }}, "srcset": "{{ image | image_url: width: 480 }} 480w, {{ image | image_url: width: 800 }} 800w, {{ image | image_url: width: 1200 }} 1200w, {{ image | image_url: width: 1600 }} 1600w", "thumb": {{ image | image_url: width: 220 | json }}, "alt": {{ image.alt | json }}, "focal": {{ image.presentation.focal_point | default: '50% 50%' | json }} }
+        { "src": {{ image | image_url: width: 1200 | json }}, "srcset": "{{ image | image_url: width: 480 }} 480w, {{ image | image_url: width: 800 }} 800w, {{ image | image_url: width: 1200 }} 1200w, {{ image | image_url: width: 1600 }} 1600w", "thumb": {{ image | image_url: width: 220 | json }}, "alt": {{ image.alt | json }}, "focal": {{ image.presentation.focal_point | default: '50% 50%' | json }}, "full": {{ image | image_url: width: 2048 | json }} }
       {%- endfor -%}
     ],
     "oro": [
       {%- for image in p_oro.images -%}
         {%- unless forloop.first -%},{%- endunless -%}
-        { "src": {{ image | image_url: width: 1200 | json }}, "srcset": "{{ image | image_url: width: 480 }} 480w, {{ image | image_url: width: 800 }} 800w, {{ image | image_url: width: 1200 }} 1200w, {{ image | image_url: width: 1600 }} 1600w", "thumb": {{ image | image_url: width: 220 | json }}, "alt": {{ image.alt | json }}, "focal": {{ image.presentation.focal_point | default: '50% 50%' | json }} }
+        { "src": {{ image | image_url: width: 1200 | json }}, "srcset": "{{ image | image_url: width: 480 }} 480w, {{ image | image_url: width: 800 }} 800w, {{ image | image_url: width: 1200 }} 1200w, {{ image | image_url: width: 1600 }} 1600w", "thumb": {{ image | image_url: width: 220 | json }}, "alt": {{ image.alt | json }}, "focal": {{ image.presentation.focal_point | default: '50% 50%' | json }}, "full": {{ image | image_url: width: 2048 | json }} }
       {%- endfor -%}
     ]
   }

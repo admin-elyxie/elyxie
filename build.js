@@ -14,7 +14,9 @@ const path = require('path');
 const fs = require('fs');
 
 const ROOT = __dirname;
-const SOURCES = ['tweaks-panel.jsx', 'pendant.jsx', 'sections.jsx', 'app.jsx'];
+// lightbox.js es vanilla (no JSX): visor fullscreen compartido por el homepage
+// (React) y el PDP (Liquid). esbuild lo minifica igual; el mirror lo copia al theme.
+const SOURCES = ['tweaks-panel.jsx', 'pendant.jsx', 'sections.jsx', 'app.jsx', 'lightbox.js'];
 const OUTDIR = path.join(ROOT, 'dist');
 // When the Shopify theme exists, mirror the compiled JS into its (flat) assets
 // dir so `shopify theme dev/push` serves the same bundles the standalone page uses.

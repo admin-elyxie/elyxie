@@ -23,7 +23,7 @@
   /* Visor de referencia: el homepage (Vitrina, sections.jsx + styles.css .Vitrina__panel
      en modo galería) replica este contrato — marco 1/1, object-fit:cover, miniaturas
      76px/radio 10/cover, dorado activo #E9D7B1. Mantener ambos en paridad. */
-  .eprod__panel img { display: block; width: 100%; height: auto; aspect-ratio: 1/1; object-fit: cover; }
+  .eprod__panel img { display: block; width: 100%; height: auto; aspect-ratio: 1/1; object-fit: cover; cursor: zoom-in; }
   .eprod__chip { position: absolute; top: 16px; left: 16px; z-index: 2; padding: 8px 14px;
     background: rgba(5,22,19,0.55); backdrop-filter: blur(6px); border: 1px solid rgba(233,215,177,0.28);
     color: var(--ep-champ); font-size: 10px; letter-spacing: 0.26em; }
@@ -246,7 +246,7 @@
 
   <script type="application/json" id="eprod-variants">
     [{%- for v in product.variants -%}{%- unless forloop.first -%},{%- endunless -%}
-      { "id": {{ v.id }}, "price": {{ v.price | money | json }}, "available": {{ v.available }}, "image": {{ v.image | image_url: width: 1200 | json }} }
+      { "id": {{ v.id }}, "price": {{ v.price | money | json }}, "available": {{ v.available }}, "image": {{ v.image | image_url: width: 1200 | json }}, "imageFull": {{ v.image | image_url: width: 2048 | json }} }
     {%- endfor -%}]
   </script>
   <script>
@@ -273,6 +273,33 @@
       }
       box.querySelectorAll('[data-variant]').forEach(function (el) { el.addEventListener('click', function () { select(el.getAttribute('data-variant')); }); });
       box.querySelectorAll('[data-thumb]').forEach(function (el) { el.addEventListener('click', function () { select(el.getAttribute('data-thumb')); }); });
+
+      // ── Lightbox fullscreen — módulo vanilla compartido con el homepage
+      //    (lightbox.js · window.ElyxieLightbox). PARIDAD entre stacks: misma
+      //    capa de inspección. El set = las imágenes de variante del visor (orden
+      //    de la tira ella→él); navegar en el modal sincroniza la variante de
+      //    fondo (precio + add-to-cart). El check de ElyxieLightbox va DENTRO del
+      //    click: este <script> inline corre antes que el lightbox.js diferido. ──
+      var PTITLE = {{ product.title | json }};
+      function byId(id) { return variants.filter(function (x) { return String(x.id) === String(id); })[0]; }
+      var thumbEls = box.querySelectorAll('[data-thumb]');
+      var lbImages = thumbEls.length
+        ? [].map.call(thumbEls, function (th) { var v = byId(th.getAttribute('data-thumb')) || {}; return { id: String(th.getAttribute('data-thumb')), preview: v.image, full: v.imageFull || v.image, alt: PTITLE }; })
+        : variants.map(function (v) { return { id: String(v.id), preview: v.image, full: v.imageFull || v.image, alt: PTITLE }; });
+      if (img && lbImages.length) {
+        img.addEventListener('click', function () {
+          if (!window.ElyxieLightbox) return;
+          var onEl = box.querySelector('[data-variant][data-on]');
+          var curId = onEl ? onEl.getAttribute('data-variant') : lbImages[0].id;
+          var start = lbImages.findIndex(function (x) { return String(x.id) === String(curId); });
+          window.ElyxieLightbox.open({
+            images: lbImages,
+            index: start < 0 ? 0 : start,
+            getOriginEl: function () { return img; },
+            onIndexChange: function (i) { if (lbImages[i]) select(lbImages[i].id); },
+          });
+        });
+      }
       // Añadir al carrito + apertura del drawer los maneja product-form.js (el
       // <product-form> que envuelve el botón). Aquí solo mantenemos el input
       // oculto [name=id] sincronizado con la cadena elegida.
