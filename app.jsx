@@ -1,6 +1,6 @@
 // === App.jsx ===
 // Main page: fixed nav, scroll-pinned 3D hero with 5 phases + theme transition,
-// editions grid below, manifesto strip, footer mini, Tweaks panel.
+// then post-hero sections (from sections.jsx) and the Tweaks panel.
 
 // See note in pendant.jsx — `var` (not const) to avoid a redeclaration
 // SyntaxError at global scope when both compiled scripts load.
@@ -90,39 +90,6 @@ const PHASES = [
   },
 ];
 
-// ---------- Editions grid ----------
-const EDITIONS = [
-  {
-    es: { title: 'Ángel de la Laguna Negra', sub: 'Primera edición · N.º 01/100', price: 'Reserva privada' },
-    en: { title: 'Angel of the Black Lagoon', sub: 'First edition · No. 01/100', price: 'Private reservation' },
-    img: 'assets/photography/grid-01.jpg',
-    phosphor: { es: 'BRILLA', en: 'GLOWS' },
-    serial: 'N.º 01 / 100',
-  },
-  {
-    es: { title: 'Mamayacu',                 sub: 'Madre del Agua · Edición de invocación', price: 'Próximamente' },
-    en: { title: 'Mamayacu',                 sub: 'Mother of Water · Invocation edition', price: 'Coming soon' },
-    img: 'assets/photography/grid-02.jpg',
-    phosphor: { es: 'BRILLA', en: 'GLOWS' },
-    serial: 'N.º — / 33',
-  },
-  {
-    es: { title: 'Huaringa',                 sub: 'Las Siete Lagunas · Constelación', price: 'Próximamente' },
-    en: { title: 'Huaringa',                 sub: 'The Seven Lagoons · Constellation',  price: 'Coming soon' },
-    img: 'assets/photography/grid-03.jpg',
-    phosphor: { es: 'BRILLA', en: 'GLOWS' },
-    serial: 'N.º — / 49',
-  },
-  {
-    es: { title: 'Uku Pacha',                sub: 'Mundo Interior · Ritual estacional', price: 'En custodia' },
-    en: { title: 'Uku Pacha',                sub: 'Inner World · Seasonal ritual',     price: 'Held in custody' },
-    img: 'assets/photography/grid-04.jpg',
-    phosphor: { es: 'BRILLA', en: 'GLOWS' },
-    serial: 'N.º — / 21',
-  },
-];
-
-
 // ---------- Theme color interpolation ----------
 // 0 = dark canvas, 1 = ivory canvas. We interpolate body bg + fg in RGB.
 const C_DARK_BG = [5,  22,  19];   // #051613
@@ -130,9 +97,6 @@ const C_LIGHT_BG = [246, 242, 232]; // #F6F2E8
 const C_DARK_FG = [255, 255, 255];
 const C_LIGHT_FG = [10,  38,  32]; // #0A2620
 
-function rgbLerp(a, b, t) {
-  return `rgb(${Math.round(a[0]+(b[0]-a[0])*t)}, ${Math.round(a[1]+(b[1]-a[1])*t)}, ${Math.round(a[2]+(b[2]-a[2])*t)})`;
-}
 function rgba(rgb, alpha) {
   return `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, ${alpha})`;
 }
@@ -927,97 +891,6 @@ function Hero({ lang, tweaks, pendantRef }) {
         </div>
       </div>
     </section>
-  );
-}
-
-// ===========================================================
-//  Editions grid
-// ===========================================================
-function EditionsGrid({ lang }) {
-  return (
-    <section className="editions-section" data-screen-label="02 Editions grid">
-      <div className="editions-header">
-        <h2 className="editions-header__title">
-          {lang === 'es' ? <>Piezas en <em style={{fontStyle:'italic'}}>custodia</em>.</> : <>Pieces under <em style={{fontStyle:'italic'}}>custody</em>.</>}
-        </h2>
-        <div className="editions-header__meta">
-          {lang === 'es'
-            ? '04 ediciones · Numeradas · Hechas a mano en Lima'
-            : '04 editions · Numbered · Handcrafted in Lima'}
-        </div>
-      </div>
-      <div className="editions-grid">
-        {EDITIONS.map((e, i) => {
-          const t = e[lang];
-          // WebP path is derived from the .jpg path so EDITIONS can keep one
-          // canonical URL per item. Browsers without WebP support fall back to
-          // the original JPG via the <img src> below. All grid images are
-          // below the fold, so lazy + async decoding keep the editions section
-          // out of the critical path.
-          const webp = e.img.replace(/\.jpg$/, '.webp');
-          const webp480 = e.img.replace(/\.jpg$/, '-480.webp');
-          return (
-            <a key={i} className="edition-card" href="#" data-screen-label={`Edition ${i+1}`}>
-              <div className="edition-card__media">
-                <picture>
-                  <source
-                    type="image/webp"
-                    srcSet={`${webp480} 480w, ${webp} 720w`}
-                    sizes="(max-width: 767px) 100vw, (max-width: 1024px) 50vw, 25vw"
-                  />
-                  <img src={e.img} alt={t.title} loading="lazy" decoding="async"/>
-                </picture>
-                <span className="edition-card__corner edition-card__corner--tl" aria-hidden></span>
-                <span className="edition-card__corner edition-card__corner--tr" aria-hidden></span>
-                <span className="edition-card__corner edition-card__corner--bl" aria-hidden></span>
-                <span className="edition-card__corner edition-card__corner--br" aria-hidden></span>
-                <span className="edition-card__serial">{e.serial}</span>
-                <span className="edition-card__phosphor">{e.phosphor[lang]}</span>
-              </div>
-              <h3 className="edition-card__title">{t.title}</h3>
-              <div className="edition-card__sub">{t.sub}</div>
-              <div className="edition-card__price">
-                <strong>{t.price}</strong>
-                <span className="arrow">→</span>
-              </div>
-            </a>
-          );
-        })}
-      </div>
-    </section>
-  );
-}
-
-// ===========================================================
-//  Manifesto + footer
-// ===========================================================
-function Manifesto({ lang }) {
-  return (
-    <section className="manifesto" data-screen-label="03 Manifesto">
-      <p className="manifesto__quote">
-        {lang === 'es'
-          ? <>No fabricamos joyas. <em>Custodiamos agua.</em></>
-          : <>We do not make jewelry. <em>We keep water.</em></>}
-      </p>
-      <div className="manifesto__attribution">
-        ELYXIE · LIMA · HUANCABAMBA · 3.957 M S.N.M.
-      </div>
-    </section>
-  );
-}
-
-function FooterMini({ lang }) {
-  return (
-    <footer className="footer-mini" data-screen-label="04 Footer">
-      <span className="footer-mini__brand">elyxie</span>
-      <div className="footer-mini__links">
-        <span>{lang === 'es' ? 'TIENDA' : 'SHOP'}</span>
-        <span>{lang === 'es' ? 'RELATO' : 'STORY'}</span>
-        <span>{lang === 'es' ? 'CUSTODIA' : 'CUSTODY'}</span>
-        <span>INSTAGRAM</span>
-      </div>
-      <span>© 2026 · ELYXIE · {lang === 'es' ? 'TODAS LAS AGUAS RESERVADAS' : 'ALL WATERS RESERVED'}</span>
-    </footer>
   );
 }
 
