@@ -3329,23 +3329,17 @@ section[data-section="outro"] {
   font-weight: 500;
   color: #0A2620;
 }
-.Cert__signature {
-  font-family: var(--font-display);
-  font-style: italic;
-  font-size: 22px;
-  color: #0A2620;
-  margin-top: 4px;
-}
 /* ── Firma manuscrita del maestro joyero ─────────────────────
-   Trazo Bézier propio (sin fuentes nuevas), tinta esmeralda de
-   pluma fina. Con el acta revelada se TRAZA en orden de escritura
-   (J → punto → Zamora con rúbrica) vía stroke-dashoffset; el
-   pathLength=1 del SVG normaliza el dash a [0,1]. */
+   ÚNICA mención del nombre en su columna (sin doble con texto
+   tipográfico). Trazo Bézier propio (sin fuentes nuevas), tinta
+   esmeralda de pluma fina. Con el acta revelada se TRAZA en orden
+   de escritura (J → punto → Zamora con rúbrica) vía
+   stroke-dashoffset; el pathLength=1 del SVG normaliza el dash. */
 .Cert__sigInk {
   display: block;
-  width: 158px;
+  width: 168px;
   margin-top: 2px;
-  margin-left: -4px; /* alinea ópticamente la J con el nombre tipográfico */
+  margin-left: -6px; /* compensa el margen interno del trazo (la J arranca en x≈17 del viewBox) */
 }
 .Cert__sigInk path {
   fill: none;
