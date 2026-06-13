@@ -119,12 +119,18 @@ body[data-nav-halo] .nav .elyxie-logo {
   color: inherit;
   text-decoration: none;
   opacity: 0.78;
-  transition: opacity 200ms ease;
+  transition: opacity 200ms ease, color 200ms ease;
   cursor: pointer;
 }
-.nav__link:hover { opacity: 1; }
+/* El color va explícito (no solo opacity): el a:hover global de
+   colors_and_type.css pinta verde fosforescente (--color-text-glow) y aquí
+   debe ser champagne, a juego con la hairline. En tema claro, un oro más
+   profundo para que no se pierda sobre crema. */
+.nav__link:hover { opacity: 1; color: var(--gold-300); }
+body[data-theme="light"] .nav__link:hover { color: var(--gold-600); }
 /* Señal cromática además de la opacidad (WCAG 1.4.x + estándar Awwwards):
-   hairline dorada que se despliega de izquierda a derecha al hover/focus. */
+   hairline dorada con fade in/out completo al hover/focus — entera de golpe,
+   sin barrido lateral. */
 .nav__link::after {
   content: '';
   position: absolute;
@@ -132,12 +138,11 @@ body[data-nav-halo] .nav .elyxie-logo {
   bottom: -6px;
   height: 1px;
   background: var(--gold-300);
-  transform: scaleX(0);
-  transform-origin: left center;
-  transition: transform var(--motion-micro) ease;
+  opacity: 0;
+  transition: opacity var(--motion-micro) ease;
 }
 .nav__link:hover::after,
-.nav__link:focus-visible::after { transform: scaleX(1); }
+.nav__link:focus-visible::after { opacity: 1; }
 /* Language toggle — segmented pill */
 .nav__lang {
   position: relative;
