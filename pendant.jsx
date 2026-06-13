@@ -98,23 +98,35 @@ function buildOrbMaterial(THREE) {
   });
 }
 
-// 22 k gold: ~91.6% Au — slightly less saturated than 24 k but still richly
-// yellow. Two variants for subtle mesh-to-mesh tonal variation.
+// 18 k polished gold. baseColor sits on the measured Au F0 (linear ≈
+// 1.0, 0.766, 0.336 → sRGB ≈ #ffe39d) with the blue channel lifted vs the
+// old bronze-ish hexes — with metalness 1.0 the visible color is
+// baseColor × envMap, so a too-red base reads as bronze no matter the
+// lighting. Physical (not Standard) for a faint clearcoat: a second tight
+// specular lobe that sells the "liquid" jewellery polish. roughness in the
+// polished band (GGX α ≈ 0.01–0.026); envMapIntensity is co-tuned to the
+// dedicated bright goldEnv assigned at load (see goldEnv below) — higher
+// values clip its near-white accent window. Two variants for subtle
+// mesh-to-mesh tonal variation.
 function buildGoldMaterial(THREE, tone) {
   if (tone === 'bright') {
-    return new THREE.MeshStandardMaterial({
-      color: new THREE.Color('#f4d27a'),
+    return new THREE.MeshPhysicalMaterial({
+      color: new THREE.Color('#ffe3a3'),
       metalness: 1.0,
-      roughness: 0.18,
-      envMapIntensity: 1.8,
+      roughness: 0.10,
+      envMapIntensity: 1.5,
+      clearcoat: 0.25,
+      clearcoatRoughness: 0.18,
       side: THREE.DoubleSide,
     });
   }
-  return new THREE.MeshStandardMaterial({
-    color: new THREE.Color('#e0b558'),
+  return new THREE.MeshPhysicalMaterial({
+    color: new THREE.Color('#f6d489'),
     metalness: 1.0,
-    roughness: 0.28,
-    envMapIntensity: 1.6,
+    roughness: 0.16,
+    envMapIntensity: 1.35,
+    clearcoat: 0.25,
+    clearcoatRoughness: 0.18,
     side: THREE.DoubleSide,
   });
 }
@@ -654,16 +666,64 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
           const goldWarm = buildGoldMaterial(THREE, 'warm');
           const goldBright = buildGoldMaterial(THREE, 'bright');
           const orbMat = buildOrbMaterial(THREE);
+          // Dedicated polished-gold reflection env, PER-MATERIAL — the same
+          // pattern coolMetalEnv uses for silver/rhodium below.
+          // scene.environment (warm-brown studio) stays untouched, so the orb
+          // and every non-gold surface keep their exact current look; only
+          // the two gold materials reflect this brighter studio. The old
+          // brown palette was the root cause of the "matte bronze" read:
+          // with metalness 1.0 the visible color is baseColor × envMap, and
+          // gold × dark-brown = bronze. Polish needs CONTRAST — a near-white
+          // warm accent window (#fff3d6) and bright golden ambers against a
+          // near-black floor, with no muddy desaturated mid-band.
+          const goldEnv = buildStudioEnvMap(THREE, renderer, {
+            warm:   '#e9bf76',
+            cool:   '#4d3b22',
+            accent: '#fff3d6',
+            top:    '#b08948',
+            floor:  '#0d0a06',
+          });
+          goldWarm.envMap = goldEnv;   goldWarm.needsUpdate = true;
+          goldBright.envMap = goldEnv; goldBright.needsUpdate = true;
+          stateRef.current.materials.goldEnv = goldEnv;
+          // Micro roughness grain (±0.04) keyed to OBJECT-space position.
+          // The GLB carries no UVs, so a roughnessMap is impossible — inject
+          // value noise into the roughness chunk instead. Object space (not
+          // world/view) so the grain sticks to the surface while the angel
+          // rotates. ~24 noise cells across the model (globalSize is the
+          // model's max extent): big enough to read as hand-polish
+          // unevenness, small enough not to band. ONE shared patch function:
+          // the default customProgramCacheKey stringifies onBeforeCompile,
+          // so sharing the instance shares a single compiled program.
+          const goldNoisePatch = (shader) => {
+            shader.uniforms.uGoldNoiseFreq = { value: 24 / globalSize };
+            shader.vertexShader = shader.vertexShader
+              .replace('#include <common>', '#include <common>\nvarying vec3 vGoldObjPos;')
+              .replace('#include <begin_vertex>', '#include <begin_vertex>\nvGoldObjPos = position;');
+            shader.fragmentShader = shader.fragmentShader
+              .replace('#include <common>', `#include <common>
+varying vec3 vGoldObjPos;
+uniform float uGoldNoiseFreq;
+float gHash(vec3 p){ p = fract(p*0.3183099 + vec3(0.1,0.2,0.3)); p *= 17.0; return fract(p.x*p.y*p.z*(p.x+p.y+p.z)); }
+float gNoise(vec3 x){ vec3 i=floor(x), f=fract(x); f=f*f*(3.0-2.0*f);
+  return mix(mix(mix(gHash(i),gHash(i+vec3(1,0,0)),f.x), mix(gHash(i+vec3(0,1,0)),gHash(i+vec3(1,1,0)),f.x), f.y),
+             mix(mix(gHash(i+vec3(0,0,1)),gHash(i+vec3(1,0,1)),f.x), mix(gHash(i+vec3(0,1,1)),gHash(i+vec3(1,1,1)),f.x), f.y), f.z); }`)
+              .replace('#include <roughnessmap_fragment>',
+                '#include <roughnessmap_fragment>\nroughnessFactor = clamp(roughnessFactor + (gNoise(vGoldObjPos * uGoldNoiseFreq) - 0.5) * 0.08, 0.05, 1.0);');
+          };
+          goldWarm.onBeforeCompile = goldNoisePatch;
+          goldBright.onBeforeCompile = goldNoisePatch;
           // Track gold materials so the phase 02 (ORIGEN) animate loop can
           // walk down their envMapIntensity. The gold is `metalness: 1.0`, so
           // its visible color comes almost entirely from the env map — dimming
           // the direct lights alone does NOT darken the wing/body surface.
           // Without this hook the wings stay bright-gold even with phaseSun
           // backlighting, instead of reading as the dark silhouette the
-          // Laguna Negra reference photo shows.
+          // Laguna Negra reference photo shows. baseEnv reads straight off
+          // the materials so it can never drift from buildGoldMaterial.
           stateRef.current.materials.goldMaterials = [
-            { mat: goldWarm,   baseEnv: 1.6 },
-            { mat: goldBright, baseEnv: 1.8 },
+            { mat: goldWarm,   baseEnv: goldWarm.envMapIntensity },
+            { mat: goldBright, baseEnv: goldBright.envMapIntensity },
           ];
 
           // Detect the "plato" sphere by perfect cubic bbox (aspect very close
@@ -925,6 +985,15 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
               warm:   goldWarm.clone(),
               bright: goldBright.clone(),
             };
+            // Material.clone() does NOT carry onBeforeCompile (r160) — re-
+            // attach the shared gold noise patch so the live finale materials
+            // keep the same micro-grain (and program variant) as the originals
+            // they replace on screen, instead of popping to a clean surface.
+            // The grain stays on while the live material morphs into rhodium/
+            // silver — a constant micro-finish across all three metals, same
+            // deliberate choice as the constant clearcoat (see below).
+            stateRef.current.materials.editionLive.warm.onBeforeCompile = goldNoisePatch;
+            stateRef.current.materials.editionLive.bright.onBeforeCompile = goldNoisePatch;
             stateRef.current.materials.editionFinishes = {
               warm: {
                 gold:    snapFinish(goldWarm, false),
@@ -1960,6 +2029,14 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
                 const DIP_AMT = 0.78;               // trough darkness of the fade
                 const dimMul = 1 - DIP_AMT * dip;   // 1 → 0.22 → 1
                 const coolEnv = sp.materials.coolMetalEnv || null;
+                // The gold finish carries its own polished-gold env map (see
+                // goldEnv at material setup) — falling back to `null` here
+                // would hand it scene.environment's brown studio and flash
+                // the old bronze look at the trough. Clearcoat (and the
+                // roughness micro-grain) deliberately stay constant across
+                // all three finishes: the lerp below doesn't animate them,
+                // and all three are polished jewellery metals anyway.
+                const goldEnvL = sp.materials.goldEnv || null;
                 ['warm', 'bright'].forEach((tone) => {
                   const f = finishes[tone][fromName];
                   const t = finishes[tone][toName];
@@ -1970,7 +2047,7 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
                   m.envMapIntensity = (f.env + (t.env - f.env) * blend) * dimMul;
                   // Swap env at the trough (tf<0.5 → from, else → to), where the
                   // reflection is darkest, so the discrete change is unseen.
-                  const wantEnv = ((tf < 0.5 ? f.cool : t.cool) ? coolEnv : null);
+                  const wantEnv = ((tf < 0.5 ? f.cool : t.cool) ? coolEnv : goldEnvL);
                   if (m.envMap !== wantEnv) { m.envMap = wantEnv; m.needsUpdate = true; }
                 });
               }
@@ -2586,6 +2663,10 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
         // it explicitly. (Harmless no-op if the GLB never resolved.)
         const _coolEnv = stateRef.current.materials && stateRef.current.materials.coolMetalEnv;
         if (_coolEnv && _coolEnv.dispose) _coolEnv.dispose();
+        // Same leak path for the gold materials' dedicated polished-gold env
+        // map (buildStudioEnvMap → goldEnv, stored on materials).
+        const _goldEnv = stateRef.current.materials && stateRef.current.materials.goldEnv;
+        if (_goldEnv && _goldEnv.dispose) _goldEnv.dispose();
         scene.traverse((o) => {
           if (o.geometry) o.geometry.dispose();
           if (o.material) {
