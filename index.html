@@ -126,7 +126,10 @@
     }
     /* Cresta de agua: un destello suave que cabalga el borde de avance de la
        línea (JS la posiciona leyendo el scaleX real cada frame). El bob
-       vertical de ±1.6px es la "onda en reposo" — se apaga con PRM. */
+       vertical (±0.8px simétrico alrededor del centro de la línea) es la
+       "onda en reposo". Antes iba 0→−1.6px —solo hacia arriba—, así que la
+       chispa nunca bajaba del centro y se veía flotando por encima del trazo;
+       ahora oscila centrada. Mismo recorrido total (1.6px). Se apaga con PRM. */
     #__splash .__sp-crest {
       position: absolute; top: 50%; left: 0;
       width: 7px; height: 7px;
@@ -136,8 +139,8 @@
       animation: __sp-crest-bob 2800ms ease-in-out infinite;
     }
     @keyframes __sp-crest-bob {
-      0%, 100% { transform: translateY(0); }
-      50%      { transform: translateY(-1.6px); }
+      0%, 100% { transform: translateY(0.8px); }
+      50%      { transform: translateY(-0.8px); }
     }
     #__splash .__sp-fill {
       width: 100%;
