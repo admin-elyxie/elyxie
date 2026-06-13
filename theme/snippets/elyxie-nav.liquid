@@ -26,7 +26,6 @@
   {%- assign t_contact = 'CONTACT US' -%}
   {%- assign t_copy = '© 2026 ELYXIE · Custodians of Mamayacu' -%}
   {%- assign contact_url = '/en/pages/contact' -%}
-  {%- assign ediciones_label = 'EDITIONS' -%}
 {%- else -%}
   {%- assign navlinks = linklists['elyxie-header-es'] -%}
   {%- assign t_account = 'Cuenta' -%}
@@ -37,7 +36,6 @@
   {%- assign t_contact = 'CONTÁCTANOS' -%}
   {%- assign t_copy = '© 2026 ELYXIE · Custodios de Mamayacu' -%}
   {%- assign contact_url = '/pages/contact' -%}
-  {%- assign ediciones_label = 'EDICIONES' -%}
 {%- endif -%}
 {%- assign cur_iso = localization.language.iso_code | downcase -%}
 {%- assign lang_es = nil -%}{%- assign lang_en = nil -%}
@@ -101,29 +99,12 @@
   <div class="mobile-drawer__inner">
     <ul class="mobile-drawer__list">
       {%- for l in navlinks.links -%}
-        {%- comment -%} EDICIONES (4º ítem) conserva su submenú estático, como el
-          drawer React: los links del Admin aún no traen hijos. {%- endcomment -%}
-        {%- if forloop.index == 4 -%}
-          <li class="mobile-drawer__item" data-open="false">
-            <button type="button" class="mobile-drawer__row" data-accordion aria-expanded="false">
-              <span>{{ l.title | default: ediciones_label }}</span>
-              <span class="mobile-drawer__chev" aria-hidden="true">+</span>
-            </button>
-            <ul class="mobile-drawer__sub">
-              <li><a href="{{ l.url | default: '#' }}">ÁNGEL DE LA LAGUNA NEGRA</a></li>
-              <li><a href="#">MAMAYACU</a></li>
-              <li><a href="#">HUARINGA</a></li>
-              <li><a href="#">UKU PACHA</a></li>
-            </ul>
-          </li>
-        {%- else -%}
-          <li class="mobile-drawer__item">
-            <a class="mobile-drawer__row" href="{{ l.url }}">
-              <span>{{ l.title }}</span>
-              <span class="mobile-drawer__chev" aria-hidden="true">→</span>
-            </a>
-          </li>
-        {%- endif -%}
+        <li class="mobile-drawer__item">
+          <a class="mobile-drawer__row" href="{{ l.url }}">
+            <span>{{ l.title }}</span>
+            <span class="mobile-drawer__chev" aria-hidden="true">→</span>
+          </a>
+        </li>
       {%- endfor -%}
     </ul>
 
@@ -156,8 +137,7 @@
 <script>
   /* Burger + drawer móvil — réplica vanilla del comportamiento React:
      toggle con cambio de icono y aria, Escape cierra, scroll del body
-     bloqueado mientras está abierto, se cierra al crecer a desktop,
-     acordeón de EDICIONES. */
+     bloqueado mientras está abierto, se cierra al crecer a desktop. */
   (function () {
     var nav = document.getElementById('elyxie-nav');
     var drawer = document.getElementById('elyxie-drawer');
@@ -184,14 +164,5 @@
     document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && isOpen()) setOpen(false); });
     window.matchMedia('(min-width: 768px)').addEventListener('change', function (e) { if (e.matches && isOpen()) setOpen(false); });
     drawer.querySelectorAll('a').forEach(function (a) { a.addEventListener('click', function () { setOpen(false); }); });
-    drawer.querySelectorAll('[data-accordion]').forEach(function (acc) {
-      acc.addEventListener('click', function () {
-        var li = acc.closest('.mobile-drawer__item');
-        var open = li.getAttribute('data-open') === 'true';
-        li.setAttribute('data-open', open ? 'false' : 'true');
-        acc.setAttribute('aria-expanded', open ? 'false' : 'true');
-        acc.querySelector('.mobile-drawer__chev').textContent = open ? '+' : '−';
-      });
-    });
   })();
 </script>

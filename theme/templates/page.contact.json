@@ -2,7 +2,13 @@
   "layout": "elyxie-page",
   "sections": {
     "main": {
-      "type": "elyxie-contact"
+      "type": "elyxie-contact",
+      "settings": {
+        "contact_email": "mkt@elyxie.com",
+        "contact_whatsapp": "+51 976 616 514",
+        "contact_location": "Av. Don Diego de Día 228, Santiago de Surco, Lima, Perú",
+        "show_map": true
+      }
     }
   },
   "order": [

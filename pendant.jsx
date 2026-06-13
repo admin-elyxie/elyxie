@@ -98,6 +98,243 @@ function buildOrbMaterial(THREE) {
   });
 }
 
+// ===== Polvo de hada del orbe — módulo reutilizable =====
+// Fairy-dust COMET TRAILS. A small number of particles (≈22), each
+// following its own gentle spiral trajectory around a random axis.
+// Instead of rendering each particle as a point, we draw the recent
+// history of its position as a line segment trail — a thin streak
+// of light like a shooting star. Trail colors fade from transparent
+// (tail) to bright (head) using vertex colors. Each particle's life
+// cycle: spawn at orb → spiral outward → head fades first while the
+// tail lingers → respawn. Trails are sampled every few frames
+// (SAMPLE_INTERVAL) so they span real motion time, not a single frame.
+//
+// Nació acoplado al orbe central (secciones 01 ORIGEN + 02 HISTORIA);
+// extraído a factory para poder instanciarlo también en las esferas
+// laterales de MATERIA sin duplicar la lógica. Parámetros:
+//   color         — THREE.Color compartido POR REFERENCIA: se lee en cada
+//                   update(), así un re-tinte en vivo (setGlowColor) llega
+//                   a todas las instancias sin plomería extra
+//   count         — nº de partículas (22 calibrado para el orbe del hero)
+//   reducedMotion — prefers-reduced-motion: update() fuerza opacidad 0
+//                   (el glow del orbe queda, el enjambre no), coste cero
+// API devuelta:
+//   points         — THREE.LineSegments; posiciónalo en el centro de la
+//                    esfera y cuélgalo del nodo que la mueva/escale, así
+//                    la estela viaja y escala CON su orbe
+//   update(dt, op) — llamar cada frame; corta en seco con op ≤ 0.005
+function createOrbDust(THREE, { color, count = 22, reducedMotion = false }) {
+  const TRAIL_PTS  = 14;
+  const TRAIL_SEGS = TRAIL_PTS - 1;
+  const VERTS_PER_PARTICLE = TRAIL_SEGS * 2;
+  const TOTAL_VERTS = count * VERTS_PER_PARTICLE;
+
+  const geom = new THREE.BufferGeometry();
+  const positions = new Float32Array(TOTAL_VERTS * 3);
+  const vertColors = new Float32Array(TOTAL_VERTS * 3);
+  geom.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  geom.setAttribute('color',    new THREE.BufferAttribute(vertColors, 3));
+
+  // Per-particle state arrays:
+  //  axis    — unit vector the particle spirals around
+  //  initDir — unit vector in the plane perpendicular to the axis
+  //            (initial radial direction)
+  //  angSpd  — angular speed around the axis (rad/sec)
+  //  outSpd  — outward radial speed (world units / sec)
+  //  life    — current life (seconds)
+  //  maxLife — particle dies when life ≥ maxLife
+  //  history — circular buffer of TRAIL_PTS past positions per particle
+  //  histIdx — next write index into the history buffer
+  const axis    = new Float32Array(count * 3);
+  const initDir = new Float32Array(count * 3);
+  const angSpd  = new Float32Array(count);
+  const outSpd  = new Float32Array(count);
+  const life    = new Float32Array(count);
+  const maxLife = new Float32Array(count);
+  const history = new Float32Array(count * TRAIL_PTS * 3);
+  const histIdx = new Int32Array(count);
+
+  // Pick a uniformly random unit vector and write into target[off..off+2].
+  const _randUnit = (target, off) => {
+    const theta = Math.random() * Math.PI * 2;
+    const cosPhi = 2 * Math.random() - 1;
+    const sinPhi = Math.sqrt(1 - cosPhi * cosPhi);
+    target[off]     = sinPhi * Math.cos(theta);
+    target[off + 1] = sinPhi * Math.sin(theta);
+    target[off + 2] = cosPhi;
+  };
+
+  // Reset a particle's parameters and trail history (called on init + respawn).
+  const _resetParticle = (i) => {
+    _randUnit(axis, i * 3);
+    // initDir = random unit, projected to be perpendicular to axis so the
+    // particle spirals in a stable plane.
+    _randUnit(initDir, i * 3);
+    const ax = axis[i*3], ay = axis[i*3 + 1], az = axis[i*3 + 2];
+    const dot = initDir[i*3] * ax + initDir[i*3 + 1] * ay + initDir[i*3 + 2] * az;
+    initDir[i*3]     -= dot * ax;
+    initDir[i*3 + 1] -= dot * ay;
+    initDir[i*3 + 2] -= dot * az;
+    const len = Math.hypot(initDir[i*3], initDir[i*3 + 1], initDir[i*3 + 2]);
+    if (len > 0.001) {
+      initDir[i*3]     /= len;
+      initDir[i*3 + 1] /= len;
+      initDir[i*3 + 2] /= len;
+    } else {
+      initDir[i*3] = 1; initDir[i*3 + 1] = 0; initDir[i*3 + 2] = 0;
+    }
+    // Per-particle motion variety: some slow lingering wisps, some
+    // slightly quicker embers. Speeds dialed DOWN from the previous
+    // pass so trails don't sprawl across the frame — keeps the effect
+    // subtle and elegant, like delicate fairy dust orbiting the orb.
+    angSpd[i]  = (Math.random() < 0.5 ? -1 : 1) * (0.35 + Math.random() * 0.85);
+    outSpd[i]  = 0.05 + Math.random() * 0.10;
+    maxLife[i] = 2.5 + Math.random() * 2.5;
+    // Reset history to orb (all zeros) so the freshly-spawned trail starts
+    // at the orb instead of from the previous death position.
+    const hBase = i * TRAIL_PTS * 3;
+    for (let j = 0; j < TRAIL_PTS * 3; j++) history[hBase + j] = 0;
+    histIdx[i] = 0;
+  };
+
+  for (let i = 0; i < count; i++) {
+    _resetParticle(i);
+    // Stagger initial lives so the swarm isn't in lockstep.
+    life[i] = Math.random() * maxLife[i];
+  }
+
+  // LineBasicMaterial: thin streaks. vertexColors lets us fade each
+  // segment from head (bright) to tail (transparent) and modulate by
+  // life. Additive blending makes overlapping trails glow brighter.
+  const mat = new THREE.LineBasicMaterial({
+    vertexColors: true,
+    transparent: true,
+    opacity: 0,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+  });
+  const points = new THREE.LineSegments(geom, mat);
+
+  // Trail sampling accumulator — write a new history slot every
+  // SAMPLE_INTERVAL seconds so trails span more time/distance than a
+  // single 60fps frame would allow. 0.025s (~cada 1.5 frames a 60Hz,
+  // era 0.05 = cada 3): los trails avanzan continuos en vez de a
+  // pasitos discretos. Cada instancia lleva SU acumulador — instancias
+  // con ventanas de visibilidad distintas no se roban los ticks.
+  const SAMPLE_INTERVAL = 0.025;
+  let sampleAccum = 0;
+
+  function update(dt, opacity) {
+    // prefers-reduced-motion: el enjambre queda apagado; el glow estático
+    // del orbe (emissive + PointLight) es responsabilidad del caller.
+    if (reducedMotion) opacity = 0;
+    mat.opacity = opacity;
+    if (opacity <= 0.005) return;
+
+    sampleAccum += dt;
+    const sample = sampleAccum >= SAMPLE_INTERVAL;
+    if (sample) sampleAccum -= SAMPLE_INTERVAL;
+
+    for (let i = 0; i < count; i++) {
+      life[i] += dt;
+      if (life[i] >= maxLife[i]) {
+        life[i] = 0;
+        _resetParticle(i);
+      }
+
+      // Rodrigues rotation: v0 = initDir * radius (perpendicular to
+      // axis by construction). Rotated by `angle` around the axis:
+      //   v_rot = v0·cos(angle) + (axis × v0)·sin(angle)
+      // (the k·v term drops because initDir ⊥ axis).
+      const radius = outSpd[i] * life[i];
+      const angle  = angSpd[i] * life[i];
+      const vx = initDir[i*3]     * radius;
+      const vy = initDir[i*3 + 1] * radius;
+      const vz = initDir[i*3 + 2] * radius;
+      const ax = axis[i*3];
+      const ay = axis[i*3 + 1];
+      const az = axis[i*3 + 2];
+      const cs = Math.cos(angle);
+      const sn = Math.sin(angle);
+      const cx = ay * vz - az * vy;
+      const cy = az * vx - ax * vz;
+      const cz = ax * vy - ay * vx;
+      const px = vx * cs + cx * sn;
+      const py = vy * cs + cy * sn;
+      const pz = vz * cs + cz * sn;
+
+      // Write to history at the sampling tick. Between ticks we
+      // leave the buffer alone so the trail spans real motion
+      // instead of just one frame.
+      const hBase = i * TRAIL_PTS * 3;
+      if (sample) {
+        const wIdx = histIdx[i];
+        history[hBase + wIdx * 3]     = px;
+        history[hBase + wIdx * 3 + 1] = py;
+        history[hBase + wIdx * 3 + 2] = pz;
+        histIdx[i] = (wIdx + 1) % TRAIL_PTS;
+      }
+
+      // Life envelope + HEAD-FIRST death sequence. While alive
+      // (lifeT < 0.65) the whole trail renders at full strength.
+      // Past that the head fades FIRST and the tail catches up
+      // later, so the comet "burns out" from the front instead of
+      // the entire streak vanishing as a block. Death window is
+      // long (35% of life) so the dissipation reads as gentle
+      // rather than abrupt.
+      const lifeT = life[i] / maxLife[i];
+      const dying = lifeT > 0.65;
+      const deathT = dying ? (lifeT - 0.65) / 0.35 : 0;
+
+      // Build line segments from history. histIdx is the slot we
+      // would write to NEXT — which means it holds the OLDEST
+      // sample (about to be overwritten). Segments march from
+      // there toward the newest (the head).
+      const oldest = histIdx[i];
+      for (let sIdx = 0; sIdx < TRAIL_SEGS; sIdx++) {
+        const a1Idx = (oldest + sIdx)     % TRAIL_PTS;
+        const a2Idx = (oldest + sIdx + 1) % TRAIL_PTS;
+        const h1Off = hBase + a1Idx * 3;
+        const h2Off = hBase + a2Idx * 3;
+        const segOff = (i * TRAIL_SEGS + sIdx) * 6;
+
+        positions[segOff]     = history[h1Off];
+        positions[segOff + 1] = history[h1Off + 1];
+        positions[segOff + 2] = history[h1Off + 2];
+        positions[segOff + 3] = history[h2Off];
+        positions[segOff + 4] = history[h2Off + 1];
+        positions[segOff + 5] = history[h2Off + 2];
+
+        // Base alpha gradient: 0 at tail end, 1 at head end.
+        const sNorm1 =  sIdx       / TRAIL_SEGS;
+        const sNorm2 = (sIdx + 1) / TRAIL_SEGS;
+
+        // Per-vertex death fade. Head vertices (sNorm → 1) lose
+        // alpha faster than tail vertices (sNorm → 0). At the
+        // start of death (deathT=0) both are unchanged. At the
+        // end (deathT=1) the head is at 0 and the tail is at
+        // ~0.3 — the trail collapses from the front first.
+        const dFade1 = dying ? Math.max(0, 1 - deathT * (0.3 + 0.7 * sNorm1)) : 1.0;
+        const dFade2 = dying ? Math.max(0, 1 - deathT * (0.3 + 0.7 * sNorm2)) : 1.0;
+
+        const a1 = sNorm1 * dFade1;
+        const a2 = sNorm2 * dFade2;
+
+        vertColors[segOff]     = color.r * a1;
+        vertColors[segOff + 1] = color.g * a1;
+        vertColors[segOff + 2] = color.b * a1;
+        vertColors[segOff + 3] = color.r * a2;
+        vertColors[segOff + 4] = color.g * a2;
+        vertColors[segOff + 5] = color.b * a2;
+      }
+    }
+    geom.attributes.position.needsUpdate = true;
+    geom.attributes.color.needsUpdate    = true;
+  }
+
+  return { points, update };
+}
+
 // 18 k polished gold. baseColor sits on the measured Au F0 (linear ≈
 // 1.0, 0.766, 0.336 → sRGB ≈ #ffe39d) with the blue channel lifted vs the
 // old bronze-ish hexes — with metalness 1.0 the visible color is
@@ -485,110 +722,36 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
       const sphereLight = new THREE.PointLight(new THREE.Color(stateRef.current.glowColor), 0, 1.5, 2.5);
       angel.add(sphereLight);
 
-      // Fairy-dust COMET TRAILS. A small number of particles (≈22), each
-      // following its own gentle spiral trajectory around a random axis.
-      // Instead of rendering each particle as a point, we draw the recent
-      // history of its position as a line segment trail — a thin streak
-      // of light like a shooting star. Trail colors fade from transparent
-      // (tail) to bright (head) using vertex colors. Each particle's life
-      // cycle: spawn at orb → spiral outward → head fades first while the
-      // tail lingers → respawn. Trails are sampled every few frames
-      // (DUST_SAMPLE_INTERVAL) so they span real motion time, not a
-      // single frame.
-      const DUST_COUNT = 22;
-      const TRAIL_PTS  = 14;
-      const TRAIL_SEGS = TRAIL_PTS - 1;
-      const VERTS_PER_PARTICLE = TRAIL_SEGS * 2;
-      const TOTAL_VERTS = DUST_COUNT * VERTS_PER_PARTICLE;
+      // Luces gemelas para las esferas laterales de MATERIA (plata / rodio).
+      // Creadas YA — con intensidad 0 — y colgadas de `angel` (siempre
+      // visible) en vez de dentro de los grupos laterales: si vivieran en un
+      // subtree con visible=false, el número de luces de la escena cambiaría
+      // en el primer frame del fade-in del trío y Three.js recompilaría
+      // TODOS los programas (hitch visible en mitad del scroll). Con las
+      // tres PointLights presentes desde el frame 1 los shaders se compilan
+      // una sola vez. Su posición se copia cada frame desde la transform del
+      // grupo lateral correspondiente (solo mientras MATERIA está en
+      // proximidad — fuera, intensidad 0 y ni se tocan).
+      const sphereLightSideL = new THREE.PointLight(new THREE.Color(stateRef.current.glowColor), 0, 1.5, 2.5);
+      const sphereLightSideR = new THREE.PointLight(new THREE.Color(stateRef.current.glowColor), 0, 1.5, 2.5);
+      angel.add(sphereLightSideL);
+      angel.add(sphereLightSideR);
 
-      const dustGeom = new THREE.BufferGeometry();
-      const dustPositions = new Float32Array(TOTAL_VERTS * 3);
-      const dustColors    = new Float32Array(TOTAL_VERTS * 3);
-      dustGeom.setAttribute('position', new THREE.BufferAttribute(dustPositions, 3));
-      dustGeom.setAttribute('color',    new THREE.BufferAttribute(dustColors,    3));
-
-      // Per-particle state arrays:
-      //  dustAxis    — unit vector the particle spirals around
-      //  dustInitDir — unit vector in the plane perpendicular to the axis
-      //                (initial radial direction)
-      //  dustAngSpd  — angular speed around the axis (rad/sec)
-      //  dustOutSpd  — outward radial speed (world units / sec)
-      //  dustLife    — current life (seconds)
-      //  dustMaxLife — particle dies when life ≥ maxLife
-      //  dustHistory — circular buffer of TRAIL_PTS past positions per particle
-      //  dustHistIdx — next write index into the history buffer
-      const dustAxis    = new Float32Array(DUST_COUNT * 3);
-      const dustInitDir = new Float32Array(DUST_COUNT * 3);
-      const dustAngSpd  = new Float32Array(DUST_COUNT);
-      const dustOutSpd  = new Float32Array(DUST_COUNT);
-      const dustLife    = new Float32Array(DUST_COUNT);
-      const dustMaxLife = new Float32Array(DUST_COUNT);
-      const dustHistory = new Float32Array(DUST_COUNT * TRAIL_PTS * 3);
-      const dustHistIdx = new Int32Array(DUST_COUNT);
+      // prefers-reduced-motion: una sola consulta gobierna todo el efecto
+      // del orbe — enjambre de polvo desactivado (createOrbDust), pulso
+      // "breathe" del glow congelado en su punto medio (animate loop), y la
+      // deriva de las cáusticas ya se congela en su propio bloque.
+      const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
       const glowCol = new THREE.Color(stateRef.current.glowColor);
 
-      // Pick a uniformly random unit vector and write into target[off..off+2].
-      const _randUnit = (target, off) => {
-        const theta = Math.random() * Math.PI * 2;
-        const cosPhi = 2 * Math.random() - 1;
-        const sinPhi = Math.sqrt(1 - cosPhi * cosPhi);
-        target[off]     = sinPhi * Math.cos(theta);
-        target[off + 1] = sinPhi * Math.sin(theta);
-        target[off + 2] = cosPhi;
-      };
-
-      // Reset a particle's parameters and trail history (called on init + respawn).
-      const _resetParticle = (i) => {
-        _randUnit(dustAxis, i * 3);
-        // initDir = random unit, projected to be perpendicular to axis so the
-        // particle spirals in a stable plane.
-        _randUnit(dustInitDir, i * 3);
-        const ax = dustAxis[i*3], ay = dustAxis[i*3 + 1], az = dustAxis[i*3 + 2];
-        const dot = dustInitDir[i*3] * ax + dustInitDir[i*3 + 1] * ay + dustInitDir[i*3 + 2] * az;
-        dustInitDir[i*3]     -= dot * ax;
-        dustInitDir[i*3 + 1] -= dot * ay;
-        dustInitDir[i*3 + 2] -= dot * az;
-        const len = Math.hypot(dustInitDir[i*3], dustInitDir[i*3 + 1], dustInitDir[i*3 + 2]);
-        if (len > 0.001) {
-          dustInitDir[i*3]     /= len;
-          dustInitDir[i*3 + 1] /= len;
-          dustInitDir[i*3 + 2] /= len;
-        } else {
-          dustInitDir[i*3] = 1; dustInitDir[i*3 + 1] = 0; dustInitDir[i*3 + 2] = 0;
-        }
-        // Per-particle motion variety: some slow lingering wisps, some
-        // slightly quicker embers. Speeds dialed DOWN from the previous
-        // pass so trails don't sprawl across the frame — keeps the effect
-        // subtle and elegant, like delicate fairy dust orbiting the orb.
-        dustAngSpd[i]  = (Math.random() < 0.5 ? -1 : 1) * (0.35 + Math.random() * 0.85);
-        dustOutSpd[i]  = 0.05 + Math.random() * 0.10;
-        dustMaxLife[i] = 2.5 + Math.random() * 2.5;
-        // Reset history to orb (all zeros) so the freshly-spawned trail starts
-        // at the orb instead of from the previous death position.
-        const hBase = i * TRAIL_PTS * 3;
-        for (let j = 0; j < TRAIL_PTS * 3; j++) dustHistory[hBase + j] = 0;
-        dustHistIdx[i] = 0;
-      };
-
-      for (let i = 0; i < DUST_COUNT; i++) {
-        _resetParticle(i);
-        // Stagger initial lives so the swarm isn't in lockstep.
-        dustLife[i] = Math.random() * dustMaxLife[i];
-      }
-
-      // LineBasicMaterial: thin streaks. vertexColors lets us fade each
-      // segment from head (bright) to tail (transparent) and modulate by
-      // life. Additive blending makes overlapping trails glow brighter.
-      const dustMat = new THREE.LineBasicMaterial({
-        vertexColors: true,
-        transparent: true,
-        opacity: 0,
-        blending: THREE.AdditiveBlending,
-        depthWrite: false,
-      });
-      const fairyDust = new THREE.LineSegments(dustGeom, dustMat);
-      angel.add(fairyDust);
+      // Polvo de hada del orbe CENTRAL (secciones 01+02 vía introHold, la
+      // ventana nocturna de ALMA, y MATERIA junto a los laterales). Se
+      // reparenta al centerSpinner cuando el GLB resuelve (ver abajo) para
+      // girar/escalar con el orbe. Los laterales instancian la misma factory
+      // dentro de spawnMateriaSideAngels.
+      const orbDustCenter = createOrbDust(THREE, { color: glowCol, reducedMotion: prefersReducedMotion });
+      angel.add(orbDustCenter.points);
 
       const sphereMeshes = [];
       // Phase 04 (ALMA) orb day colour. Night uses the brand glowCol
@@ -611,10 +774,9 @@ const Pendant = forwardRef(function Pendant({ glowColor = '#7DFFB2', glowIntensi
 
       stateRef.current.materials = {
         rim, sphereLight, sphereMeshes, smokeShadowPlane,
-        fairyDust, dustAxis, dustInitDir, dustAngSpd, dustOutSpd,
-        dustLife, dustMaxLife, dustHistory, dustHistIdx, dustColors,
+        orbDustCenter,
+        sphereLightSides: { left: sphereLightSideL, right: sphereLightSideR },
         glowCol, dayOrbCol, materiaOrbCol, orbColorWork,
-        DUST_COUNT, TRAIL_PTS, TRAIL_SEGS, _resetParticle,
       };
 
       let modelLoaded = false;
@@ -801,10 +963,15 @@ float gNoise(vec3 x){ vec3 i=floor(x), f=fract(x); f=f*f*(3.0-2.0*f);
             // placing it at the camera's lookAt (world Y=0) gives the
             // perceptually-centered composition the user wants.
             stateRef.current.orbLocalY = p.y;
+            // Posición local completa del orbe (espacio del padre del modelo
+            // = espacio del centerSpinner = espacio de cada grupo lateral,
+            // porque los clones conservan la transform del modelo). La usan
+            // el polvo lateral de MATERIA y el tracking de sus luces.
+            stateRef.current.orbLocalPos = p.clone();
             // Anchor the fairy dust at the orb's local position so the
             // particles drift around the sphere instead of around angel root.
-            if (stateRef.current.materials.fairyDust) {
-              stateRef.current.materials.fairyDust.position.copy(p);
+            if (stateRef.current.materials.orbDustCenter) {
+              stateRef.current.materials.orbDustCenter.points.position.copy(p);
             }
           }
 
@@ -830,8 +997,8 @@ float gNoise(vec3 x){ vec3 i=floor(x), f=fract(x); f=f*f*(3.0-2.0*f);
           if (stateRef.current.materials && stateRef.current.materials.sphereLight) {
             centerSpinner.add(stateRef.current.materials.sphereLight);
           }
-          if (stateRef.current.materials && stateRef.current.materials.fairyDust) {
-            centerSpinner.add(stateRef.current.materials.fairyDust);
+          if (stateRef.current.materials && stateRef.current.materials.orbDustCenter) {
+            centerSpinner.add(stateRef.current.materials.orbDustCenter.points);
           }
           stateRef.current.materials.centerSpinner = centerSpinner;
 
@@ -863,6 +1030,10 @@ float gNoise(vec3 x){ vec3 i=floor(x), f=fract(x); f=f*f*(3.0-2.0*f);
               // Re-run the same orb-detection criteria the original used so
               // the clones identify the same sphere meshes (identical geom →
               // identical aspect/sizeFrac → identical classification).
+              // Devuelve los meshes de orbe detectados: el animate loop les
+              // copia el mismo emissive/pulso que al central, y el bloque de
+              // cáusticas les cuelga su cascarón de agua viva.
+              const cOrbMeshes = [];
               const cMeshInfos = [];
               clonedModel.traverse((o) => {
                 if (!o.isMesh || !o.geometry) return;
@@ -897,12 +1068,14 @@ float gNoise(vec3 x){ vec3 i=floor(x), f=fract(x); f=f*f*(3.0-2.0*f);
                   // Each clone gets its OWN orb material instance so the
                   // glow color setter only mutates the center angel's orb.
                   mesh.material = buildOrbMaterial(THREE);
+                  cOrbMeshes.push(mesh);
                 } else {
                   mesh.material = (cidx++ % 5 === 0) ? matSet.bright : matSet.warm;
                 }
                 mesh.castShadow = true;
                 mesh.receiveShadow = true;
               });
+              return cOrbMeshes;
             };
 
             const silverWarm   = buildSilverMaterial(THREE, 'warm');
@@ -1008,9 +1181,9 @@ float gNoise(vec3 x){ vec3 i=floor(x), f=fract(x); f=f*f*(3.0-2.0*f);
             };
 
             const modelLeft = model.clone(true);
-            applyMaterialsToClone(modelLeft, { warm: silverWarm, bright: silverBright });
+            const orbMeshesLeft = applyMaterialsToClone(modelLeft, { warm: silverWarm, bright: silverBright });
             const modelRight = model.clone(true);
-            applyMaterialsToClone(modelRight, { warm: rhodiumWarm, bright: rhodiumBright });
+            const orbMeshesRight = applyMaterialsToClone(modelRight, { warm: rhodiumWarm, bright: rhodiumBright });
 
             // Collect the unique materials owned by each side clone (warm + bright
             // body + per-mesh orb instances) so the animate loop can drive their
@@ -1075,6 +1248,35 @@ float gNoise(vec3 x){ vec3 i=floor(x), f=fract(x); f=f*f*(3.0-2.0*f);
             angel.add(groupRight);
             stateRef.current.materials.materiaSideGroups = { left: groupLeft, right: groupRight };
             stateRef.current.materials.materiaSideMaterials = { left: leftMaterials, right: rightMaterials };
+
+            // Polvo de hada de las esferas laterales: la MISMA factory y el
+            // MISMO color (glowCol — el agua de la laguna; el efecto no se
+            // tiñe por acabado). Anclado en orbLocalPos dentro de cada grupo
+            // lateral, así hereda su offset Y, el spin de MATERIA y el
+            // TRIO_SCALE — la estela viaja y escala CON su esfera. NOTA: se
+            // añade DESPUÉS de collectMaterials para que su material no entre
+            // en el drive de sideOpacity (su opacidad la lleva update() con
+            // su propia ventana). Los grupos arrancan visible=false, de modo
+            // que fuera de MATERIA el subtree ni se dibuja, y update() corta
+            // en opacidad ≈0 — coste fuera de fase: cero.
+            const orbDustLeft  = createOrbDust(THREE, { color: glowCol, reducedMotion: prefersReducedMotion });
+            const orbDustRight = createOrbDust(THREE, { color: glowCol, reducedMotion: prefersReducedMotion });
+            const orbP = stateRef.current.orbLocalPos;
+            if (orbP) {
+              orbDustLeft.points.position.copy(orbP);
+              orbDustRight.points.position.copy(orbP);
+            }
+            groupLeft.add(orbDustLeft.points);
+            groupRight.add(orbDustRight.points);
+            stateRef.current.materials.orbDustSides = { left: orbDustLeft, right: orbDustRight };
+            // Materiales de orbe de los clones: el animate loop les copia el
+            // mismo emissive animado (color + pulso breathe) que al orbe
+            // central, para que las tres esferas lean como la misma agua.
+            stateRef.current.materials.sideOrbMaterials =
+              orbMeshesLeft.concat(orbMeshesRight).map((m) => m.material);
+            // Meshes de orbe de los clones — el bloque de cáusticas (más
+            // abajo, fuera de esta IIFE) les cuelga su cascarón gemelo.
+            stateRef.current.materials.sideOrbMeshes = { left: orbMeshesLeft, right: orbMeshesRight };
           })();
 
           // ===== Cáusticas — «agua viva» dentro de la esfera =====
@@ -1150,16 +1352,40 @@ float gNoise(vec3 x){ vec3 i=floor(x), f=fract(x); f=f*f*(3.0-2.0*f);
               depthWrite: false,
               color: 0xbfeede, // agua fría; el loop lo lerpea a ámbar en ALMA-noche
             });
-            const causticsShell = new THREE.Mesh(new THREE.SphereGeometry(shellR, 48, 32), causticsMat);
+            const causticsGeom = new THREE.SphereGeometry(shellR, 48, 32);
+            const causticsShell = new THREE.Mesh(causticsGeom, causticsMat);
             causticsShell.position.copy(shellCenter);
             causticsShell.renderOrder = 2; // tras el orbe emisivo, antes del glow
             orbMesh.parent.add(causticsShell);
+            // Cascarones gemelos para las esferas laterales de MATERIA. La
+            // jerarquía de cada clon es idéntica a la del modelo, así que
+            // shellCenter/shellR valen tal cual en el espacio del padre del
+            // orbe clonado. Comparten geometría y textura con el central (la
+            // misma agua, con la misma deriva); material propio COMPARTIDO
+            // entre ambos lados porque su opacidad además monta sideOpacity
+            // (el fade-in del trío) — el central no la necesita porque
+            // siempre está en escena. Al vivir dentro de los grupos
+            // laterales (visible=false fuera de MATERIA) no cuestan draw
+            // calls fuera de fase.
+            const sideOrbMeshes = stateRef.current.materials.sideOrbMeshes;
+            let sideCausticsMat = null;
+            if (sideOrbMeshes) {
+              sideCausticsMat = causticsMat.clone(); // mismo map / blending / tinte, opacidad 0
+              [sideOrbMeshes.left[0], sideOrbMeshes.right[0]].forEach((om) => {
+                if (!om) return;
+                const shell = new THREE.Mesh(causticsGeom, sideCausticsMat);
+                shell.position.copy(shellCenter);
+                shell.renderOrder = 2;
+                om.parent.add(shell);
+              });
+            }
             stateRef.current.materials.caustics = {
               mat: causticsMat,
+              sideMat: sideCausticsMat,
               tex: causticsTex,
               cold: new THREE.Color(0xbfeede),
               amber: new THREE.Color(0xe8c89a),
-              prm: window.matchMedia('(prefers-reduced-motion: reduce)').matches,
+              prm: prefersReducedMotion,
             };
           }
 
@@ -1272,13 +1498,6 @@ float gNoise(vec3 x){ vec3 i=floor(x), f=fract(x); f=f*f*(3.0-2.0*f);
       let lastT = performance.now();
       const clock = { elapsed: 0 };
       const _projVec = new THREE.Vector3();
-      // Trail sampling accumulator — write a new history slot every
-      // DUST_SAMPLE_INTERVAL seconds so trails span more time/distance
-      // than a single 60fps frame would allow.
-      let dustSampleAccum = 0;
-      // 0.025s (~cada 1.5 frames a 60Hz, era 0.05 = cada 3): los trails del
-      // polvo avanzan continuos en vez de a pasitos discretos.
-      const DUST_SAMPLE_INTERVAL = 0.025;
 
       // ---- Perf gates ----
       // Pause the render loop when the hero is off-screen (IntersectionObserver)
@@ -2239,7 +2458,12 @@ float gNoise(vec3 x){ vec3 i=floor(x), f=fract(x); f=f*f*(3.0-2.0*f);
         // top boosted ×4.2) to push the figure toward a night tone.
         phase02NightBeam.intensity = 1.5 * phase01Proximity;
 
-        const breathe = 0.5 + 0.5 * Math.sin(clock.elapsed * (Math.PI * 2) / 4.0);
+        // prefers-reduced-motion: el pulso "breathe" del glow se congela en
+        // su punto medio (0.5) — glow presente pero estático, en línea con
+        // el enjambre de polvo desactivado y la deriva de cáusticas quieta.
+        const breathe = prefersReducedMotion
+          ? 0.5
+          : 0.5 + 0.5 * Math.sin(clock.elapsed * (Math.PI * 2) / 4.0);
         const phaseBoost = 1.0 + 1.6 * Math.exp(-Math.pow((tRaw - 0.6) / 0.18, 2));
         // ORIGEN (slot 01, the opener) orb GLOW. The user moved the glowing-orb
         // + fairy-dust beat HERE (it used to be dimmed to a soft teal sphere for
@@ -2318,6 +2542,32 @@ float gNoise(vec3 x){ vec3 i=floor(x), f=fract(x); f=f*f*(3.0-2.0*f);
         // so this intensity only affects the orb and nearest feathers.
         sphereLight.color.copy(orbWork);
         sphereLight.intensity = (0.45 + breathe * 0.30) * stateRef.current.glowIntensity * Math.min(phaseBoost, 2.0) * phaseOrbLight * phase01OrbLight * phase03OrbLight * phase04OrbMult * phase05OrbBoost;
+        // Luces gemelas de las esferas laterales (MATERIA): mismo color y la
+        // misma intensidad que la central, multiplicada por sideOpacity para
+        // que el reflejo verde sobre plata/rodio nazca y muera CON el fade
+        // del trío. Posición: orbLocalPos llevado del espacio del grupo
+        // lateral al de `angel` (las luces cuelgan de `angel` para que el
+        // número de luces de la escena sea constante — ver su creación).
+        // updateMatrix() explícito porque rotación/escala del grupo se
+        // escribieron este mismo frame y .matrix aún no las recoge.
+        {
+          const sideLights = stateRef.current.materials.sphereLightSides;
+          const sideGroups = stateRef.current.materials.materiaSideGroups;
+          const orbP = stateRef.current.orbLocalPos;
+          if (sideLights && sideGroups && orbP) {
+            const sideLightIntensity = sphereLight.intensity * sideOpacity;
+            sideLights.left.intensity  = sideLightIntensity;
+            sideLights.right.intensity = sideLightIntensity;
+            if (sideLightIntensity > 0.001) {
+              sideGroups.left.updateMatrix();
+              sideGroups.right.updateMatrix();
+              sideLights.left.position.copy(orbP).applyMatrix4(sideGroups.left.matrix);
+              sideLights.right.position.copy(orbP).applyMatrix4(sideGroups.right.matrix);
+              sideLights.left.color.copy(orbWork);
+              sideLights.right.color.copy(orbWork);
+            }
+          }
+        }
         // Cáusticas «agua viva»: deriva UV lenta que se congela en ALMA-noche;
         // tinte agua-fría → ámbar pálido con el mismo beat día/noche. Cada
         // acto tiene su nivel propio vía su gaussiana (≈0 en los anchors de
@@ -2337,30 +2587,44 @@ float gNoise(vec3 x){ vec3 i=floor(x), f=fract(x); f=f*f*(3.0-2.0*f);
                       + 0.12 * phase05Proximity;
             ca.mat.opacity = Math.min(0.32, amt) * Math.min(stateRef.current.glowIntensity, 1.2);
             ca.mat.color.copy(ca.cold).lerp(ca.amber, almaNightF * phase04Proximity);
+            // Cáusticas laterales: en MATERIA el agua de las tres esferas es
+            // LA MISMA (0.10 × phase03Proximity, el mismo término que recibe
+            // la central), multiplicada por sideOpacity para nacer con el
+            // fade del trío. Tinte fijo agua-fría: los laterales no existen
+            // en ALMA, así que el lerp a ámbar no aplica.
+            if (ca.sideMat) {
+              ca.sideMat.opacity = 0.10 * phase03Proximity * sideOpacity * Math.min(stateRef.current.glowIntensity, 1.2);
+            }
           }
         }
+        const orbEmissiveIntensity = (0.85 + breathe * 0.35) * stateRef.current.glowIntensity * Math.min(phaseBoost, 1.8) * phaseOrbEmissive * phase01OrbEmissive * phase04OrbMult * phase05OrbBoost;
         stateRef.current.materials.sphereMeshes.forEach((m) => {
           if (m.material) {
             m.material.emissive.copy(orbWork);
-            m.material.emissiveIntensity = (0.85 + breathe * 0.35) * stateRef.current.glowIntensity * Math.min(phaseBoost, 1.8) * phaseOrbEmissive * phase01OrbEmissive * phase04OrbMult * phase05OrbBoost;
+            m.material.emissiveIntensity = orbEmissiveIntensity;
           }
         });
+        // Esferas laterales (MATERIA): mismo color y mismo pulso que la
+        // central, para que las tres lean como la misma agua de la laguna —
+        // sin teñir por acabado. Su .opacity la sigue llevando el drive de
+        // sideOpacity más arriba; aquí solo emissive. Gateado por
+        // sideOpacity: fuera del trío los grupos están visible=false y el
+        // material no se ve, así que no hay nada que escribir.
+        const sideOrbMats = stateRef.current.materials.sideOrbMaterials;
+        if (sideOrbMats && sideOpacity > 0.001) {
+          for (let i = 0; i < sideOrbMats.length; i++) {
+            sideOrbMats[i].emissive.copy(orbWork);
+            sideOrbMats[i].emissiveIntensity = orbEmissiveIntensity;
+          }
+        }
 
         // Phase 02 (ORIGEN) global exposure dip: pull tone mapping down during
         // the gaussian peak so highlights compress and shadows deepen — the
         // moody, slightly-underexposed look of the reference composite.
-        // Fairy-dust COMET TRAIL update. Each particle follows its own
-        // spiral path around a random axis (Rodrigues' rotation formula
-        // applied to its initDir vector). A circular buffer of recent
-        // positions (TRAIL_PTS slots, sampled every DUST_SAMPLE_INTERVAL)
-        // is rendered as line segments with vertex colors fading from
-        // transparent (oldest = tail) to bright (newest = head) — a
-        // shooting-star streak instead of a single dot.
-        //
-        // Visibility envelope: fade in 0.10→0.13 (close-up peak), full
-        // 0.13→0.42 (through phase 02), fade out 0.42→0.52 (as phase 03
-        // takes over). Skip the per-particle loop when the gate is closed.
-        if (stateRef.current.materials.fairyDust) {
+        // Fairy-dust update — la mecánica de partículas vive en createOrbDust
+        // (arriba, junto a buildOrbMaterial); aquí solo se calculan las
+        // VENTANAS de visibilidad de cada instancia y se llama update().
+        if (stateRef.current.materials.orbDustCenter) {
           // Sections 1 (ORIGEN) + 2 (HISTORIA) fairy-dust window. The user
           // wants the SAME comet-trail swarm in section 2 as in section 1, so
           // it rides `introHold` (the shared 1+2 plateau) instead of the
@@ -2368,7 +2632,7 @@ float gNoise(vec3 x){ vec3 i=floor(x), f=fract(x); f=f*f*(3.0-2.0*f);
           // continuously through the section change, then easing out toward
           // MATERIA (introHold→0 by 0.46). The dust is parented to the angel's
           // centerSpinner so it orbits the orb and rotates WITH the figure in
-          // both sections. MATERIA/ALMA/EDICIÓN stay byte-perfect (introHold 0).
+          // both sections. ALMA/EDICIÓN stay byte-perfect (introHold 0).
           const dustOpacity02 = introHold * 0.7;
           // Phase 04 (ALMA) second visibility window. The user asked for the
           // orb to "glow exactly like in section 2 — with the glow plus
@@ -2381,129 +2645,17 @@ float gNoise(vec3 x){ vec3 i=floor(x), f=fract(x); f=f*f*(3.0-2.0*f);
           const fadeIn04  = easeInOut(Math.max(0, Math.min(1, (tRaw - 0.60) / 0.05)));
           const fadeOut04 = 1 - easeInOut(Math.max(0, Math.min(1, (tRaw - 0.75) / 0.05)));
           const dustOpacity04 = fadeIn04 * fadeOut04 * 0.7 * almaNightF * 1.1;
-          const dustOpacity = Math.max(dustOpacity02, dustOpacity04);
-          const dust = stateRef.current.materials.fairyDust;
-          dust.material.opacity = dustOpacity;
-
-          if (dustOpacity > 0.005) {
-            const m       = stateRef.current.materials;
-            const axisA   = m.dustAxis;
-            const initDir = m.dustInitDir;
-            const angSpd  = m.dustAngSpd;
-            const outSpd  = m.dustOutSpd;
-            const life    = m.dustLife;
-            const maxLife = m.dustMaxLife;
-            const history = m.dustHistory;
-            const histIdx = m.dustHistIdx;
-            const reset   = m._resetParticle;
-            const glow    = m.glowCol;
-            const N       = m.DUST_COUNT;
-            const TP      = m.TRAIL_PTS;
-            const TS      = m.TRAIL_SEGS;
-            const posArr  = dust.geometry.attributes.position.array;
-            const colArr  = dust.geometry.attributes.color.array;
-
-            // Sample timer: advance the history buffer at fixed intervals
-            // so the trail spans ~TP × INTERVAL seconds of motion.
-            dustSampleAccum += dt;
-            const sample = dustSampleAccum >= DUST_SAMPLE_INTERVAL;
-            if (sample) dustSampleAccum -= DUST_SAMPLE_INTERVAL;
-
-            for (let i = 0; i < N; i++) {
-              life[i] += dt;
-              if (life[i] >= maxLife[i]) {
-                life[i] = 0;
-                reset(i);
-              }
-
-              // Rodrigues rotation: v0 = initDir * radius (perpendicular to
-              // axis by construction). Rotated by `angle` around the axis:
-              //   v_rot = v0·cos(angle) + (axis × v0)·sin(angle)
-              // (the k·v term drops because initDir ⊥ axis).
-              const radius = outSpd[i] * life[i];
-              const angle  = angSpd[i] * life[i];
-              const vx = initDir[i*3]     * radius;
-              const vy = initDir[i*3 + 1] * radius;
-              const vz = initDir[i*3 + 2] * radius;
-              const ax = axisA[i*3];
-              const ay = axisA[i*3 + 1];
-              const az = axisA[i*3 + 2];
-              const cs = Math.cos(angle);
-              const sn = Math.sin(angle);
-              const cx = ay * vz - az * vy;
-              const cy = az * vx - ax * vz;
-              const cz = ax * vy - ay * vx;
-              const px = vx * cs + cx * sn;
-              const py = vy * cs + cy * sn;
-              const pz = vz * cs + cz * sn;
-
-              // Write to history at the sampling tick. Between ticks we
-              // leave the buffer alone so the trail spans real motion
-              // instead of just one frame.
-              const hBase = i * TP * 3;
-              if (sample) {
-                const wIdx = histIdx[i];
-                history[hBase + wIdx * 3]     = px;
-                history[hBase + wIdx * 3 + 1] = py;
-                history[hBase + wIdx * 3 + 2] = pz;
-                histIdx[i] = (wIdx + 1) % TP;
-              }
-
-              // Life envelope + HEAD-FIRST death sequence. While alive
-              // (lifeT < 0.65) the whole trail renders at full strength.
-              // Past that the head fades FIRST and the tail catches up
-              // later, so the comet "burns out" from the front instead of
-              // the entire streak vanishing as a block. Death window is
-              // long (35% of life) so the dissipation reads as gentle
-              // rather than abrupt.
-              const lifeT = life[i] / maxLife[i];
-              const dying = lifeT > 0.65;
-              const deathT = dying ? (lifeT - 0.65) / 0.35 : 0;
-
-              // Build line segments from history. histIdx is the slot we
-              // would write to NEXT — which means it holds the OLDEST
-              // sample (about to be overwritten). Segments march from
-              // there toward the newest (the head).
-              const oldest = histIdx[i];
-              for (let sIdx = 0; sIdx < TS; sIdx++) {
-                const a1Idx = (oldest + sIdx)     % TP;
-                const a2Idx = (oldest + sIdx + 1) % TP;
-                const h1Off = hBase + a1Idx * 3;
-                const h2Off = hBase + a2Idx * 3;
-                const segOff = (i * TS + sIdx) * 6;
-
-                posArr[segOff]     = history[h1Off];
-                posArr[segOff + 1] = history[h1Off + 1];
-                posArr[segOff + 2] = history[h1Off + 2];
-                posArr[segOff + 3] = history[h2Off];
-                posArr[segOff + 4] = history[h2Off + 1];
-                posArr[segOff + 5] = history[h2Off + 2];
-
-                // Base alpha gradient: 0 at tail end, 1 at head end.
-                const sNorm1 =  sIdx       / TS;
-                const sNorm2 = (sIdx + 1) / TS;
-
-                // Per-vertex death fade. Head vertices (sNorm → 1) lose
-                // alpha faster than tail vertices (sNorm → 0). At the
-                // start of death (deathT=0) both are unchanged. At the
-                // end (deathT=1) the head is at 0 and the tail is at
-                // ~0.3 — the trail collapses from the front first.
-                const dFade1 = dying ? Math.max(0, 1 - deathT * (0.3 + 0.7 * sNorm1)) : 1.0;
-                const dFade2 = dying ? Math.max(0, 1 - deathT * (0.3 + 0.7 * sNorm2)) : 1.0;
-
-                const a1 = sNorm1 * dFade1;
-                const a2 = sNorm2 * dFade2;
-
-                colArr[segOff]     = glow.r * a1;
-                colArr[segOff + 1] = glow.g * a1;
-                colArr[segOff + 2] = glow.b * a1;
-                colArr[segOff + 3] = glow.r * a2;
-                colArr[segOff + 4] = glow.g * a2;
-                colArr[segOff + 5] = glow.b * a2;
-              }
-            }
-            dust.geometry.attributes.position.needsUpdate = true;
-            dust.geometry.attributes.color.needsUpdate    = true;
+          // MATERIA window (las TRES esferas): monta el mismo sobre del trío
+          // (sideOpacity) que el fade de plata/rodio, de modo que los tres
+          // enjambres encienden a la vez y leen como una sola composición.
+          // En los anchors 0.29/0.70 sideOpacity es 0 → byte-perfect.
+          const dustOpacity03 = sideOpacity * 0.7;
+          stateRef.current.materials.orbDustCenter.update(
+            dt, Math.max(dustOpacity02, dustOpacity03, dustOpacity04));
+          const dustSides = stateRef.current.materials.orbDustSides;
+          if (dustSides) {
+            dustSides.left.update(dt, dustOpacity03);
+            dustSides.right.update(dt, dustOpacity03);
           }
         }
 

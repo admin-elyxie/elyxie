@@ -1,6 +1,6 @@
 // === App.jsx ===
 // Main page: fixed nav, scroll-pinned 3D hero with 5 phases + theme transition,
-// editions grid below, manifesto strip, footer mini, Tweaks panel.
+// then post-hero sections (from sections.jsx) and the Tweaks panel.
 
 // See note in pendant.jsx — `var` (not const) to avoid a redeclaration
 // SyntaxError at global scope when both compiled scripts load.
@@ -90,39 +90,6 @@ const PHASES = [
   },
 ];
 
-// ---------- Editions grid ----------
-const EDITIONS = [
-  {
-    es: { title: 'Ángel de la Laguna Negra', sub: 'Primera edición · N.º 01/100', price: 'Reserva privada' },
-    en: { title: 'Angel of the Black Lagoon', sub: 'First edition · No. 01/100', price: 'Private reservation' },
-    img: 'assets/photography/grid-01.jpg',
-    phosphor: { es: 'BRILLA', en: 'GLOWS' },
-    serial: 'N.º 01 / 100',
-  },
-  {
-    es: { title: 'Mamayacu',                 sub: 'Madre del Agua · Edición de invocación', price: 'Próximamente' },
-    en: { title: 'Mamayacu',                 sub: 'Mother of Water · Invocation edition', price: 'Coming soon' },
-    img: 'assets/photography/grid-02.jpg',
-    phosphor: { es: 'BRILLA', en: 'GLOWS' },
-    serial: 'N.º — / 33',
-  },
-  {
-    es: { title: 'Huaringa',                 sub: 'Las Siete Lagunas · Constelación', price: 'Próximamente' },
-    en: { title: 'Huaringa',                 sub: 'The Seven Lagoons · Constellation',  price: 'Coming soon' },
-    img: 'assets/photography/grid-03.jpg',
-    phosphor: { es: 'BRILLA', en: 'GLOWS' },
-    serial: 'N.º — / 49',
-  },
-  {
-    es: { title: 'Uku Pacha',                sub: 'Mundo Interior · Ritual estacional', price: 'En custodia' },
-    en: { title: 'Uku Pacha',                sub: 'Inner World · Seasonal ritual',     price: 'Held in custody' },
-    img: 'assets/photography/grid-04.jpg',
-    phosphor: { es: 'BRILLA', en: 'GLOWS' },
-    serial: 'N.º — / 21',
-  },
-];
-
-
 // ---------- Theme color interpolation ----------
 // 0 = dark canvas, 1 = ivory canvas. We interpolate body bg + fg in RGB.
 const C_DARK_BG = [5,  22,  19];   // #051613
@@ -130,9 +97,6 @@ const C_LIGHT_BG = [246, 242, 232]; // #F6F2E8
 const C_DARK_FG = [255, 255, 255];
 const C_LIGHT_FG = [10,  38,  32]; // #0A2620
 
-function rgbLerp(a, b, t) {
-  return `rgb(${Math.round(a[0]+(b[0]-a[0])*t)}, ${Math.round(a[1]+(b[1]-a[1])*t)}, ${Math.round(a[2]+(b[2]-a[2])*t)})`;
-}
 function rgba(rgb, alpha) {
   return `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, ${alpha})`;
 }
@@ -148,21 +112,36 @@ function Hero({ lang, tweaks, pendantRef }) {
   const [progress, setProgress] = useState(0);
   const progressRef = useRef(0);
   const rafRef = useRef(0);
-  // Narrow-viewport flag for responsive video sources. Phones get the
-  // lighter 720² rendition (≈520 KB) instead of the 1440² one (≈2 MB).
+  // Video tier for responsive background sources. Three rungs (replacing the
+  // old narrow/wide pair) — every rendition is now cut from the 4K upscale of
+  // each master, so even the small files are denser per visible pixel:
+  //   m (≤767px, phones, DPR 2–3)  → -1080  (the old 720² stretched ×3.5 on
+  //                                   retina phones; 1080 is the fix)
+  //   t (768–1279px, tablets)      → -1440
+  //   d (≥1280px, laptops/desktop) → -2160
   // matchMedia is cheaper than a resize+innerWidth listener and fires only
-  // when the breakpoint is actually crossed. Initialised from the current
+  // when a breakpoint is actually crossed. Initialised from the current
   // match so the first paint already picks the right file (client-only app,
   // no SSR — window is always present here).
-  const [isNarrow, setIsNarrow] = useState(
-    typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches
+  const videoTier = () =>
+    window.matchMedia('(max-width: 767px)').matches ? 'm'
+    : window.matchMedia('(max-width: 1279px)').matches ? 't'
+    : 'd';
+  const [vidTier, setVidTier] = useState(
+    () => (typeof window !== 'undefined' ? videoTier() : 'd')
   );
   useEffect(() => {
-    const mq = window.matchMedia('(max-width: 767px)');
-    const onChange = (e) => setIsNarrow(e.matches);
-    mq.addEventListener('change', onChange);
-    return () => mq.removeEventListener('change', onChange);
+    const mqs = [window.matchMedia('(max-width: 767px)'), window.matchMedia('(max-width: 1279px)')];
+    const onChange = () => setVidTier(videoTier());
+    mqs.forEach((mq) => mq.addEventListener('change', onChange));
+    return () => mqs.forEach((mq) => mq.removeEventListener('change', onChange));
   }, []);
+  // Tiered source for the looping background videos (templo/origen/tribu).
+  // New filenames per tier (not a query param): Shopify's CDN caches theme
+  // assets by path, so replacing content under the same name would serve the
+  // stale clip to returning visitors.
+  const bgVideoSrc = (base) =>
+    ELYXIE_ASSET(`assets/video/${base}-${{ m: '1080', t: '1440', d: '2160' }[vidTier]}.mp4`);
   // Exposed by the snap useEffect so the left-rail buttons can route their
   // scroll through the SAME tween (with `snapping=true` flag), bypassing
   // the idle-snap detector that would otherwise grab the in-flight smooth
@@ -594,15 +573,15 @@ function Hero({ lang, tweaks, pendantRef }) {
             below 0.5% gate so phases 01/02/03/05 don't pay any cost. */}
         {almaGate > 0.005 ? (() => {
           // Temple day/night now play as looping videos (replacing the stills).
-          // Same responsive pattern as the Tribu/Laguna backdrops: phones load
-          // the 720² rendition, everything else the 1440² one; the `key` forces
+          // Same responsive pattern as the Tribu/Laguna backdrops: tiered
+          // 1080/1440/2160 renditions via bgVideoSrc; the `key` forces
           // a remount when the breakpoint flips so the new source is fetched.
           // The poster still (background-image on the wrapper) paints the first
           // frame while the loop decodes. Both layers stay mounted and playing
           // while ALMA is on screen; the day/night beat just cross-fades their
           // wrapper opacity (almaNight).
-          const daySrc   = ELYXIE_ASSET(isNarrow ? 'assets/video/templo-dia-bg-720.mp4'   : 'assets/video/templo-dia-bg.mp4');
-          const nightSrc = ELYXIE_ASSET(isNarrow ? 'assets/video/templo-noche-bg-720.mp4' : 'assets/video/templo-noche-bg.mp4');
+          const daySrc   = bgVideoSrc('templo-dia-bg');
+          const nightSrc = bgVideoSrc('templo-noche-bg');
           return (
             <React.Fragment>
               <div className="alma-bg alma-bg--day"
@@ -638,13 +617,11 @@ function Hero({ lang, tweaks, pendantRef }) {
           const s1s2 = ss((progress - 0.10) / 0.10);
           const o = 1 - s1s2; // Laguna covers section 1, hands off to Tribu by 0.20
           if (o <= 0.005) return null;
-          // Responsive source: phones load the 720-wide rendition, everything
-          // else the 1440-wide one (same pattern as the Tribu/temple backdrops).
-          // The `?2` is a CONTENT version (bumped only when the video file itself
-          // changes) — origen-bg.mp4 was deployed in a prior session, so the
-          // filename alone would serve the stale cached clip to returning
-          // visitors and CDNs. Bump this suffix whenever the laguna video changes.
-          const src = ELYXIE_ASSET(isNarrow ? 'assets/video/origen-bg-720.mp4' : 'assets/video/origen-bg.mp4');
+          // Responsive source: tiered 1080/1440/2160 renditions via bgVideoSrc
+          // (same pattern as the Tribu/temple backdrops). The tier suffix in the
+          // filename doubles as the content version — these files are new names
+          // on the CDN, so returning visitors can't get the stale cached clip.
+          const src = bgVideoSrc('origen-bg');
           return (
             <div
               className="laguna-bg"
@@ -682,8 +659,8 @@ function Hero({ lang, tweaks, pendantRef }) {
             Gaussian peaks at progress=0.29 (HISTORIA's beat) and decays to
             ~0 by the ORIGEN opener and by MATERIA, so it never bleeds into
             adjacent phases. Mounted only above 0.5% so phases 01/03/04/05
-            pay nothing. Responsive source: phones load the 720² rendition,
-            everything else the 1440² one. The `key` on <video> forces React
+            pay nothing. Responsive source: tiered 1080/1440/2160 renditions
+            via bgVideoSrc. The `key` on <video> forces React
             to remount when the breakpoint flips so the new source is fetched. */}
         {(() => {
           // Complementary to the Laguna fade above: tribu = s1s2 (rises as
@@ -696,7 +673,7 @@ function Hero({ lang, tweaks, pendantRef }) {
           const tribuOut = ss((progress - 0.36) / 0.08);
           const o = s1s2 * (1 - tribuOut);
           if (o <= 0.005) return null;
-          const src = ELYXIE_ASSET(isNarrow ? 'assets/video/tribu-bg-720.mp4' : 'assets/video/tribu-bg.mp4');
+          const src = bgVideoSrc('tribu-bg');
           return (
             <div
               className="tribu-bg"
@@ -914,97 +891,6 @@ function Hero({ lang, tweaks, pendantRef }) {
         </div>
       </div>
     </section>
-  );
-}
-
-// ===========================================================
-//  Editions grid
-// ===========================================================
-function EditionsGrid({ lang }) {
-  return (
-    <section className="editions-section" data-screen-label="02 Editions grid">
-      <div className="editions-header">
-        <h2 className="editions-header__title">
-          {lang === 'es' ? <>Piezas en <em style={{fontStyle:'italic'}}>custodia</em>.</> : <>Pieces under <em style={{fontStyle:'italic'}}>custody</em>.</>}
-        </h2>
-        <div className="editions-header__meta">
-          {lang === 'es'
-            ? '04 ediciones · Numeradas · Hechas a mano en Lima'
-            : '04 editions · Numbered · Handcrafted in Lima'}
-        </div>
-      </div>
-      <div className="editions-grid">
-        {EDITIONS.map((e, i) => {
-          const t = e[lang];
-          // WebP path is derived from the .jpg path so EDITIONS can keep one
-          // canonical URL per item. Browsers without WebP support fall back to
-          // the original JPG via the <img src> below. All grid images are
-          // below the fold, so lazy + async decoding keep the editions section
-          // out of the critical path.
-          const webp = e.img.replace(/\.jpg$/, '.webp');
-          const webp480 = e.img.replace(/\.jpg$/, '-480.webp');
-          return (
-            <a key={i} className="edition-card" href="#" data-screen-label={`Edition ${i+1}`}>
-              <div className="edition-card__media">
-                <picture>
-                  <source
-                    type="image/webp"
-                    srcSet={`${webp480} 480w, ${webp} 720w`}
-                    sizes="(max-width: 767px) 100vw, (max-width: 1024px) 50vw, 25vw"
-                  />
-                  <img src={e.img} alt={t.title} loading="lazy" decoding="async"/>
-                </picture>
-                <span className="edition-card__corner edition-card__corner--tl" aria-hidden></span>
-                <span className="edition-card__corner edition-card__corner--tr" aria-hidden></span>
-                <span className="edition-card__corner edition-card__corner--bl" aria-hidden></span>
-                <span className="edition-card__corner edition-card__corner--br" aria-hidden></span>
-                <span className="edition-card__serial">{e.serial}</span>
-                <span className="edition-card__phosphor">{e.phosphor[lang]}</span>
-              </div>
-              <h3 className="edition-card__title">{t.title}</h3>
-              <div className="edition-card__sub">{t.sub}</div>
-              <div className="edition-card__price">
-                <strong>{t.price}</strong>
-                <span className="arrow">→</span>
-              </div>
-            </a>
-          );
-        })}
-      </div>
-    </section>
-  );
-}
-
-// ===========================================================
-//  Manifesto + footer
-// ===========================================================
-function Manifesto({ lang }) {
-  return (
-    <section className="manifesto" data-screen-label="03 Manifesto">
-      <p className="manifesto__quote">
-        {lang === 'es'
-          ? <>No fabricamos joyas. <em>Custodiamos agua.</em></>
-          : <>We do not make jewelry. <em>We keep water.</em></>}
-      </p>
-      <div className="manifesto__attribution">
-        ELYXIE · LIMA · HUANCABAMBA · 3.957 M S.N.M.
-      </div>
-    </section>
-  );
-}
-
-function FooterMini({ lang }) {
-  return (
-    <footer className="footer-mini" data-screen-label="04 Footer">
-      <span className="footer-mini__brand">elyxie</span>
-      <div className="footer-mini__links">
-        <span>{lang === 'es' ? 'TIENDA' : 'SHOP'}</span>
-        <span>{lang === 'es' ? 'RELATO' : 'STORY'}</span>
-        <span>{lang === 'es' ? 'CUSTODIA' : 'CUSTODY'}</span>
-        <span>INSTAGRAM</span>
-      </div>
-      <span>© 2026 · ELYXIE · {lang === 'es' ? 'TODAS LAS AGUAS RESERVADAS' : 'ALL WATERS RESERVED'}</span>
-    </footer>
   );
 }
 

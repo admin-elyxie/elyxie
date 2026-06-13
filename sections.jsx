@@ -33,22 +33,29 @@ function SectionVideoHero({ lang }) {
   const [soundOn, setSoundOn] = useS(false);
   const [active, setActive] = useS('viaje');
 
-  const [isNarrow, setIsNarrow] = useS(
-    typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches
+  // Three-tier viewport flag (same breakpoints as the app shell's background
+  // loops): phones ≤767px, tablets 768–1279px, desktop ≥1280px. Films still
+  // only have two renditions (src/src720), so they collapse m → 720.
+  const videoTier = () =>
+    window.matchMedia('(max-width: 767px)').matches ? 'm'
+    : window.matchMedia('(max-width: 1279px)').matches ? 't'
+    : 'd';
+  const [vidTier, setVidTier] = useS(
+    () => (typeof window !== 'undefined' ? videoTier() : 'd')
   );
   useE(() => {
-    const mq = window.matchMedia('(max-width: 767px)');
-    const onChange = (e) => setIsNarrow(e.matches);
-    mq.addEventListener('change', onChange);
-    return () => mq.removeEventListener('change', onChange);
+    const mqs = [window.matchMedia('(max-width: 767px)'), window.matchMedia('(max-width: 1279px)')];
+    const onChange = () => setVidTier(videoTier());
+    mqs.forEach((mq) => mq.addEventListener('change', onChange));
+    return () => mqs.forEach((mq) => mq.removeEventListener('change', onChange));
   }, []);
 
   const films = (typeof window !== 'undefined' && window.__ELYXIE && window.__ELYXIE.films) || {};
   const srcFor = (id) => {
-    if (id === 'viaje') return ELYXIE_ASSET(isNarrow ? 'assets/video/main-film-720.mp4' : 'assets/video/main-film.mp4');
+    if (id === 'viaje') return ELYXIE_ASSET(vidTier === 'm' ? 'assets/video/main-film-720.mp4' : 'assets/video/main-film.mp4');
     const f = films[id];
     if (!f) return null;
-    return (isNarrow && f.src720) ? f.src720 : f.src;
+    return (vidTier === 'm' && f.src720) ? f.src720 : f.src;
   };
   const posterFor = (id) => {
     if (id === 'viaje') return ELYXIE_ASSET('assets/photography/main-film-poster-1440.jpg');
@@ -73,18 +80,18 @@ function SectionVideoHero({ lang }) {
     const ar = (v && v.videoWidth && v.videoHeight) ? v.videoWidth / v.videoHeight : arFor(active);
     const avail = (fig.parentElement && fig.parentElement.clientWidth) || fig.clientWidth || 0;
     if (!avail) return;
-    const maxH = Math.min((window.innerHeight || 800) * (isNarrow ? 0.74 : 0.82), 820);
+    const maxH = Math.min((window.innerHeight || 800) * (vidTier === 'm' ? 0.74 : 0.82), 820);
     let w = avail, h = w / ar;
     if (h > maxH) { h = maxH; w = h * ar; }
     fig.style.width = Math.round(w) + 'px';
     fig.style.height = Math.round(h) + 'px';
   };
-  useE(() => { fit(); /* eslint-disable-next-line */ }, [active, isNarrow]);
+  useE(() => { fit(); /* eslint-disable-next-line */ }, [active, vidTier]);
   useE(() => {
     const onR = () => fit();
     window.addEventListener('resize', onR);
     return () => window.removeEventListener('resize', onR);
-  }, [active, isNarrow]);
+  }, [active, vidTier]);
 
   // Autoplay only while in view (muted, so the browser allows it). Pause
   // off-screen. prefers-reduced-motion suprime el autoplay por completo:
@@ -655,22 +662,22 @@ const VITRINA_FINISHES = [
     id: 'plata',
     price: 'USD 290',
     swatch: 'linear-gradient(145deg, #F4F5F7 0%, #C9CDD2 46%, #94999F 100%)',
-    es: { name: 'Plata', material: 'PLATA FINA 950', line: 'El recipiente original. Brillante, lunar, honesto.' },
-    en: { name: 'Silver', material: '950 FINE SILVER', line: 'The original vessel. Bright, lunar, honest.' },
+    es: { name: 'Plata', material: 'PLATA FINA 950', line: 'Plata de ley 950, más fina que la ley 925 del mercado. El recipiente original: brillante, lunar, honesto.' },
+    en: { name: 'Silver', material: '950 FINE SILVER', line: "950 fine silver, finer than the market's 925 sterling. The original vessel: bright, lunar, honest." },
   },
   {
     id: 'rodio',
     price: 'USD 490',
     swatch: 'linear-gradient(145deg, #FFFFFF 0%, #E4E8EC 46%, #B2BAC2 100%)',
-    es: { name: 'Rodio', material: 'PLATA 950 SELLADA EN RODIO', line: 'Plata 950 sellada en rodio, más blanca, brillante y duradera.' },
-    en: { name: 'Rhodium', material: 'RHODIUM-SEALED 950 SILVER', line: '950 silver sealed in rhodium, whiter, brighter and more durable.' },
+    es: { name: 'Rodio', material: 'PLATA 950 SELLADA EN RODIO', line: 'Plata 950 sellada en rodio, el metal que protege el oro blanco en alta joyería. Más blanca, más dura; un brillo que no pide pulido.' },
+    en: { name: 'Rhodium', material: 'RHODIUM-SEALED 950 SILVER', line: '950 silver sealed in rhodium, the metal that guards white gold in fine jewellery. Whiter, harder; a brightness that needs no polishing.' },
   },
   {
     id: 'oro',
     price: 'USD 990',
     swatch: 'linear-gradient(145deg, #F6E4B8 0%, #D9B36B 46%, #A37C3A 100%)',
-    es: { name: 'Oro', material: 'ORO 18K SOBRE PLATA 950', line: 'Plata 950, con 5 micras de oro 18k, duradero para 5 años de uso diario.' },
-    en: { name: 'Gold', material: '18K GOLD OVER 950 SILVER', line: '950 silver, with 5 microns of 18k gold, durable for 5 years of daily wear.' },
+    es: { name: 'Oro', material: 'ORO 18K SOBRE PLATA 950', line: 'Cinco micras de oro de 18 quilates sobre plata 950: el doble del espesor que la industria exige para llamarse vermeil, en un oro más puro que el estándar del mercado. Un dorado pensado para cinco años de uso diario — sin ceremonia, sin desgaste visible.' },
+    en: { name: 'Gold', material: '18K GOLD OVER 950 SILVER', line: '950 silver, with five microns of 18-karat gold — twice the thickness the industry requires to be called vermeil, in a purer gold than the market standard. A finish made for five years of daily wear, without ceremony, without visible fading.' },
   },
 ];
 
@@ -822,7 +829,7 @@ function SectionVitrina({ lang }) {
     intro: 'El agua es la misma en los tres: recogida de la Laguna Negra, sellada para siempre. Lo que cambia es la casa que la guarda.',
     metalLabel: 'El metal',
     chainLabel: 'CADENA · PARA QUIÉN ES',
-    chainNote: 'La cadena no altera el precio.',
+    chainNote: 'Ambas cadenas en plata de ley 925. La elección es tuya; el precio no cambia.',
     meta: 'EDICIÓN LIMITADA · N.º 01 / 100 · HECHA A MANO POR ENCARGO',
     cta: 'Recibir en custodia',
     chip: 'EDICIÓN LIMITADA · N.º 01 / 100',
@@ -835,7 +842,7 @@ function SectionVitrina({ lang }) {
     intro: 'The water is the same in all three: gathered from the Black Lagoon, sealed forever. What changes is the house that holds it.',
     metalLabel: 'The metal',
     chainLabel: "CHAIN · WHO IT'S FOR",
-    chainNote: 'The chain does not change the price.',
+    chainNote: 'Both chains in 925 sterling silver. The choice is yours; the price does not change.',
     meta: 'LIMITED FIRST EDITION · N.º 01 / 100 · HAND-FINISHED TO ORDER',
     cta: 'Receive in custody',
     chip: 'LIMITED FIRST EDITION · N.º 01 / 100',
