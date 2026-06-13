@@ -1585,9 +1585,9 @@ const FOOT_COPY = {
     success: 'Thank you. The lagoon will find you.',
     brandBody: 'A single piece, hand-crafted in Lima, with water gathered from the Black Lagoon of Huancabamba.',
     columns: [
-      { title: 'ELYXIE', links: ['Story', 'The lagoon', 'Master jeweler', 'Press'] },
-      { title: 'SHOP',   links: ['Ángel de la Laguna Negra', 'Coming soon', 'Care', 'Returns'] },
-      { title: 'REACH',  links: ['WhatsApp', 'Email', 'Instagram', 'Lima · Perú'] },
+      { title: 'ELYXIE', links: [{ label: 'Story', url: 'https://www.elyxie.com/en/pages/story' }] },
+      { title: 'SHOP',   links: [{ label: 'Angel of the Black Lagoon', url: 'https://www.elyxie.com/en/products/el-angel-plata' }, { label: 'Returns', url: 'https://www.elyxie.com/en/policies/refund-policy' }] },
+      { title: 'REACH',  links: [{ label: 'WhatsApp', url: 'https://wa.me/51976616514' }, { label: 'Email', url: 'mailto:mkt@elyxie.com' }, { label: 'Instagram', url: 'https://www.instagram.com/elyxie.es/' }, { label: 'Complaints Book', url: 'https://www.elyxie.com/en/pages/libro-de-reclamaciones' }] },
     ],
     copy: '© 2026 Elyxie  ·  Sacred water from the Black Lagoon of Huancabamba',
   },
@@ -1601,9 +1601,9 @@ const FOOT_COPY = {
     success: 'Gracias. La laguna te encontrará.',
     brandBody: 'Una sola pieza, hecha a mano en Lima, con agua recolectada de la Laguna Negra de Huancabamba.',
     columns: [
-      { title: 'ELYXIE', links: ['Relato', 'La laguna', 'Maestro joyero', 'Prensa'] },
-      { title: 'TIENDA', links: ['Ángel de la Laguna Negra', 'Próximamente', 'Cuidado', 'Devoluciones'] },
-      { title: 'CONTACTO', links: ['WhatsApp', 'Correo', 'Instagram', 'Lima · Perú'] },
+      { title: 'ELYXIE', links: [{ label: 'Relato', url: 'https://www.elyxie.com/pages/story' }] },
+      { title: 'TIENDA', links: [{ label: 'Ángel de la Laguna Negra', url: 'https://www.elyxie.com/products/el-angel-plata' }, { label: 'Devoluciones', url: 'https://www.elyxie.com/policies/refund-policy' }] },
+      { title: 'CONTACTO', links: [{ label: 'WhatsApp', url: 'https://wa.me/51976616514' }, { label: 'Correo', url: 'mailto:mkt@elyxie.com' }, { label: 'Instagram', url: 'https://www.instagram.com/elyxie.es/' }, { label: 'Libro de Reclamaciones', url: 'https://www.elyxie.com/pages/libro-de-reclamaciones' }] },
     ],
     copy: '© 2026 Elyxie  ·  Agua sagrada de la Laguna Negra de Huancabamba',
   },
@@ -1670,7 +1670,7 @@ function Footer({ lang }) {
               <a className="FootSocial" href="mailto:mkt@elyxie.com" aria-label="Email"><FootMailIcon/></a>
             </div>
           </div>
-          {(((typeof window !== 'undefined') && window.__ELYXIE && window.__ELYXIE.footerColumns && window.__ELYXIE.footerColumns[lang]) || t.columns.map((c) => ({ title: c.title, links: c.links.map((l) => ({ label: l, url: '' })) }))).map((col, ci) => (
+          {(((typeof window !== 'undefined') && window.__ELYXIE && window.__ELYXIE.footerColumns && window.__ELYXIE.footerColumns[lang]) || t.columns).map((col, ci) => (
             <div key={col.title + ci}>
               <div className="FootCol__title">{col.title}</div>
               <div className="FootCol__list">
