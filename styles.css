@@ -3853,8 +3853,10 @@ section[data-section="outro"] {
              max(16px, env(safe-area-inset-left));
   }
   .nav__brand { font-size: 24px; }
+  /* `.nav .nav__lang` (no `.nav__lang` a secas): el drawer reusa el MISMO
+     componente .nav__lang y vive fuera de .nav — ocultarlo a secas lo mataría. */
   .nav__links,
-  .nav__lang { display: none; }
+  .nav .nav__lang { display: none; }
 
   .nav__mobile-actions {
     display: inline-flex;
@@ -3987,37 +3989,25 @@ section[data-section="outro"] {
     text-transform: uppercase;
   }
 
+  /* Selector de idioma del drawer = EXACTAMENTE el mismo componente que el
+     navbar desktop (.nav__lang con su pill deslizante), sólo más chiquito.
+     El wrapper sólo posiciona y FIJA la superficie oscura del drawer: la
+     píldora hereda --theme-fg / --theme-fg-hairline (la barra de scroll las
+     varía con la sección) y reseteamos --alma-day-mix — el <html> lo publica
+     en fase ALMA y heredaría hasta aquí, tiñendo la píldora hacia verde-negro.
+     El ::before deslizante lee --lang-pos (inline en el wrapper). */
   .mobile-drawer__lang {
-    display: inline-flex;
     align-self: flex-start;
-    align-items: center;
-    gap: 10px;
-    padding: 8px 14px;
-    border: 1px solid rgba(255,255,255,0.18);
-    border-radius: 999px;
-    font-family: var(--font-body);
-    font-size: 10px;
-    letter-spacing: 0.32em;
+    --theme-fg: #ffffff;
+    --theme-fg-hairline: rgba(255,255,255,0.18);
+    --alma-day-mix: 0;
   }
-  .mobile-drawer__lang button {
-    position: relative;
-    background: transparent;
-    border: 0;
-    color: #fff;
-    opacity: 0.5;
-    cursor: pointer;
-    font: inherit;
-    letter-spacing: inherit;
-    padding: 8px 6px;
-  }
-  /* Zona táctil ≥44px (el visual medía 26×21px): padding real + extensión. */
-  .mobile-drawer__lang button::after {
-    content: '';
-    position: absolute;
-    inset: -8px -8px;
-  }
-  .mobile-drawer__lang button[data-active="true"] { opacity: 1; color: var(--gold-300); }
-  .mobile-drawer__lang span { opacity: 0.4; }
+  /* Más chiquito que en desktop (botón 52px / fuente 11px). El pill ::before
+     es porcentual (50%/100% + translateX), así que se reajusta solo al
+     encoger el botón; mantenemos el padding 4px del pill para no descuadrar
+     su geometría, y la zona táctil ≥44px del botón (::after) se hereda. */
+  .mobile-drawer__lang .nav__lang { font-size: 10px; }
+  .mobile-drawer__lang .nav__lang button { width: 42px; padding: 5px 0; }
 
   .mobile-drawer__phones {
     display: flex;

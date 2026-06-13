@@ -108,13 +108,16 @@
       {%- endfor -%}
     </ul>
 
-    {%- form 'localization', class: 'mobile-drawer__lang-form' -%}
-      <span class="mobile-drawer__lang" role="group" aria-label="{{ t_lang }}">
-        {%- if lang_es -%}<button type="submit" name="locale_code" value="{{ lang_es.iso_code }}" data-active="{% if cur_iso == 'es' %}true{% else %}false{% endif %}" aria-pressed="{% if cur_iso == 'es' %}true{% else %}false{% endif %}" onclick="try{localStorage.setItem('elyxie_lang_choice','es')}catch(e){}">ES</button>{%- endif -%}
-        <span aria-hidden="true">·</span>
-        {%- if lang_en -%}<button type="submit" name="locale_code" value="{{ lang_en.iso_code }}" data-active="{% if cur_iso == 'en' %}true{% else %}false{% endif %}" aria-pressed="{% if cur_iso == 'en' %}true{% else %}false{% endif %}" onclick="try{localStorage.setItem('elyxie_lang_choice','en')}catch(e){}">EN</button>{%- endif -%}
-      </span>
-    {%- endform -%}
+    {%- comment -%} Selector ES/EN del drawer = EXACTAMENTE el mismo componente que el
+      navbar desktop (.nav__lang con su pill deslizante, ~línea 60). El wrapper lleva
+      --lang-pos (las custom properties heredan → el ::before deslizante lo lee) y fija
+      la paleta oscura del drawer; el CSS móvil sólo lo encoge. {%- endcomment -%}
+    <div class="mobile-drawer__lang" style="--lang-pos: {{ lang_pos }};" role="group" aria-label="{{ t_lang }}">
+      {%- form 'localization', class: 'nav__lang' -%}
+        {%- if lang_es -%}<button type="submit" name="locale_code" value="{{ lang_es.iso_code }}" data-active="{% if cur_iso == 'es' %}true{% else %}false{% endif %}" aria-pressed="{% if cur_iso == 'es' %}true{% else %}false{% endif %}" aria-label="Español" onclick="try{localStorage.setItem('elyxie_lang_choice','es')}catch(e){}">ES</button>{%- endif -%}
+        {%- if lang_en -%}<button type="submit" name="locale_code" value="{{ lang_en.iso_code }}" data-active="{% if cur_iso == 'en' %}true{% else %}false{% endif %}" aria-pressed="{% if cur_iso == 'en' %}true{% else %}false{% endif %}" aria-label="English" onclick="try{localStorage.setItem('elyxie_lang_choice','en')}catch(e){}">EN</button>{%- endif -%}
+      {%- endform -%}
+    </div>
 
     <div class="mobile-drawer__phones">
       <a href="https://wa.me/51976616514" target="_blank" rel="noopener">WhatsApp · +51 976 616 514</a>
