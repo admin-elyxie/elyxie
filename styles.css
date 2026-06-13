@@ -4694,6 +4694,11 @@ section[data-section="outro"] {
   font-size: 14px;
 }
 .FootForm__input::placeholder { color: rgba(255, 255, 255, 0.5); }
+/* El foco del campo lo señala .FootForm__row:focus-within (anillo dorado que
+   respeta el border-radius:999px de la píldora). Sin esto, la regla global
+   `input:focus-visible` pintaría un rectángulo blanco recto fuera del campo
+   que rompe la forma redondeada del componente. */
+.FootForm__input:focus-visible { outline: none; }
 .FootForm__submit {
   padding: 12px 20px 12px 24px;
   border-radius: 999px;
