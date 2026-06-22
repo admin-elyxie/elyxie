@@ -3,9 +3,11 @@
   anti-falsificación (page.verificar). Vive bajo el layout `elyxie-page` (wordmark
   champán + ES/EN + carrito + footer de marca + vacío esmeralda).
 
-  FLUJO
-  - El QR del sticker codifica  …/pages/verificar?k=<TOKEN>  → al cargar, verifica solo.
-  - Caja manual de respaldo: quien no pueda escanear escribe su nº de serie visible.
+  FLUJO (dos factores)
+  - El QR del sticker codifica  …/pages/verificar?k=<TOKEN>  → al abrir, el token queda en
+    la URL pero NO autentica solo: la persona escribe el nº de serie impreso y se valida que
+    token + serial coincidan en el MISMO registro (necesitas el certificado físico).
+  - Sin token (visita directa): valida solo por el serial escrito (respaldo manual).
   - La validación llama a una función RPC de Supabase (`verify_certificate`) que INCREMENTA
     el contador de autenticaciones y devuelve { ok, serial, product_handle, sku,
     production_date, scan_count } — NUNCA la lista completa de seriales (anti-enumeración).
@@ -112,8 +114,10 @@
 
   /* ── Caja manual ──────────────────────────────────────────────────────────── */
   .everify__manual { margin: clamp(34px,5vw,52px) auto 0; max-width: 460px; }
-  .everify__manual-label { margin: 0 0 12px; text-align: center; font-family: var(--ep-sans);
+  .everify__prompt { margin: 0 0 12px; text-align: center; font-family: var(--ep-sans);
     font-size: 13px; line-height: 1.6; color: rgba(255,255,255,0.6); }
+  /* tras escanear el QR: prompt en champán, indicando que el sello ya se leyó */
+  .everify__prompt--scanned { color: var(--ep-champ); }
   .everify__manual-row { display: flex; gap: 10px; }
   .everify__input { flex: 1 1 auto; min-width: 0; appearance: none; -webkit-appearance: none;
     background: var(--ev-field-bg); border: 1px solid var(--ev-field-line); border-radius: 0;
@@ -155,26 +159,28 @@
     <h1 class="everify__title">{{ heading }}</h1>
     <p class="everify__lede">
       {%- if section.settings.lede != blank -%}{{ section.settings.lede }}
-      {%- elsif is_en -%}Scan the seal on your certificate, or enter the serial number printed on it, to confirm your piece is a genuine Elyxie.
-      {%- else -%}Escanea el sello de tu certificado, o escribe el número de serie impreso en él, para confirmar que tu pieza es una Elyxie auténtica.
+      {%- elsif is_en -%}Enter the serial number printed on your certificate to confirm your piece is a genuine Elyxie.
+      {%- else -%}Escribe el número de serie impreso en tu certificado para confirmar que tu pieza es una Elyxie auténtica.
       {%- endif -%}
     </p>
   </div>
 
-  <div class="everify__stage" id="ev-stage" aria-live="polite"></div>
-
+  {%- comment -%} El token llega por el QR (?k=…); el serial lo escribe la persona. Se validan
+    juntos (dos factores). El prompt lo ajusta el JS según haya token o no. {%- endcomment -%}
   <form class="everify__manual" id="ev-manual" novalidate>
-    <p class="everify__manual-label">
-      {%- if is_en -%}Or enter the serial number{%- else -%}O escribe el número de serie{%- endif -%}
+    <p class="everify__prompt" id="ev-prompt">
+      {%- if is_en -%}Enter your serial number{%- else -%}Escribe tu número de serie{%- endif -%}
     </p>
     <div class="everify__manual-row">
       <input class="everify__input" id="ev-serial" type="text" inputmode="numeric"
         autocomplete="off" spellcheck="false"
         placeholder="{% if is_en %}e.g. 00010312357989{% else %}ej. 00010312357989{% endif %}"
         aria-label="{% if is_en %}Serial number{% else %}Número de serie{% endif %}">
-      <button class="everify__submit" type="submit">{% if is_en %}Verify{% else %}Verificar{% endif %}</button>
+      <button class="everify__submit" type="submit">{% if is_en %}Authenticate{% else %}Autenticar{% endif %}</button>
     </div>
   </form>
+
+  <div class="everify__stage" id="ev-stage" aria-live="polite"></div>
 
   {%- comment -%} Textos + estado para el JS (bilingüe, sin tocar el HTML). {%- endcomment -%}
   <script type="application/json" data-elyxie="verify-i18n">
@@ -190,6 +196,8 @@
     "viewPiece":  {% if is_en %}"View piece"{% else %}"Ver pieza"{% endif %},
     "producedLabel":{% if is_en %}"Produced"{% else %}"Producción"{% endif %},
     "authLabel":  {% if is_en %}"Authentications"{% else %}"Autenticaciones"{% endif %},
+    "promptScanned":{% if is_en %}"✓ Seal read — enter your serial number to authenticate"{% else %}"✓ Sello leído — escribe tu número de serie para autenticar"{% endif %},
+    "promptManual":{% if is_en %}"Enter your serial number"{% else %}"Escribe tu número de serie"{% endif %},
     "emptySerial":{% if is_en %}"Enter a serial number."{% else %}"Escribe un número de serie."{% endif %}
   }
   </script>
@@ -349,20 +357,29 @@
       .catch(function () { showError(); });
   }
 
-  // ── Entrada manual por serial ───────────────────────────────────────────────
+  // ── Token del QR (?k=…) ─────────────────────────────────────────────────────
+  // No autentica solo: se valida JUNTO con el serial que escribe la persona (dos factores).
+  var qrToken = null;
+  try { qrToken = new URLSearchParams(window.location.search).get('k'); } catch (e) {}
+
+  var prompt = root.querySelector('#ev-prompt');
+  if (prompt && qrToken && T.promptScanned) {
+    prompt.textContent = T.promptScanned;
+    prompt.classList.add('everify__prompt--scanned');
+  }
+
+  // Al enviar: valida el serial escrito + el token del QR (si lo hay) en el mismo registro.
   if (form) {
     form.addEventListener('submit', function (e) {
       e.preventDefault();
       var serial = (input.value || '').trim();
       if (!serial) { input.focus(); return; }
-      verify({ p_token: null, p_serial: serial });
+      verify({ p_token: qrToken || null, p_serial: serial });
     });
   }
 
-  // ── Auto-verificación desde el QR (?k=TOKEN) ────────────────────────────────
-  var token = null;
-  try { token = new URLSearchParams(window.location.search).get('k'); } catch (e) {}
-  if (token) verify({ p_token: token, p_serial: null });
+  // Si llega de un QR, enfoca el campo para que solo tenga que escribir el serial.
+  if (qrToken && input) { try { input.focus(); } catch (e) {} }
 })();
 </script>
 
