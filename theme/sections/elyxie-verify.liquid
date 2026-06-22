@@ -1,0 +1,383 @@
+{%- comment -%}
+  Verificación de autenticidad ELYXIE — la página que abren los QR de los stickers
+  anti-falsificación (page.verificar). Vive bajo el layout `elyxie-page` (wordmark
+  champán + ES/EN + carrito + footer de marca + vacío esmeralda).
+
+  FLUJO
+  - El QR del sticker codifica  …/pages/verificar?k=<TOKEN>  → al cargar, verifica solo.
+  - Caja manual de respaldo: quien no pueda escanear escribe su nº de serie visible.
+  - La validación llama a una función RPC de Supabase (`verify_certificate`) que INCREMENTA
+    el contador de autenticaciones y devuelve { ok, serial, product_handle, sku,
+    production_date, scan_count } — NUNCA la lista completa de seriales (anti-enumeración).
+  - Si hay pieza, se enriquece con el producto vía el endpoint nativo /products/<handle>.js
+    (sin backend extra) para mostrar nombre + variante (por sku) + miniatura.
+  - Muestra además la fecha de producción y cuántas veces se ha autenticado la pieza.
+
+  CONEXIÓN: `supabase_url` y `supabase_anon_key` se rellenan en los settings de la sección
+  (la anon key es pública por diseño — solo puede invocar la RPC, no leer la tabla).
+
+  Bilingüe ES/EN — el español lidera. Token aleatorio = inadivinable; el serial visible
+  también es aleatorio, así que la caja manual tampoco permite enumerar.
+{%- endcomment -%}
+{%- assign is_en = false -%}
+{%- if request.locale.iso_code == 'en' -%}{%- assign is_en = true -%}{%- endif -%}
+
+{%- assign eyebrow = section.settings.eyebrow | strip -%}
+{%- if eyebrow == blank -%}{%- if is_en -%}{%- assign eyebrow = 'Authenticity' -%}{%- else -%}{%- assign eyebrow = 'Autenticidad' -%}{%- endif -%}{%- endif -%}
+{%- comment -%} H1 SIEMPRE bilingüe: no usamos page.title (es de un solo idioma) — el
+  título de la página queda solo para SEO/pestaña. El editor puede forzar con `heading`. {%- endcomment -%}
+{%- assign heading = section.settings.heading | strip -%}
+{%- if heading == blank -%}{%- if is_en -%}{%- assign heading = 'Verify your piece' -%}{%- else -%}{%- assign heading = 'Verifica tu pieza' -%}{%- endif -%}{%- endif -%}
+
+<style>
+  .everify {
+    --ev-hair: rgba(255,255,255,0.08);
+    --ev-hair-champ: rgba(233,215,177,0.22);
+    --ev-bronze: #D97757;                       /* no-encontrado — bronce desaturado, nunca rojo */
+    --ev-phos: #7DFFB2;                          /* auténtico — fósforo (la luz guardada) */
+    --ev-field-bg: rgba(255,255,255,0.04);
+    --ev-field-line: rgba(255,255,255,0.18);
+    max-width: 760px; margin: 0 auto;
+    padding: clamp(40px,7vw,104px) clamp(20px,5vw,64px) clamp(88px,13vw,168px);
+  }
+
+  /* ── Cabecera ─────────────────────────────────────────────────────────────── */
+  .everify__head { text-align: center; max-width: 52ch; margin: 0 auto; }
+  .everify__eyebrow { margin: 0; font-family: var(--ep-sans); font-size: 11px; font-weight: 500;
+    letter-spacing: 0.32em; text-transform: uppercase; color: var(--ep-champ); }
+  .everify__title { margin: clamp(14px,1.6vw,20px) 0 0; font-family: var(--ep-serif); font-style: italic;
+    font-weight: 400; font-size: clamp(40px,6vw,76px); line-height: 1.0; letter-spacing: -0.02em;
+    color: var(--ep-ink); text-wrap: balance; }
+  .everify__lede { margin: clamp(16px,2vw,22px) 0 0; font-family: var(--ep-sans); font-size: 16px;
+    line-height: 1.7; color: rgba(255,255,255,0.72); }
+
+  /* ── Escenario del resultado ──────────────────────────────────────────────── */
+  .everify__stage { margin: clamp(34px,5vw,56px) 0 0; min-height: 4px; }
+
+  /* tarjeta de resultado — superficie que "sube" un escalón desde el vacío */
+  .everify__card { position: relative; border-radius: 18px; padding: clamp(28px,4vw,44px);
+    text-align: center; background: linear-gradient(180deg, rgba(20,60,50,0.30), rgba(11,36,29,0.30));
+    box-shadow: 0 20px 60px rgba(5,22,19,0.45), inset 0 0 0 1px rgba(255,255,255,0.06); }
+  .everify__card--valid { box-shadow: 0 20px 60px rgba(5,22,19,0.45), inset 0 0 0 1px rgba(125,255,178,0.30); }
+  .everify__card--invalid { box-shadow: 0 20px 60px rgba(5,22,19,0.45), inset 0 0 0 1px rgba(217,119,87,0.30); }
+
+  .everify__badge { width: 64px; height: 64px; margin: 0 auto clamp(16px,2vw,22px); border-radius: 50%;
+    display: grid; place-items: center; }
+  .everify__card--valid .everify__badge { background: rgba(125,255,178,0.10);
+    box-shadow: 0 0 38px rgba(125,255,178,0.28), inset 0 0 0 1px rgba(125,255,178,0.36); color: var(--ev-phos); }
+  .everify__card--invalid .everify__badge { background: rgba(217,119,87,0.10);
+    box-shadow: inset 0 0 0 1px rgba(217,119,87,0.36); color: var(--ev-bronze); }
+
+  .everify__verdict { margin: 0; font-family: var(--ep-serif); font-style: italic; font-weight: 400;
+    font-size: clamp(26px,3.4vw,38px); line-height: 1.1; color: var(--ep-ink); }
+  .everify__note { margin: 12px 0 0; font-family: var(--ep-sans); font-size: 15px; line-height: 1.6;
+    color: rgba(255,255,255,0.72); }
+
+  /* serial confirmado — monoespaciado, leading tabular */
+  .everify__serial { margin: clamp(20px,2.6vw,28px) 0 0; padding-top: clamp(18px,2.4vw,24px);
+    border-top: 1px solid var(--ev-hair); }
+  .everify__serial-label { margin: 0; font-family: var(--ep-sans); font-size: 10px; font-weight: 500;
+    letter-spacing: 0.3em; text-transform: uppercase; color: rgba(255,255,255,0.5); }
+  .everify__serial-value { margin: 6px 0 0; font-family: var(--ep-sans); font-variant-numeric: tabular-nums;
+    letter-spacing: 0.14em; font-size: clamp(20px,2.4vw,26px); color: var(--ep-ink); }
+
+  /* pieza enlazada — miniatura + nombre del producto (vía /products/<handle>.js) */
+  .everify__piece { display: inline-flex; align-items: center; gap: 14px; margin: clamp(18px,2.4vw,24px) 0 0;
+    padding: 12px 18px 12px 12px; border-radius: 14px; text-decoration: none;
+    background: rgba(255,255,255,0.03); border: 1px solid var(--ev-hair);
+    transition: border-color 240ms ease, background 240ms ease; }
+  .everify__piece:hover { border-color: var(--ev-hair-champ); background: rgba(255,255,255,0.05); }
+  .everify__piece img { width: 52px; height: 52px; object-fit: cover; border-radius: 9px; display: block; }
+  .everify__piece-text { text-align: left; }
+  .everify__piece-ey { margin: 0; font-family: var(--ep-sans); font-size: 9px; font-weight: 500;
+    letter-spacing: 0.28em; text-transform: uppercase; color: rgba(255,255,255,0.5); }
+  .everify__piece-name { margin: 3px 0 0; font-family: var(--ep-serif); font-size: 19px; color: var(--ep-ink); }
+  .everify__piece-variant { color: rgba(255,255,255,0.6); }
+
+  /* estadísticas del certificado — producción + nº de autenticaciones */
+  .everify__stats { display: flex; justify-content: center; flex-wrap: wrap;
+    gap: clamp(26px,5vw,56px); margin: clamp(20px,2.6vw,28px) 0 0;
+    padding-top: clamp(18px,2.4vw,24px); border-top: 1px solid var(--ev-hair); }
+  .everify__stat { text-align: center; }
+  .everify__stat-label { margin: 0; font-family: var(--ep-sans); font-size: 10px; font-weight: 500;
+    letter-spacing: 0.3em; text-transform: uppercase; color: rgba(255,255,255,0.5); }
+  .everify__stat-value { margin: 6px 0 0; font-family: var(--ep-serif); font-size: clamp(17px,2vw,21px);
+    color: var(--ep-ink); }
+
+  /* spinner sobrio */
+  .everify__spinner { width: 30px; height: 30px; margin: 8px auto; border-radius: 50%;
+    border: 2px solid rgba(255,255,255,0.16); border-top-color: var(--ep-champ);
+    animation: ev-spin 760ms linear infinite; }
+  @keyframes ev-spin { to { transform: rotate(360deg); } }
+
+  /* ── Caja manual ──────────────────────────────────────────────────────────── */
+  .everify__manual { margin: clamp(34px,5vw,52px) auto 0; max-width: 460px; }
+  .everify__manual-label { margin: 0 0 12px; text-align: center; font-family: var(--ep-sans);
+    font-size: 13px; line-height: 1.6; color: rgba(255,255,255,0.6); }
+  .everify__manual-row { display: flex; gap: 10px; }
+  .everify__input { flex: 1 1 auto; min-width: 0; appearance: none; -webkit-appearance: none;
+    background: var(--ev-field-bg); border: 1px solid var(--ev-field-line); border-radius: 0;
+    color: var(--ep-ink); font-family: var(--ep-sans); font-variant-numeric: tabular-nums;
+    letter-spacing: 0.08em; font-size: 16px; padding: 15px 16px; min-height: 54px;
+    transition: border-color 240ms cubic-bezier(0.2,0,0,1), background 240ms cubic-bezier(0.2,0,0,1); }
+  .everify__input::placeholder { color: rgba(255,255,255,0.34); letter-spacing: 0.04em; }
+  .everify__input:hover { border-color: rgba(255,255,255,0.3); }
+  .everify__input:focus { outline: none; border-color: var(--ep-champ); background: rgba(255,255,255,0.06); }
+  .everify__submit { flex: none; appearance: none; -webkit-appearance: none; cursor: pointer; border: 0;
+    border-radius: 0; padding: 0 26px; background: linear-gradient(180deg, #E9D7B1, #C9A66B); color: #0A2620;
+    font-family: var(--ep-sans); font-size: 11px; font-weight: 600; letter-spacing: 0.22em;
+    text-transform: uppercase; box-shadow: 0 0 30px rgba(233,215,177,0.22);
+    transition: box-shadow 360ms cubic-bezier(0.2,0,0,1); }
+  .everify__submit:hover { box-shadow: 0 0 46px rgba(233,215,177,0.4); }
+  .everify__submit:focus-visible { outline: 2px solid var(--ep-champ); outline-offset: 4px; }
+  .everify__submit[disabled] { opacity: 0.55; cursor: default; box-shadow: none; }
+
+  .everify__unavailable { margin: clamp(24px,3vw,32px) 0 0; text-align: center; font-family: var(--ep-sans);
+    font-size: 13px; line-height: 1.6; color: var(--ev-bronze); }
+
+  @media (max-width: 520px) {
+    .everify__manual-row { flex-direction: column; }
+    .everify__submit { padding: 15px 26px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .everify__spinner { animation: none; }
+    .everify__input, .everify__submit, .everify__piece { transition: none; }
+  }
+</style>
+
+<section class="everify"
+  data-supabase-url="{{ section.settings.supabase_url | strip }}"
+  data-supabase-key="{{ section.settings.supabase_anon_key | strip }}"
+  data-locale="{% if is_en %}en{% else %}es{% endif %}">
+
+  <div class="everify__head">
+    <p class="everify__eyebrow">{{ eyebrow }}</p>
+    <h1 class="everify__title">{{ heading }}</h1>
+    <p class="everify__lede">
+      {%- if section.settings.lede != blank -%}{{ section.settings.lede }}
+      {%- elsif is_en -%}Scan the seal on your certificate, or enter the serial number printed on it, to confirm your piece is a genuine Elyxie.
+      {%- else -%}Escanea el sello de tu certificado, o escribe el número de serie impreso en él, para confirmar que tu pieza es una Elyxie auténtica.
+      {%- endif -%}
+    </p>
+  </div>
+
+  <div class="everify__stage" id="ev-stage" aria-live="polite"></div>
+
+  <form class="everify__manual" id="ev-manual" novalidate>
+    <p class="everify__manual-label">
+      {%- if is_en -%}Or enter the serial number{%- else -%}O escribe el número de serie{%- endif -%}
+    </p>
+    <div class="everify__manual-row">
+      <input class="everify__input" id="ev-serial" type="text" inputmode="numeric"
+        autocomplete="off" spellcheck="false"
+        placeholder="{% if is_en %}e.g. 00010312357989{% else %}ej. 00010312357989{% endif %}"
+        aria-label="{% if is_en %}Serial number{% else %}Número de serie{% endif %}">
+      <button class="everify__submit" type="submit">{% if is_en %}Verify{% else %}Verificar{% endif %}</button>
+    </div>
+  </form>
+
+  {%- comment -%} Textos + estado para el JS (bilingüe, sin tocar el HTML). {%- endcomment -%}
+  <script type="application/json" data-elyxie="verify-i18n">
+  {
+    "valid":      {% if is_en %}"This piece is authentic"{% else %}"Esta pieza es auténtica"{% endif %},
+    "validNote":  {% if is_en %}"Verified against the Elyxie registry."{% else %}"Verificada contra el registro de Elyxie."{% endif %},
+    "invalid":    {% if is_en %}"We couldn't verify this code"{% else %}"No pudimos verificar este código"{% endif %},
+    "invalidNote":{% if is_en %}"Check the serial and try again. If it keeps failing, write to mkt@elyxie.com — your piece may be a counterfeit."{% else %}"Revisa el serial e inténtalo de nuevo. Si sigue fallando, escribe a mkt@elyxie.com — tu pieza podría ser una falsificación."{% endif %},
+    "checking":   {% if is_en %}"Checking…"{% else %}"Verificando…"{% endif %},
+    "error":      {% if is_en %}"Verification is momentarily unavailable. Please try again shortly."{% else %}"La verificación no está disponible por un momento. Inténtalo de nuevo en breve."{% endif %},
+    "serialLabel":{% if is_en %}"Serial"{% else %}"Serial"{% endif %},
+    "pieceEy":    {% if is_en %}"Your piece"{% else %}"Tu pieza"{% endif %},
+    "viewPiece":  {% if is_en %}"View piece"{% else %}"Ver pieza"{% endif %},
+    "producedLabel":{% if is_en %}"Produced"{% else %}"Producción"{% endif %},
+    "authLabel":  {% if is_en %}"Authentications"{% else %}"Autenticaciones"{% endif %},
+    "emptySerial":{% if is_en %}"Enter a serial number."{% else %}"Escribe un número de serie."{% endif %}
+  }
+  </script>
+</section>
+
+<script>
+(function () {
+  var root = document.currentScript.previousElementSibling;
+  if (!root || !root.classList.contains('everify')) {
+    root = document.querySelector('.everify');
+  }
+  if (!root) return;
+
+  var stage  = root.querySelector('#ev-stage');
+  var form   = root.querySelector('#ev-manual');
+  var input  = root.querySelector('#ev-serial');
+  var submit = form ? form.querySelector('.everify__submit') : null;
+
+  var SB_URL = (root.dataset.supabaseUrl || '').replace(/\/+$/, '');
+  var SB_KEY = root.dataset.supabaseKey || '';
+  var LOCALE = root.dataset.locale === 'en' ? 'en' : 'es';
+
+  var T = {};
+  try { T = JSON.parse(root.querySelector('[data-elyxie="verify-i18n"]').textContent); } catch (e) {}
+
+  var configured = !!(SB_URL && SB_KEY);
+
+  // ── Render de estados ───────────────────────────────────────────────────────
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  function showLoading() {
+    stage.innerHTML =
+      '<div class="everify__card"><div class="everify__spinner" role="status" aria-label="' +
+      esc(T.checking) + '"></div></div>';
+  }
+
+  function showInvalid() {
+    stage.innerHTML =
+      '<div class="everify__card everify__card--invalid">' +
+        '<div class="everify__badge" aria-hidden="true">' +
+          '<svg width="30" height="30" viewBox="0 0 30 30" fill="none">' +
+            '<circle cx="15" cy="15" r="13" stroke="currentColor" stroke-width="1.4" opacity="0.55"/>' +
+            '<path d="M10 10l10 10M20 10L10 20" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>' +
+          '</svg></div>' +
+        '<p class="everify__verdict">' + esc(T.invalid) + '</p>' +
+        '<p class="everify__note">' + esc(T.invalidNote) + '</p>' +
+      '</div>';
+  }
+
+  function showError() {
+    stage.innerHTML =
+      '<div class="everify__card everify__card--invalid">' +
+        '<p class="everify__verdict">' + esc(T.invalid) + '</p>' +
+        '<p class="everify__note">' + esc(T.error) + '</p>' +
+      '</div>';
+  }
+
+  function fmtDate(d) {
+    if (!d) return '';
+    var dt = new Date(d + 'T12:00:00');               // mediodía: evita salto de día por zona horaria
+    if (isNaN(dt.getTime())) return d;
+    try { return dt.toLocaleDateString(LOCALE === 'en' ? 'en-US' : 'es-ES', { year: 'numeric', month: 'short', day: 'numeric' }); }
+    catch (e) { return d; }
+  }
+
+  function scanText(n) {
+    n = n || 0;
+    if (LOCALE === 'en') return n === 1 ? 'Once' : n + ' times';
+    return n === 1 ? '1 vez' : n + ' veces';
+  }
+
+  function stat(label, value) {
+    return '<div class="everify__stat"><p class="everify__stat-label">' + esc(label) +
+      '</p><p class="everify__stat-value">' + esc(value) + '</p></div>';
+  }
+
+  function showValid(data) {
+    var serial = data.serial;
+    var stats = '';
+    if (data.production_date) stats += stat(T.producedLabel, fmtDate(data.production_date));
+    stats += stat(T.authLabel, scanText(data.scan_count));
+    stage.innerHTML =
+      '<div class="everify__card everify__card--valid">' +
+        '<div class="everify__badge" aria-hidden="true">' +
+          '<svg width="30" height="30" viewBox="0 0 30 30" fill="none">' +
+            '<circle cx="15" cy="15" r="13" stroke="currentColor" stroke-width="1.4" opacity="0.55"/>' +
+            '<path d="M9 15.4l4 4 8-8.6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>' +
+          '</svg></div>' +
+        '<p class="everify__verdict">' + esc(T.valid) + '</p>' +
+        '<p class="everify__note">' + esc(T.validNote) + '</p>' +
+        '<div id="ev-piece"></div>' +
+        (serial
+          ? '<div class="everify__serial"><p class="everify__serial-label">' + esc(T.serialLabel) +
+            '</p><p class="everify__serial-value">' + esc(serial) + '</p></div>'
+          : '') +
+        '<div class="everify__stats">' + stats + '</div>' +
+      '</div>';
+    if (data.product_handle) enrichPiece(data.product_handle, data.sku);
+  }
+
+  // Enriquecimiento de la pieza con el endpoint nativo de Shopify (sin backend extra).
+  // Si hay sku, añade el título de la variante (p.ej. "Para ella").
+  function enrichPiece(handle, sku) {
+    var slot = stage.querySelector('#ev-piece');
+    if (!slot) return;
+    var prefix = LOCALE === 'en' ? '/en' : '';
+    var href = prefix + '/products/' + encodeURIComponent(handle);
+    fetch(prefix + '/products/' + encodeURIComponent(handle) + '.js', { headers: { 'Accept': 'application/json' } })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (p) {
+        if (!p) {
+          slot.innerHTML = '<a class="everify__piece" href="' + esc(href) + '">' +
+            '<div class="everify__piece-text"><p class="everify__piece-ey">' + esc(T.pieceEy) +
+            '</p><p class="everify__piece-name">' + esc(T.viewPiece) + '</p></div></a>';
+          return;
+        }
+        var variant = '';
+        if (sku && p.variants) {
+          for (var i = 0; i < p.variants.length; i++) {
+            if (p.variants[i].sku === sku) { variant = p.variants[i].title || ''; break; }
+          }
+        }
+        if (variant === 'Default Title') variant = '';
+        var sub = variant ? '<span class="everify__piece-variant"> · ' + esc(variant) + '</span>' : '';
+        var img = p.featured_image
+          ? '<img src="' + esc(p.featured_image) + '&width=120' + '" alt="" loading="lazy">'
+          : '';
+        slot.innerHTML = '<a class="everify__piece" href="' + esc(href) + '">' + img +
+          '<div class="everify__piece-text"><p class="everify__piece-ey">' + esc(T.pieceEy) +
+          '</p><p class="everify__piece-name">' + esc(p.title || T.viewPiece) + sub + '</p></div></a>';
+      })
+      .catch(function () {});
+  }
+
+  // ── Llamada a la RPC de Supabase ────────────────────────────────────────────
+  function verify(payload) {
+    if (!configured) {
+      stage.innerHTML = '<p class="everify__unavailable">' + esc(T.error) + '</p>';
+      return;
+    }
+    showLoading();
+    fetch(SB_URL + '/rest/v1/rpc/verify_certificate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'apikey': SB_KEY, 'Authorization': 'Bearer ' + SB_KEY },
+      body: JSON.stringify(payload),
+    })
+      .then(function (r) { return r.ok ? r.json() : Promise.reject(new Error('http ' + r.status)); })
+      .then(function (data) {
+        // La RPC devuelve { ok, serial, product_handle, sku, production_date, scan_count }
+        if (data && data.ok) showValid(data);
+        else showInvalid();
+      })
+      .catch(function () { showError(); });
+  }
+
+  // ── Entrada manual por serial ───────────────────────────────────────────────
+  if (form) {
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var serial = (input.value || '').trim();
+      if (!serial) { input.focus(); return; }
+      verify({ p_token: null, p_serial: serial });
+    });
+  }
+
+  // ── Auto-verificación desde el QR (?k=TOKEN) ────────────────────────────────
+  var token = null;
+  try { token = new URLSearchParams(window.location.search).get('k'); } catch (e) {}
+  if (token) verify({ p_token: token, p_serial: null });
+})();
+</script>
+
+{% schema %}
+{
+  "name": "Verificación ELYXIE",
+  "tag": "section",
+  "settings": [
+    { "type": "text", "id": "eyebrow", "label": "Eyebrow", "info": "Vacío = 'Autenticidad' / 'Authenticity'" },
+    { "type": "text", "id": "heading", "label": "Título", "info": "Vacío = título de la página (page.title)" },
+    { "type": "text", "id": "lede", "label": "Frase de entrada", "info": "Vacío = frase de marca bilingüe por defecto" },
+    { "type": "header", "content": "Conexión Supabase", "info": "La anon key es pública por diseño: solo puede invocar la RPC verify_certificate." },
+    { "type": "text", "id": "supabase_url", "label": "Supabase URL", "info": "Ej. https://xxxx.supabase.co" },
+    { "type": "text", "id": "supabase_anon_key", "label": "Supabase anon key" }
+  ],
+  "presets": [{ "name": "Verificación ELYXIE" }]
+}
+{% endschema %}

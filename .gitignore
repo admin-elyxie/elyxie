@@ -10,6 +10,9 @@ node_modules/
 # Local-only model backup
 assets/models/angel.original.glb
 
+# CSV de certificados generados (contienen tokens — nunca commitear)
+scripts/out/
+
 # Local-only / repo-recovery artifacts
 .git.broken/
 HANDOFF.md

@@ -1,0 +1,15 @@
+{
+  "layout": "elyxie-page",
+  "sections": {
+    "main": {
+      "type": "elyxie-verify",
+      "settings": {
+        "supabase_url": "https://qjtvfuigmvooujxtygcc.supabase.co",
+        "supabase_anon_key": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFqdHZmdWlnbXZvb3VqeHR5Z2NjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIxNjgzMzgsImV4cCI6MjA5Nzc0NDMzOH0.o0XHQceHTV8apAyA5XZV7I7GFHKC4JlkWNfNnmgEOzM"
+      }
+    }
+  },
+  "order": [
+    "main"
+  ]
+}
