@@ -192,11 +192,11 @@ function Hero({ lang, tweaks, pendantRef }) {
   // Phase snap on idle — native scroll for input, smooth tween for snap.
   // Letting the browser handle the wheel/touch directly keeps input feeling
   // crisp (no interception lag, no velocity gap). When the user pauses for
-  // IDLE_MS the snap tween (easeOutCubic, 3000 ms) carries scroll to the next
+  // IDLE_MS the snap tween (easeOutQuad, 1800 ms) carries scroll to the next
   // phase midpoint in the direction of motion. Native momentum + tween share
   // similar velocity magnitudes, so the handoff is continuous instead of a
   // sudden kick. Honors prefers-reduced-motion (jumps instantly).
-  // The same 3000 ms duration is used for rail-button clicks (via tweenToRef)
+  // The same 1800 ms duration is used for rail-button clicks (via tweenToRef)
   // so the page has ONE consistent transition feel regardless of trigger.
   useEffect(() => {
     const wrap = wrapRef.current;
@@ -207,7 +207,18 @@ function Hero({ lang, tweaks, pendantRef }) {
     // designed maximum. 0 and 1 anchor the entry / exit boundaries.
     const SNAP_POINTS = [0.00, 0.29, 0.50, 0.70, 0.90, 1.00];
     const IDLE_MS = 160;
-    const SNAP_DURATION = 3000;
+    // 1800 ms + easeOutQuad (era 3000 ms + easeOutCubic). La escena comprime
+    // sus morphs en bandas estrechas de scroll pegadas al ancla destino, y la
+    // cola del cubic (el último 1/3 del tiempo recorre ~3.7% de la distancia)
+    // cruzaba justo esas bandas a paso muerto: en cada transición el ángel
+    // quedaba visualmente congelado 0.7–2.1 s y luego descargaba el morph en
+    // una ráfaga (medido: burst pico/media 3.4–8.1× y ventanas estáticas de
+    // 733–2143 ms dentro del tween). El quad reparte la distancia con una
+    // cola mucho más corta: mismas anclas, morph continuo (ventanas estáticas
+    // ≤ ~450 ms y solo de asentamiento final, burst ≤ ~3×). La velocidad
+    // inicial se conserva (2·D/1800 ≈ 3·D/3000), así que el handoff desde el
+    // momentum nativo del trackpad se siente igual que antes.
+    const SNAP_DURATION = 1800;
     // MediaQueryList vivo (no un boolean congelado al montar): si el usuario
     // activa reduced-motion con la página abierta, el siguiente snap ya salta
     // sin animación.
@@ -225,7 +236,7 @@ function Hero({ lang, tweaks, pendantRef }) {
     // was started by a click. Internal snap-to-next tweens leave it 0.
     let snapCooldownUntil = 0;
 
-    const easeOutCubic = (k) => 1 - Math.pow(1 - k, 3);
+    const easeOutQuad = (k) => 1 - (1 - k) * (1 - k);
     const pinTop = () => wrap.offsetTop;
     const pinTotal = () => Math.max(1, wrap.offsetHeight - window.innerHeight);
     const progressY = (p) => pinTop() + p * pinTotal();
@@ -248,7 +259,7 @@ function Hero({ lang, tweaks, pendantRef }) {
       cancelCoast();
     }
     // `duration` is optional. Both idle-snap AND rail-button clicks use
-    // SNAP_DURATION (3000 ms) — the page has a single, consistent
+    // SNAP_DURATION (1800 ms) — the page has a single, consistent
     // transition feel regardless of how the section change was initiated.
     // `isUserClick` flags rail-button-initiated tweens: on completion we
     // arm a 600 ms snap cooldown so the idle detector can't immediately
@@ -275,7 +286,7 @@ function Hero({ lang, tweaks, pendantRef }) {
       let prevT = t0, prevY = startY;
       function step(t) {
         const k = Math.min(1, (t - t0) / dur);
-        const next = startY + (endY - startY) * easeOutCubic(k);
+        const next = startY + (endY - startY) * easeOutQuad(k);
         snapVel = (next - prevY) / Math.max(1, t - prevT);
         prevT = t; prevY = next;
         lastY = next;
@@ -517,9 +528,8 @@ function Hero({ lang, tweaks, pendantRef }) {
     // `snapping=true` for its duration so the snap's onScroll listener
     // early-returns, and the idle-snap detector can't grab the in-flight
     // scroll and pull it to a neighbouring SNAP_POINT.
-    // No duration override → uses SNAP_DURATION (2100 ms), so a rail-
-    // button click feels identical to the idle-snap transition (the
-    // "~3 seconds" feel the rest of the page already has).
+    // No duration override → uses SNAP_DURATION (1800 ms), so a rail-
+    // button click feels identical to the idle-snap transition.
     if (tweenToRef.current) {
       tweenToRef.current(p);
       return;
