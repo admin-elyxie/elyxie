@@ -105,6 +105,47 @@ function rgbLerpArr(a, b, t) {
 }
 
 // ===========================================================
+//  HeroBgVideo — persistent looping backdrop video
+// ===========================================================
+// The hero's four backdrop videos (laguna, tribu, templo día/noche) used to
+// mount/unmount with their scroll gates (`return null` under 0.5% wrapper
+// opacity). Every phase-boundary crossing therefore rebuilt a 2160p <video>
+// from scratch — fetch + decoder init + first frame — right in the middle
+// of a transition (15 <video> creations measured across 2 scroll passes).
+// Now the element stays mounted for the whole pin and only PLAYBACK is
+// gated: pause() while the wrapper sits at ~0 opacity, play() when it comes
+// back, so hidden phases don't pay 3–4 continuously-decoding streams.
+// `key={src}` stays on the <video>: a vidTier breakpoint flip changes the
+// tier suffix in `src` and must still remount so the new rendition is
+// fetched (swapping <source> alone wouldn't reload the element).
+function HeroBgVideo({ src, className, poster, active }) {
+  const ref = useRef(null);
+  useEffect(() => {
+    const v = ref.current;
+    if (!v) return;
+    if (active) {
+      const p = v.play();
+      // play() can reject on autoplay-policy edge cases or when a pause()
+      // lands before the promise resolves — both benign here (muted loop).
+      if (p && p.catch) p.catch(() => {});
+    } else {
+      v.pause();
+    }
+  }, [active, src]);
+  // autoPlay only while active: an inactive mount (page load on a phase
+  // where this backdrop is hidden) must not spin the decoder up just for
+  // the effect above to pause it one tick later. preload="auto" still
+  // warms the fetch so the later play() starts from cache.
+  return (
+    <video key={src} ref={ref} className={className}
+           autoPlay={active} muted loop playsInline preload="auto"
+           poster={poster}>
+      <source src={src} type="video/mp4" />
+    </video>
+  );
+}
+
+// ===========================================================
 //  Hero (scroll-pinned)
 // ===========================================================
 function Hero({ lang, tweaks, pendantRef }) {
@@ -142,10 +183,8 @@ function Hero({ lang, tweaks, pendantRef }) {
   // stale clip to returning visitors.
   const bgVideoSrc = (base) =>
     ELYXIE_ASSET(`assets/video/${base}-${{ m: '1080', t: '1440', d: '2160' }[vidTier]}.mp4`);
-  // Exposed by the snap useEffect so the left-rail buttons can route their
-  // scroll through the SAME tween (with `snapping=true` flag), bypassing
-  // the idle-snap detector that would otherwise grab the in-flight smooth
-  // scroll and tween it to the wrong SNAP_POINT.
+  // Exposed by the rail-navigation effect so left-rail buttons can move to a
+  // narrative anchor without reintroducing automatic wheel/touch snapping.
   const tweenToRef = useRef(null);
 
   // pin viewports controlled by tweaks
@@ -189,191 +228,60 @@ function Hero({ lang, tweaks, pendantRef }) {
     };
   }, [pendantRef]);
 
-  // Phase snap on idle — native scroll for input, smooth tween for snap.
-  // Letting the browser handle the wheel/touch directly keeps input feeling
-  // crisp (no interception lag, no velocity gap). When the user pauses for
-  // IDLE_MS the snap tween (easeOutQuad, 1800 ms) carries scroll to the next
-  // phase midpoint in the direction of motion. Native momentum + tween share
-  // similar velocity magnitudes, so the handoff is continuous instead of a
-  // sudden kick. Honors prefers-reduced-motion (jumps instantly).
-  // The same 1800 ms duration is used for rail-button clicks (via tweenToRef)
-  // so the page has ONE consistent transition feel regardless of trigger.
+  // Intentional rail navigation only. Wheel/touch scrolling stays entirely
+  // native: an idle snap used to wait 160 ms, then ease the page for 1.8 s to
+  // the next anchor. The 3D keyframes also ease into those same anchors, so the
+  // two curves multiplied into a visible pause→burst→pause pattern.
+  //
+  // Rail clicks still need a controlled transition, but progress is LINEAR so
+  // the 3D scene remains the single owner of spatial easing. Duration scales
+  // with distance instead of taking the same 1.8 s for a few pixels and for a
+  // full-page jump. Any direct wheel/touch input cancels the rail tween.
   useEffect(() => {
     const wrap = wrapRef.current;
     if (!wrap) return;
-
-    // Midpoints of each phase range — active copy sits at peak legibility and
-    // phase-tied visuals (Laguna Negra backdrop peaks at 0.29) hit their
-    // designed maximum. 0 and 1 anchor the entry / exit boundaries.
-    const SNAP_POINTS = [0.00, 0.29, 0.50, 0.70, 0.90, 1.00];
-    const IDLE_MS = 160;
-    // 1800 ms + easeOutQuad (era 3000 ms + easeOutCubic). La escena comprime
-    // sus morphs en bandas estrechas de scroll pegadas al ancla destino, y la
-    // cola del cubic (el último 1/3 del tiempo recorre ~3.7% de la distancia)
-    // cruzaba justo esas bandas a paso muerto: en cada transición el ángel
-    // quedaba visualmente congelado 0.7–2.1 s y luego descargaba el morph en
-    // una ráfaga (medido: burst pico/media 3.4–8.1× y ventanas estáticas de
-    // 733–2143 ms dentro del tween). El quad reparte la distancia con una
-    // cola mucho más corta: mismas anclas, morph continuo (ventanas estáticas
-    // ≤ ~450 ms y solo de asentamiento final, burst ≤ ~3×). La velocidad
-    // inicial se conserva (2·D/1800 ≈ 3·D/3000), así que el handoff desde el
-    // momentum nativo del trackpad se siente igual que antes.
-    const SNAP_DURATION = 1800;
-    // MediaQueryList vivo (no un boolean congelado al montar): si el usuario
-    // activa reduced-motion con la página abierta, el siguiente snap ya salta
-    // sin animación.
     const PRMQ = window.matchMedia('(prefers-reduced-motion: reduce)');
-
-    let lastDirection = 1;
-    let idleTimer = 0;
-    let snapRaf = 0;
-    let snapping = false;
-    let lastY = window.scrollY;
-    // After a rail-button click finishes its tween, the final 'scroll'
-    // event arms idleTimer for snapToNext, which would yank the user
-    // off the SNAP_POINT they explicitly chose. Suppress snapToNext
-    // until this timestamp (performance.now() + 600 ms) when the tween
-    // was started by a click. Internal snap-to-next tweens leave it 0.
-    let snapCooldownUntil = 0;
-
-    const easeOutQuad = (k) => 1 - (1 - k) * (1 - k);
+    let tweenRaf = 0;
     const pinTop = () => wrap.offsetTop;
     const pinTotal = () => Math.max(1, wrap.offsetHeight - window.innerHeight);
     const progressY = (p) => pinTop() + p * pinTotal();
-    const currentProgress = () => Math.max(0, Math.min(1, (window.scrollY - pinTop()) / pinTotal()));
-    const isInside = () => {
-      const rect = wrap.getBoundingClientRect();
-      return rect.top <= 0.5 && rect.bottom >= window.innerHeight - 0.5;
-    };
-
-    let snapVel = 0;   // px/ms del tween en curso — alimenta el coast del wheel
-    let coastRaf = 0;
-    function cancelCoast() {
-      if (coastRaf) cancelAnimationFrame(coastRaf);
-      coastRaf = 0;
+    function cancelTween() {
+      if (tweenRaf) cancelAnimationFrame(tweenRaf);
+      tweenRaf = 0;
     }
-    function cancelSnap() {
-      if (snapRaf) cancelAnimationFrame(snapRaf);
-      snapRaf = 0;
-      snapping = false;
-      cancelCoast();
-    }
-    // `duration` is optional. Both idle-snap AND rail-button clicks use
-    // SNAP_DURATION (1800 ms) — the page has a single, consistent
-    // transition feel regardless of how the section change was initiated.
-    // `isUserClick` flags rail-button-initiated tweens: on completion we
-    // arm a 600 ms snap cooldown so the idle detector can't immediately
-    // pull the user off the SNAP_POINT they explicitly chose.
-    function tweenTo(targetProgress, duration, isUserClick) {
-      cancelSnap();
-      // Clamp + finite guard: a target outside [0,1] (or NaN geometry from a
-      // mid-resize probe) must never become a scrollTo() outside the pin —
-      // the failure mode is an instant jump to the top of the page. Same
-      // guard for a degenerate pin (offsetHeight 0 mid-layout → pinTotal 1).
+    function tweenTo(targetProgress) {
+      cancelTween();
       if (pinTotal() <= 1) return;
       const endY = progressY(Math.max(0, Math.min(1, targetProgress)));
       if (!isFinite(endY)) return;
-      if (PRMQ.matches) {
+      const startY = window.scrollY;
+      const distance = Math.abs(endY - startY);
+      if (PRMQ.matches || distance < 1) {
         window.scrollTo({ top: endY });
-        lastY = endY;
-        if (isUserClick) snapCooldownUntil = performance.now() + 600;
         return;
       }
-      snapping = true;
-      const startY = window.scrollY;
-      const dur = (typeof duration === 'number' && duration > 0) ? duration : SNAP_DURATION;
+      // About 520 ms per viewport, bounded so adjacent anchors stay brisk and
+      // a long rail jump never turns into another multi-second tunnel.
+      const duration = Math.max(320, Math.min(1000,
+        (distance / Math.max(1, window.innerHeight)) * 520
+      ));
       const t0 = performance.now();
-      let prevT = t0, prevY = startY;
       function step(t) {
-        const k = Math.min(1, (t - t0) / dur);
-        const next = startY + (endY - startY) * easeOutQuad(k);
-        snapVel = (next - prevY) / Math.max(1, t - prevT);
-        prevT = t; prevY = next;
-        lastY = next;
+        const k = Math.min(1, (t - t0) / duration);
+        const next = startY + (endY - startY) * k;
         window.scrollTo({ top: next });
-        if (k < 1) snapRaf = requestAnimationFrame(step);
-        else {
-          snapRaf = 0;
-          snapping = false;
-          if (isUserClick) snapCooldownUntil = performance.now() + 600;
-        }
+        if (k < 1) tweenRaf = requestAnimationFrame(step);
+        else tweenRaf = 0;
       }
-      snapRaf = requestAnimationFrame(step);
+      tweenRaf = requestAnimationFrame(step);
     }
-    // Expose to the rail-button click handler. Pass isUserClick=true so
-    // the cooldown is armed. Cleared in the cleanup below.
-    tweenToRef.current = (p, d) => tweenTo(p, d, true);
-
-    function snapToNext() {
-      if (snapping || !isInside()) return;
-      if (performance.now() < snapCooldownUntil) return;
-      // Geometría degenerada (offsetHeight aún 0 en mitad de un layout o
-      // resize): pinTotal() colapsa a 1 y cualquier target se convertiría en
-      // un scrollTo a ≈0 — el «salto al inicio» que rompía producción.
-      if (pinTotal() <= 1) return;
-      const p = currentProgress();
-      let target;
-      if (lastDirection > 0) target = SNAP_POINTS.find((s) => s > p + 0.005);
-      else for (let i = SNAP_POINTS.length - 1; i >= 0; i--) {
-        if (SNAP_POINTS[i] < p - 0.005) { target = SNAP_POINTS[i]; break; }
-      }
-      if (target === undefined) return; // already at an edge; let user exit
-      tweenTo(target);
-    }
-
-    function onScroll() {
-      const y = window.scrollY;
-      if (snapping) { lastY = y; return; }
-      const dy = y - lastY;
-      lastY = y;
-      if (dy !== 0) lastDirection = dy > 0 ? 1 : -1;
-      if (!isInside()) return;
-      clearTimeout(idleTimer);
-      idleTimer = setTimeout(snapToNext, IDLE_MS);
-    }
-    function onWheel(e) {
-      // A wheel during a snap hands control back to native scroll. If the
-      // push va en la MISMA dirección que viajaba el tween, su velocidad
-      // decae en ~150 ms en vez de congelarse — el traspaso se lee como un
-      // solo gesto. Un push opuesto es cancelación dura: el usuario está
-      // revirtiendo y cualquier coast pelearía contra él.
-      if (!snapping) return;
-      // Los eventos de fin de momentum de macOS llegan con deltaY=0: no son
-      // intención del usuario y cancelarían el tween a mitad de vuelo dejando
-      // la página en reposo FUERA de un ancla (sin nada que re-arme el snap).
-      if (!e.deltaY) return;
-      const v0 = snapVel;
-      const sameDir = Math.sign(e.deltaY) === Math.sign(v0);
-      cancelSnap();
-      if (!sameDir || Math.abs(v0) < 0.05) return;
-      const COAST_MS = 150;
-      const t0c = performance.now();
-      let prevC = t0c;
-      function coastStep(t) {
-        coastRaf = 0;
-        const elapsed = t - t0c;
-        if (elapsed >= COAST_MS || snapping) return;
-        const dtms = t - prevC; prevC = t;
-        window.scrollBy(0, v0 * (1 - elapsed / COAST_MS) * dtms);
-        coastRaf = requestAnimationFrame(coastStep);
-      }
-      coastRaf = requestAnimationFrame(coastStep);
-    }
-    function onTouchStart() {
-      // El dedo es manipulación directa: corte limpio, sin coast.
-      if (snapping) cancelSnap();
-      cancelCoast();
-    }
-
-    window.addEventListener('scroll', onScroll, { passive: true });
-    window.addEventListener('wheel', onWheel, { passive: true });
-    window.addEventListener('touchstart', onTouchStart, { passive: true });
+    tweenToRef.current = tweenTo;
+    window.addEventListener('wheel', cancelTween, { passive: true });
+    window.addEventListener('touchstart', cancelTween, { passive: true });
     return () => {
-      window.removeEventListener('scroll', onScroll);
-      window.removeEventListener('wheel', onWheel);
-      window.removeEventListener('touchstart', onTouchStart);
-      clearTimeout(idleTimer);
-      cancelSnap();
+      window.removeEventListener('wheel', cancelTween);
+      window.removeEventListener('touchstart', cancelTween);
+      cancelTween();
       tweenToRef.current = null;
     };
   }, []);
@@ -465,18 +373,18 @@ function Hero({ lang, tweaks, pendantRef }) {
   const [almaNight, setAlmaNight] = React.useState(false);
   // ALMA temple backdrop bloom. The temple now LEADS the angel instead of
   // trailing it. Previously this was a symmetric gaussian (peak 0.70, σ=0.105)
-  // whose opacity only reached full AT 0.70 — the same point the angel snaps
-  // to its resting ALMA pose. Because the angel CENTRES earlier (its X-centre
+  // whose opacity only reached full AT 0.70 — the angel's resting ALMA pose.
+  // Because the angel CENTRES earlier (its X-centre
   // peaks at ~0.63 and its scale is ~93% by 0.68), the backdrop visibly
   // "arrived late": the angel looked settled while the frame was still dark,
-  // and the temple only filled in over the slow 3 s snap to 0.70. The user
+  // and the temple only filled in late on the way to 0.70. The user
   // asked for the opposite — the backdrop should already be applied by the
   // time the angel is positioned.
   //
   // So the LEADING edge (progress < 0.70) now ramps in across [0.54, 0.62]
   // via smootherstep, reaching FULL opacity at 0.62 — so the temple is fully
   // placed BEFORE the angel even centres (~0.63) and well before the 0.70
-  // rest snap. The TRAILING edge (progress ≥ 0.70) keeps the original gaussian
+  // rest anchor. The TRAILING edge (progress ≥ 0.70) keeps the original gaussian
   // (σ=0.105) so the ALMA→EDICIÓN handoff and the day/night behaviour above
   // 0.70 are byte-unchanged. The two branches both equal 1 at 0.70, so the
   // curve is continuous. It is exactly 0 at/below 0.54, so nothing bleeds into
@@ -512,11 +420,11 @@ function Hero({ lang, tweaks, pendantRef }) {
   const activeIdx = PHASES.findIndex(p => progress >= p.range[0] && progress < p.range[1]);
   const activeIndex = activeIdx === -1 ? (progress >= 1 ? PHASES.length - 1 : 0) : activeIdx;
 
-  // Per-phase scroll targets (progress 0..1) for the left-rail stepper
-  // buttons. Mirror the SNAP_POINTS used by the idle-snap logic so a
-  // clicked phase lands exactly where the idle snap would put it:
-  //   01 BIENVENIDA → 0.00 (entry)
-  //   02 ORIGEN     → 0.29 (midpoint, peak of Laguna Negra backdrop)
+  // Per-phase narrative anchors (progress 0..1) for the left-rail stepper.
+  // Wheel/touch never snap to these points; only an explicit rail activation
+  // invokes the proportional linear tween above:
+  //   01 ORIGEN     → 0.00 (entry)
+  //   02 HISTORIA   → 0.29 (midpoint, peak of Laguna Negra backdrop)
   //   03 MATERIA    → 0.50 (midpoint, trio peak)
   //   04 ALMA       → 0.70 (midpoint)
   //   05 EDICIÓN    → 0.90 (midpoint)
@@ -524,18 +432,13 @@ function Hero({ lang, tweaks, pendantRef }) {
   // full label box (num + label inside the .stepper__item div).
   const PHASE_SCROLL_TARGETS = [0.00, 0.29, 0.50, 0.70, 0.90];
   const scrollToProgress = (p) => {
-    // Route through the snap useEffect's internal tween: it sets
-    // `snapping=true` for its duration so the snap's onScroll listener
-    // early-returns, and the idle-snap detector can't grab the in-flight
-    // scroll and pull it to a neighbouring SNAP_POINT.
-    // No duration override → uses SNAP_DURATION (1800 ms), so a rail-
-    // button click feels identical to the idle-snap transition.
+    // Route explicit navigation through the distance-aware rail tween.
     if (tweenToRef.current) {
       tweenToRef.current(p);
       return;
     }
-    // Fallback (shouldn't happen — the snap effect mounts alongside the
-    // rail). Native smooth-scroll if the ref isn't ready yet.
+    // Fallback (shouldn't happen — the rail-navigation effect mounts alongside
+    // the rail). Native smooth-scroll if the ref isn't ready yet.
     const wrap = wrapRef.current;
     if (!wrap) return;
     const total = Math.max(1, wrap.offsetHeight - window.innerHeight);
@@ -577,42 +480,42 @@ function Hero({ lang, tweaks, pendantRef }) {
         })()}
 
         {/* Phase 04 (ALMA) temple backdrop — two stacked layers (day + night)
-            that cross-fade every 5 s. The CSS transition on .alma-bg gives a
+            that cross-fade every 7 s. The CSS transition on .alma-bg gives a
             ~1.1 s ease; the wrapping `almaGate` gaussian (peak tRaw=0.70) keeps
-            both layers hidden outside ALMA. Skipped from the tree entirely
-            below 0.5% gate so phases 01/02/03/05 don't pay any cost. */}
-        {almaGate > 0.005 ? (() => {
-          // Temple day/night now play as looping videos (replacing the stills).
+            both layers hidden outside ALMA. Both wrappers stay mounted for the
+            whole pin (persistent HeroBgVideo — no <video> rebuild on every
+            ALMA entry); outside ALMA the loops sit paused at opacity 0. */}
+        {(() => {
+          // Temple day/night play as looping videos (replacing the stills).
           // Same responsive pattern as the Tribu/Laguna backdrops: tiered
-          // 1080/1440/2160 renditions via bgVideoSrc; the `key` forces
-          // a remount when the breakpoint flips so the new source is fetched.
-          // The poster still (background-image on the wrapper) paints the first
-          // frame while the loop decodes. Both layers stay mounted and playing
-          // while ALMA is on screen; the day/night beat just cross-fades their
-          // wrapper opacity (almaNight).
-          const daySrc   = bgVideoSrc('templo-dia-bg');
-          const nightSrc = bgVideoSrc('templo-noche-bg');
+          // 1080/1440/2160 renditions via bgVideoSrc; HeroBgVideo keeps
+          // key={src} so a breakpoint flip still remounts + refetches.
+          // The poster still (background-image on the wrapper) paints the
+          // first frame while the loop decodes. `active` follows the SCROLL
+          // gate only, not the almaNight beat: while ALMA is on screen both
+          // layers keep playing — pausing the hidden one would freeze it
+          // mid-crossfade (the 1.1 s CSS transition runs while its target
+          // opacity is already 0).
+          const almaActive = almaGate > 0.005;
           return (
             <React.Fragment>
               <div className="alma-bg alma-bg--day"
                    aria-hidden
                    style={{ opacity: almaGate * (almaNight ? 0 : 1) }}>
-                <video key={daySrc} className="alma-bg__video"
-                       autoPlay muted loop playsInline preload="auto">
-                  <source src={daySrc} type="video/mp4" />
-                </video>
+                <HeroBgVideo src={bgVideoSrc('templo-dia-bg')}
+                             className="alma-bg__video"
+                             active={almaActive} />
               </div>
               <div className="alma-bg alma-bg--night"
                    aria-hidden
                    style={{ opacity: almaGate * (almaNight ? 1 : 0) }}>
-                <video key={nightSrc} className="alma-bg__video"
-                       autoPlay muted loop playsInline preload="auto">
-                  <source src={nightSrc} type="video/mp4" />
-                </video>
+                <HeroBgVideo src={bgVideoSrc('templo-noche-bg')}
+                             className="alma-bg__video"
+                             active={almaActive} />
               </div>
             </React.Fragment>
           );
-        })() : null}
+        })()}
 
         {/* Phase 01→02 backdrop crossfade (Laguna video ⇄ Tribu video).
             The two videos cross-fade as COMPLEMENTARY opacities so their sum
@@ -626,12 +529,13 @@ function Hero({ lang, tweaks, pendantRef }) {
           const ss = (x) => { x = clamp01(x); return x * x * (3 - 2 * x); };
           const s1s2 = ss((progress - 0.10) / 0.10);
           const o = 1 - s1s2; // Laguna covers section 1, hands off to Tribu by 0.20
-          if (o <= 0.005) return null;
           // Responsive source: tiered 1080/1440/2160 renditions via bgVideoSrc
           // (same pattern as the Tribu/temple backdrops). The tier suffix in the
           // filename doubles as the content version — these files are new names
           // on the CDN, so returning visitors can't get the stale cached clip.
-          const src = bgVideoSrc('origen-bg');
+          // Wrapper stays mounted for the whole pin; below ~0 opacity the loop
+          // just pauses (HeroBgVideo) instead of unmounting, so scrolling back
+          // into ORIGEN never rebuilds the <video> mid-crossfade.
           return (
             <div
               className="laguna-bg"
@@ -647,18 +551,12 @@ function Hero({ lang, tweaks, pendantRef }) {
                   immediately (no flash of empty wrapper while the video
                   decodes). filter + opacity stay on the wrapper div so the
                   GPU composites them once instead of re-running per frame. */}
-              <video
-                key={src}
+              <HeroBgVideo
+                src={bgVideoSrc('origen-bg')}
                 className="laguna-bg__video"
-                autoPlay
-                muted
-                loop
-                playsInline
-                preload="auto"
                 poster={ELYXIE_ASSET('assets/photography/laguna-negra-bg.webp')}
-              >
-                <source src={src} type="video/mp4" />
-              </video>
+                active={o > 0.005}
+              />
             </div>
           );
         })()}
@@ -668,10 +566,11 @@ function Hero({ lang, tweaks, pendantRef }) {
             GPU composite), the <video> inside fills via object-fit:cover.
             Gaussian peaks at progress=0.29 (HISTORIA's beat) and decays to
             ~0 by the ORIGEN opener and by MATERIA, so it never bleeds into
-            adjacent phases. Mounted only above 0.5% so phases 01/03/04/05
-            pay nothing. Responsive source: tiered 1080/1440/2160 renditions
-            via bgVideoSrc. The `key` on <video> forces React
-            to remount when the breakpoint flips so the new source is fetched. */}
+            adjacent phases. Wrapper stays mounted for the whole pin; under
+            ~0 opacity the loop pauses (HeroBgVideo) instead of unmounting.
+            Responsive source: tiered 1080/1440/2160 renditions via
+            bgVideoSrc; HeroBgVideo keeps key={src} so a breakpoint flip
+            still remounts the element and fetches the new rendition. */}
         {(() => {
           // Complementary to the Laguna fade above: tribu = s1s2 (rises as
           // laguna falls, so coverage stays ~1 → no green gap), then fades out
@@ -682,8 +581,6 @@ function Hero({ lang, tweaks, pendantRef }) {
           const s1s2 = ss((progress - 0.10) / 0.10);
           const tribuOut = ss((progress - 0.36) / 0.08);
           const o = s1s2 * (1 - tribuOut);
-          if (o <= 0.005) return null;
-          const src = bgVideoSrc('tribu-bg');
           return (
             <div
               className="tribu-bg"
@@ -693,17 +590,11 @@ function Hero({ lang, tweaks, pendantRef }) {
                 filter: `brightness(${1 - 0.20 * o}) contrast(${1 + 0.08 * o}) saturate(${1 + 0.06 * o})`,
               }}
             >
-              <video
-                key={src}
+              <HeroBgVideo
+                src={bgVideoSrc('tribu-bg')}
                 className="tribu-bg__video"
-                autoPlay
-                muted
-                loop
-                playsInline
-                preload="auto"
-              >
-                <source src={src} type="video/mp4" />
-              </video>
+                active={o > 0.005}
+              />
             </div>
           );
         })()}
@@ -739,13 +630,10 @@ function Hero({ lang, tweaks, pendantRef }) {
           <div className="frame__cross frame__cross--br"></div>
         </div>
 
-        {/* Stepper sits along the left rail; ticks cross the rail line.
-            Phases 01/02/03/05 act as click targets that scroll to their
-            snap-point (PHASE_SCROLL_TARGETS above); 04 ALMA stays inert by
-            design — its target is null. The stepper container drops
-            `aria-hidden` because some items are now real interactive
-            controls (kept hidden on items without a target). Visual layout
-            is untouched; only an interaction layer was added. */}
+        {/* Stepper sits along the left rail; ticks cross the rail line. All five
+            phases act as click targets for PHASE_SCROLL_TARGETS above. The
+            stepper container is not aria-hidden because its rows are real
+            interactive controls. Visual layout is untouched. */}
         <div className="stepper">
           {PHASES.map((p, i) => {
             const target = PHASE_SCROLL_TARGETS[i];

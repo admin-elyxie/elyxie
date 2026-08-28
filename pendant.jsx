@@ -19,6 +19,76 @@ const smootherstep = (t) => { const x = t < 0 ? 0 : t > 1 ? 1 : t; return x * x 
 const lerp = (a, b, t) => a + (b - a) * t;
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
+// The model's apparent size follows a mostly-linear track. Tiny Hermite
+// windows around the authored poses round each change of direction without
+// spreading a zero-velocity ease across an entire section transition.
+const SPATIAL_TRACK_STOPS = [0, 0.29, 0.50, 0.60, 0.70, 0.90, 1];
+const SPATIAL_SHOULDER_WEIGHT = Math.exp(-Math.pow(0.10 / 0.075, 2));
+function sampleRoundedLinearTrack(progress, values, cornerRadius = 0.008) {
+  const last = SPATIAL_TRACK_STOPS.length - 1;
+  if (progress <= SPATIAL_TRACK_STOPS[0]) return values[0];
+  if (progress >= SPATIAL_TRACK_STOPS[last]) return values[last];
+
+  const hermite = (from, to, fromSlope, toSlope, span, t) => {
+    const t2 = t * t;
+    const t3 = t2 * t;
+    return (2 * t3 - 3 * t2 + 1) * from
+      + (t3 - 2 * t2 + t) * span * fromSlope
+      + (-2 * t3 + 3 * t2) * to
+      + (t3 - t2) * span * toSlope;
+  };
+
+  for (let i = 1; i < last; i++) {
+    const stop = SPATIAL_TRACK_STOPS[i];
+    const radius = Math.min(
+      cornerRadius,
+      (stop - SPATIAL_TRACK_STOPS[i - 1]) / 3,
+      (SPATIAL_TRACK_STOPS[i + 1] - stop) / 3
+    );
+    if (Math.abs(progress - stop) > radius) continue;
+
+    const leftSlope = (values[i] - values[i - 1])
+      / (stop - SPATIAL_TRACK_STOPS[i - 1]);
+    const rightSlope = (values[i + 1] - values[i])
+      / (SPATIAL_TRACK_STOPS[i + 1] - stop);
+    // A real reversal must touch zero velocity at the pose. When direction is
+    // unchanged, the harmonic mean keeps the hand-off monotonic and moving.
+    const stopSlope = leftSlope * rightSlope <= 0
+      ? 0
+      : (2 * leftSlope * rightSlope) / (leftSlope + rightSlope);
+
+    if (progress <= stop) {
+      const fromProgress = stop - radius;
+      return hermite(
+        values[i] - leftSlope * radius,
+        values[i],
+        leftSlope,
+        stopSlope,
+        radius,
+        (progress - fromProgress) / radius
+      );
+    }
+    return hermite(
+      values[i],
+      values[i] + rightSlope * radius,
+      stopSlope,
+      rightSlope,
+      radius,
+      (progress - stop) / radius
+    );
+  }
+
+  for (let i = 0; i < last; i++) {
+    const fromProgress = SPATIAL_TRACK_STOPS[i];
+    const toProgress = SPATIAL_TRACK_STOPS[i + 1];
+    if (progress <= toProgress) {
+      return lerp(values[i], values[i + 1],
+        (progress - fromProgress) / (toProgress - fromProgress));
+    }
+  }
+  return values[last];
+}
+
 // Inside the Shopify theme, assets live in a flat (CDN) `assets/` dir; the
 // section injects ELYXIE_ASSET() to resolve any path by basename. On the
 // standalone page ELYXIE_ASSET is undefined → fall back to the path.
@@ -1463,17 +1533,29 @@ float gNoise(vec3 x){ vec3 i=floor(x), f=fract(x); f=f*f*(3.0-2.0*f);
             }
           }
 
-          // The angel is now built, materialed, scaled, centered and added to
-          // the live scene. Wait for TWO animation frames so the render loop
-          // has actually PAINTED at least one frame containing the model, then
-          // announce readiness. The splash overlay (index.html) listens for
-          // this and only fades out once the angel is genuinely on screen —
-          // never before — so the page is never revealed empty mid-load.
-          requestAnimationFrame(() => requestAnimationFrame(() => {
-            window.__angelReady = true;
-            window.dispatchEvent(new CustomEvent('angel-progress', { detail: 1 }));
-            window.dispatchEvent(new Event('angel-ready'));
-          }));
+          // Prewarm every material variant while the splash still covers the
+          // canvas. The MATERIA side angels start with visible=false, but
+          // renderer.compile() still traverses their materials; without this,
+          // their first reveal compiles three programs in the middle of scroll.
+          const announceReady = () => {
+            if (disposed) return;
+            // The initial flag above can be consumed before the GLB exists.
+            renderer.shadowMap.needsUpdate = true;
+            // Wait for TWO animation frames so the render loop has actually
+            // painted the model and its shadow before releasing the splash.
+            requestAnimationFrame(() => requestAnimationFrame(() => {
+              if (disposed) return;
+              window.__angelReady = true;
+              window.dispatchEvent(new CustomEvent('angel-progress', { detail: 1 }));
+              window.dispatchEvent(new Event('angel-ready'));
+            }));
+          };
+          Promise.resolve()
+            .then(() => typeof renderer.compileAsync === 'function'
+              ? renderer.compileAsync(scene, camera)
+              : renderer.compile(scene, camera))
+            .catch((error) => console.warn('Angel shader prewarm failed:', error))
+            .then(announceReady);
         },
         // onProgress: GLTFLoader forwards the underlying fetch ProgressEvent.
         // When the server sends Content-Length the event is lengthComputable
@@ -1887,11 +1969,10 @@ float gNoise(vec3 x){ vec3 i=floor(x), f=fract(x); f=f*f*(3.0-2.0*f);
         // Narrow portrait viewports: vertical FOV is the bottleneck so the
         // model can look oversized. Push the camera back proportionally so
         // the angel sits comfortably inside the frame on phones.
-        if (aspect < 0.75) {
-          camZ *= (0.75 / Math.max(aspect, 0.45)); // up to ~1.67× pullback on very tall portrait
-        } else if (aspect < 1.0) {
-          camZ *= 1.12;
-        }
+        const cameraAspectScale = aspect < 0.75
+          ? (0.75 / Math.max(aspect, 0.45)) // up to ~1.67× pullback on very tall portrait
+          : (aspect < 1.0 ? 1.12 : 1);
+        camZ *= cameraAspectScale;
         if (camZBase != null && tRaw < 0.55) {
           // On mobile, override the closeup-at-top with a steady framing so
           // the angel doesn't jump forward into the hero copy on first paint.
@@ -2030,11 +2111,12 @@ float gNoise(vec3 x){ vec3 i=floor(x), f=fract(x); f=f*f*(3.0-2.0*f);
         // block up top was overlapping the bright upper wings, and there was
         // unused space between the feet and the page base. Lowering the angel
         // moves the wings clear of the subtitle and fills that bottom band.
-        const pyAlmaShift = (isMobile ? 0.34 : isTablet ? 0.18 : -0.06) * phase04Proximity;
+        const almaVerticalOffset = isMobile ? 0.34 : isTablet ? 0.18 : -0.06;
         // EDICIÓN finale lift: raise the (now smaller) angel into the upper
         // third so the inscription below it never collides with the body or the
-        // orb. Pairs with editionTargetScale in the centerSpinner block. Gated
-        // by phase05Proximity (0 at ALMA → phase 04 untouched).
+        // orb. Pairs with editionTargetScale in the centerSpinner block. The
+        // shared spatial track carries this lift continuously out of ALMA;
+        // lighting and material changes keep their own phase proximities.
         // Mobile needs a markedly larger lift: the portrait aspect pulls the
         // camera far back (camZ ×≈1.05 + the phase-01 clamp), so each world
         // unit maps to fewer screen pixels and a 0.78 lift barely clears the
@@ -2083,14 +2165,23 @@ float gNoise(vec3 x){ vec3 i=floor(x), f=fract(x); f=f*f*(3.0-2.0*f);
         // editionAspectComp) relic's feet ride well ABOVE the tall fixed-height
         // inscription, leaving a clean gap instead of colliding with the eyebrow.
         // Only the SCALE is comp'd below.
-        const pyEditionShift = (isMobile ? 1.52 : isTablet ? 0.6 : 0.10) * phase05Proximity;
+        const editionVerticalOffset = isMobile ? 1.52 : isTablet ? 0.6 : 0.10;
+        const verticalShiftValues = [
+          0,
+          0,
+          0,
+          almaVerticalOffset * SPATIAL_SHOULDER_WEIGHT,
+          almaVerticalOffset,
+          editionVerticalOffset,
+          editionVerticalOffset
+        ];
+        const verticalSceneShift = sampleRoundedLinearTrack(tRaw, verticalShiftValues);
         // The idle vertical bob and the scroll-driven sin(tRaw·π) lift are both
         // gated by (1 - introHold) so the angel holds a DEAD-STILL vertical
         // position across sections 1+2 (user: nothing moves there). They return
         // to normal once the plateau eases out toward MATERIA.
         const py = -0.05 + pyOffset + pyOriginShift + py01Mobile
-                 + pyAlmaShift
-                 + pyEditionShift
+                 + verticalSceneShift
                  + Math.sin(clock.elapsed * 0.4) * 0.03 * (1 - phase05Proximity * 0.7) * (1 - introHold)
                  + Math.sin(tRaw * Math.PI) * 0.06 * (1 - introHold);
         // HISTORIA desktop pose: centre the small angel over the manta (X→0)
@@ -2284,42 +2375,39 @@ float gNoise(vec3 x){ vec3 i=floor(x), f=fract(x); f=f*f*(3.0-2.0*f);
               }
             }
             cs.rotation.y = visibleSpin + (sp.edition05Spin || 0);
-            // Center-angel scale composes MATERIA shrink (1.0 → 0.7) with
-            // an ALMA shrink. The two proximities don't overlap (MATERIA
-            // peaks 0.50, ALMA peaks 0.70 with σ≈0.075) so the lerps don't
-            // fight — at MATERIA peak the second lerp is a no-op
-            // (phase04Proximity≈0) and vice versa. ALMA shrinks the angel
-            // so the orb sits in the upper third of the viewport with the
-            // title/sub stack below. Mobile gets an extra shrink (0.50)
-            // because the portrait camera otherwise keeps the body too
-            // large in screen-space and the title overlaps the legs.
-            // Scale stays 1.0 across ORIGEN + HISTORIA (sections 1+2 share the
-            // transform via introHold; no per-phase shrink here) so the angel
-            // is the SAME size in both — seamless on scroll. The first shrink
-            // only begins at MATERIA (phase03Proximity, peak 0.50).
-            let centerScale = lerp(1.0, TRIO_SCALE, phase03Proximity);
-            // HISTORIA desktop: shrink the central angel to a small figure
-            // (~0.2) standing in perspective on the candle manta. histDesk is
-            // phase01Proximity on desktop, 0 on tablet/mobile and ≈0 at the
-            // ORIGEN/MATERIA anchors, so this lerp is a no-op everywhere except
-            // the desktop HISTORIA dwell. Composed before the ALMA/EDICIÓN
-            // shrinks (their proximities are 0 here, so order is irrelevant).
-            centerScale = lerp(centerScale, HISTORIA_SCALE, histDesk);
             const almaTargetScale = isMobile ? 0.55 : 0.65;
-            centerScale = lerp(centerScale, almaTargetScale, phase04Proximity);
-            // EDICIÓN finale recede: shrink the angel further so it reads as a
-            // single distant light in the upper frame, clearing the lower half
-            // for the inscription (seal · title · message · CTA). Composed last;
-            // phase05Proximity is 0 at every ALMA/MATERIA anchor so this lerp is
-            // a no-op there (those phases keep their scale untouched).
-            // Mobile bumped 0.44→0.76: the relic was far too small on tall phones
-            // (the portrait camera pullback shrinks it), leaving a large empty halo
-            // above and below. A bigger figure commands its upper band so the
-            // composition reads as a deliberate altarpiece, not a figure lost in void.
-            // editionAspectComp (defined above) divides out the aspect-driven size
-            // variance so the relic is the same on a 375×667 and a 430×932 phone.
             const editionTargetScale = isMobile ? 0.76 * editionAspectComp : isTablet ? 0.58 : 0.72;
-            centerScale = lerp(centerScale, editionTargetScale, phase05Proximity);
+
+            // Camera and scale previously used independent gaussian/cubic
+            // clocks. Their product made the apparent size overshoot, reverse,
+            // and sit almost still even while scroll progress kept advancing.
+            // Preserve the authored poses, but interpolate scale/camera as one
+            // screen-space footprint. Motion is linear between poses and only
+            // rounds a narrow 0.8%-progress window at genuine turns.
+            const historyTailAtMateria = Math.exp(-Math.pow(0.21 / 0.08, 2));
+            const soulTailAtMateria = Math.exp(-Math.pow(0.20 / 0.075, 2));
+            const isDesktop = !isMobile && !isTablet;
+
+            let materiaScale = TRIO_SCALE;
+            if (isDesktop) materiaScale = lerp(materiaScale, HISTORIA_SCALE, historyTailAtMateria);
+            materiaScale = lerp(materiaScale, almaTargetScale, soulTailAtMateria);
+
+            let transitionScale = lerp(1, TRIO_SCALE, SPATIAL_SHOULDER_WEIGHT);
+            transitionScale = lerp(transitionScale, almaTargetScale, SPATIAL_SHOULDER_WEIGHT);
+            const cameraAtHistory = 6.9 * cameraAspectScale + (isMobile ? 0.9 : 0);
+            const cameraAtMateria = 9.0 * cameraAspectScale
+              + (isMobile ? 0.9 * historyTailAtMateria : 0);
+            const projectedScaleValues = [
+              1 / (6.9 * cameraAspectScale),
+              (isDesktop ? HISTORIA_SCALE : 1) / cameraAtHistory,
+              materiaScale / cameraAtMateria,
+              transitionScale / (5.357629583135249 * cameraAspectScale),
+              almaTargetScale / (3.016610357928548 * cameraAspectScale),
+              editionTargetScale / (5.289795918368993 * cameraAspectScale),
+              editionTargetScale / (5.8 * cameraAspectScale)
+            ];
+            const projectedScale = sampleRoundedLinearTrack(tRaw, projectedScaleValues);
+            const centerScale = projectedScale * camZ;
             cs.scale.setScalar(centerScale);
           }
           // DEBUG: expose runtime values for verification
@@ -2331,6 +2419,8 @@ float gNoise(vec3 x){ vec3 i=floor(x), f=fract(x); f=f*f*(3.0-2.0*f);
           window.__elyxie_debug.csRotY = cs ? cs.rotation.y : null;
           window.__elyxie_debug.angelRotY = angel.rotation.y;
           window.__elyxie_debug.csScaleX = cs ? cs.scale.x : null;
+          window.__elyxie_debug.cameraZ = camZ;
+          window.__elyxie_debug.projectedScale = cs ? cs.scale.x / camZ : null;
           window.__elyxie_debug.angelPosX = angel.position.x;
           window.__elyxie_debug.angelPosY = angel.position.y;
           window.__elyxie_debug.angelPosZ = angel.position.z;
